@@ -1,0 +1,24 @@
+#
+# Vitesse device configuration
+#
+
+config NET_VENDOR_VITESSE
+	bool "Vitesse devices"
+	default y
+	depends on VTSS_VCOREIII_ARCH
+	---help---
+	  This enables network interfaces from Vitesse Semiconductor
+
+if NET_VENDOR_VITESSE
+
+config VC3FDMA
+	tristate "VCore-III Gigabit Ethernet support"
+	depends on VTSS_VCOREIII_ARCH
+	---help---
+	  This driver use the VCore-III switch FDMA
+          to implement a network interface.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called vc3fdma.
+
+endif # NET_VENDOR_VITESSE

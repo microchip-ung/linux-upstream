@@ -32,6 +32,12 @@
 #include <asm/mach-serval/hardware.h>
 #include <asm/mach-serval/i2c.h>
 
+/* Network */
+static struct platform_device vc3fdma_device = {
+    .name                   = "vc3fdma",
+    .id                     = -1,
+};
+
 /* 8250 */
 static struct plat_serial8250_port uart8250_vcoreiii_data[] = {
 	{
@@ -95,6 +101,7 @@ static struct platform_device i2c_device = {
 static struct platform_device *target_devices[] __initdata = {
     &uart8250_device,
     &switch_device,
+    &vc3fdma_device,
     &i2c_device,
 };
 

@@ -23,6 +23,7 @@
  */
 
 #include "vtss_serval_regs_devcpu_gcb.h"
+#include "vtss_serval_regs_devcpu_qs.h"
 #include "vtss_serval_regs_icpu_cfg.h"
 #include "vtss_serval_regs_twi.h"
 #include "vtss_serval_regs_uart.h"

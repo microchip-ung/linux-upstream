@@ -28,6 +28,7 @@
  */
 
 #include "vtss_jaguar2_regs_devcpu_gcb.h"
+#include "vtss_jaguar2_regs_devcpu_qs.h"
 #include "vtss_jaguar2_regs_icpu_cfg.h"
 #include "vtss_jaguar2_regs_twi.h"
 
