@@ -30,5 +30,6 @@
 #include "vtss_jaguar2_regs_devcpu_gcb.h"
 #include "vtss_jaguar2_regs_icpu_cfg.h"
 #include "vtss_jaguar2_regs_twi.h"
+#include "vtss_jaguar2_regs_simc.h"
 
 #endif /* _VTSS_JAGUAR2_CORE_REGS_H_ */

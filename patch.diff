@@ -1,0 +1,1610 @@
+diff --git a/arch/mips/include/asm/mach-jaguar2/vtss_jaguar2_core_regs.h b/arch/mips/include/asm/mach-jaguar2/vtss_jaguar2_core_regs.h
+index adb4890..80d0380 100644
+--- a/arch/mips/include/asm/mach-jaguar2/vtss_jaguar2_core_regs.h
++++ b/arch/mips/include/asm/mach-jaguar2/vtss_jaguar2_core_regs.h
+@@ -30,5 +30,6 @@
+ #include "vtss_jaguar2_regs_devcpu_gcb.h"
+ #include "vtss_jaguar2_regs_icpu_cfg.h"
+ #include "vtss_jaguar2_regs_twi.h"
++#include "vtss_jaguar2_regs_simc.h"
+ 
+ #endif /* _VTSS_JAGUAR2_CORE_REGS_H_ */
+diff --git a/arch/mips/include/asm/mach-jaguar2/vtss_jaguar2_regs_simc.h b/arch/mips/include/asm/mach-jaguar2/vtss_jaguar2_regs_simc.h
+new file mode 100644
+index 0000000..d09c4b6
+--- /dev/null
++++ b/arch/mips/include/asm/mach-jaguar2/vtss_jaguar2_regs_simc.h
+@@ -0,0 +1,209 @@
++#ifndef _VTSS_JAGUAR2_REGS_SIMC_H_
++#define _VTSS_JAGUAR2_REGS_SIMC_H_
++
++/*
++ *
++ * VCore-III Register Definitions
++ *
++ * Copyright (C) 2014 Vitesse Semiconductor Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ */
++
++#include "vtss_jaguar2_regs_common.h"
++
++#define VTSS_SIMC_SIMC_CTRLR0                VTSS_IOREG(VTSS_TO_SIMC,0x0)
++#define  VTSS_F_SIMC_SIMC_CTRLR0_CFS(x)       VTSS_ENCODE_BITFIELD(x,12,4)
++#define  VTSS_M_SIMC_SIMC_CTRLR0_CFS          VTSS_ENCODE_BITMASK(12,4)
++#define  VTSS_X_SIMC_SIMC_CTRLR0_CFS(x)       VTSS_EXTRACT_BITFIELD(x,12,4)
++#define  VTSS_F_SIMC_SIMC_CTRLR0_SRL(x)       VTSS_ENCODE_BITFIELD(!!(x),11,1)
++#define  VTSS_M_SIMC_SIMC_CTRLR0_SRL          VTSS_BIT(11)
++#define  VTSS_X_SIMC_SIMC_CTRLR0_SRL(x)       VTSS_EXTRACT_BITFIELD(x,11,1)
++#define  VTSS_F_SIMC_SIMC_CTRLR0_TMOD(x)      VTSS_ENCODE_BITFIELD(x,8,2)
++#define  VTSS_M_SIMC_SIMC_CTRLR0_TMOD         VTSS_ENCODE_BITMASK(8,2)
++#define  VTSS_X_SIMC_SIMC_CTRLR0_TMOD(x)      VTSS_EXTRACT_BITFIELD(x,8,2)
++#define  VTSS_F_SIMC_SIMC_CTRLR0_SCPOL(x)     VTSS_ENCODE_BITFIELD(!!(x),7,1)
++#define  VTSS_M_SIMC_SIMC_CTRLR0_SCPOL        VTSS_BIT(7)
++#define  VTSS_X_SIMC_SIMC_CTRLR0_SCPOL(x)     VTSS_EXTRACT_BITFIELD(x,7,1)
++#define  VTSS_F_SIMC_SIMC_CTRLR0_SCPH(x)      VTSS_ENCODE_BITFIELD(!!(x),6,1)
++#define  VTSS_M_SIMC_SIMC_CTRLR0_SCPH         VTSS_BIT(6)
++#define  VTSS_X_SIMC_SIMC_CTRLR0_SCPH(x)      VTSS_EXTRACT_BITFIELD(x,6,1)
++#define  VTSS_F_SIMC_SIMC_CTRLR0_FRF(x)       VTSS_ENCODE_BITFIELD(x,4,2)
++#define  VTSS_M_SIMC_SIMC_CTRLR0_FRF          VTSS_ENCODE_BITMASK(4,2)
++#define  VTSS_X_SIMC_SIMC_CTRLR0_FRF(x)       VTSS_EXTRACT_BITFIELD(x,4,2)
++#define  VTSS_F_SIMC_SIMC_CTRLR0_DFS(x)       VTSS_ENCODE_BITFIELD(x,0,4)
++#define  VTSS_M_SIMC_SIMC_CTRLR0_DFS          VTSS_ENCODE_BITMASK(0,4)
++#define  VTSS_X_SIMC_SIMC_CTRLR0_DFS(x)       VTSS_EXTRACT_BITFIELD(x,0,4)
++
++#define VTSS_SIMC_SIMC_CTRLR1                VTSS_IOREG(VTSS_TO_SIMC,0x1)
++#define  VTSS_F_SIMC_SIMC_CTRLR1_NDF(x)       VTSS_ENCODE_BITFIELD(x,0,16)
++#define  VTSS_M_SIMC_SIMC_CTRLR1_NDF          VTSS_ENCODE_BITMASK(0,16)
++#define  VTSS_X_SIMC_SIMC_CTRLR1_NDF(x)       VTSS_EXTRACT_BITFIELD(x,0,16)
++
++#define VTSS_SIMC_SIMC_SIMCEN                VTSS_IOREG(VTSS_TO_SIMC,0x2)
++#define  VTSS_F_SIMC_SIMC_SIMCEN_SIMCEN(x)    VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_SIMCEN_SIMCEN       VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_SIMCEN_SIMCEN(x)    VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_MWCR                  VTSS_IOREG(VTSS_TO_SIMC,0x3)
++#define  VTSS_F_SIMC_SIMC_MWCR_MHS(x)         VTSS_ENCODE_BITFIELD(!!(x),2,1)
++#define  VTSS_M_SIMC_SIMC_MWCR_MHS            VTSS_BIT(2)
++#define  VTSS_X_SIMC_SIMC_MWCR_MHS(x)         VTSS_EXTRACT_BITFIELD(x,2,1)
++#define  VTSS_F_SIMC_SIMC_MWCR_MDD(x)         VTSS_ENCODE_BITFIELD(!!(x),1,1)
++#define  VTSS_M_SIMC_SIMC_MWCR_MDD            VTSS_BIT(1)
++#define  VTSS_X_SIMC_SIMC_MWCR_MDD(x)         VTSS_EXTRACT_BITFIELD(x,1,1)
++#define  VTSS_F_SIMC_SIMC_MWCR_MWMOD(x)       VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_MWCR_MWMOD          VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_MWCR_MWMOD(x)       VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_SER                   VTSS_IOREG(VTSS_TO_SIMC,0x4)
++#define  VTSS_F_SIMC_SIMC_SER_SER(x)          VTSS_ENCODE_BITFIELD(x,0,16)
++#define  VTSS_M_SIMC_SIMC_SER_SER             VTSS_ENCODE_BITMASK(0,16)
++#define  VTSS_X_SIMC_SIMC_SER_SER(x)          VTSS_EXTRACT_BITFIELD(x,0,16)
++
++#define VTSS_SIMC_SIMC_BAUDR                 VTSS_IOREG(VTSS_TO_SIMC,0x5)
++#define  VTSS_F_SIMC_SIMC_BAUDR_SCKDV(x)      VTSS_ENCODE_BITFIELD(x,0,16)
++#define  VTSS_M_SIMC_SIMC_BAUDR_SCKDV         VTSS_ENCODE_BITMASK(0,16)
++#define  VTSS_X_SIMC_SIMC_BAUDR_SCKDV(x)      VTSS_EXTRACT_BITFIELD(x,0,16)
++
++#define VTSS_SIMC_SIMC_TXFTLR                VTSS_IOREG(VTSS_TO_SIMC,0x6)
++#define  VTSS_F_SIMC_SIMC_TXFTLR_TFT(x)       VTSS_ENCODE_BITFIELD(x,0,3)
++#define  VTSS_M_SIMC_SIMC_TXFTLR_TFT          VTSS_ENCODE_BITMASK(0,3)
++#define  VTSS_X_SIMC_SIMC_TXFTLR_TFT(x)       VTSS_EXTRACT_BITFIELD(x,0,3)
++
++#define VTSS_SIMC_SIMC_RXFTLR                VTSS_IOREG(VTSS_TO_SIMC,0x7)
++#define  VTSS_F_SIMC_SIMC_RXFTLR_RFT(x)       VTSS_ENCODE_BITFIELD(x,0,6)
++#define  VTSS_M_SIMC_SIMC_RXFTLR_RFT          VTSS_ENCODE_BITMASK(0,6)
++#define  VTSS_X_SIMC_SIMC_RXFTLR_RFT(x)       VTSS_EXTRACT_BITFIELD(x,0,6)
++
++#define VTSS_SIMC_SIMC_TXFLR                 VTSS_IOREG(VTSS_TO_SIMC,0x8)
++#define  VTSS_F_SIMC_SIMC_TXFLR_TXTFL(x)      VTSS_ENCODE_BITFIELD(x,0,3)
++#define  VTSS_M_SIMC_SIMC_TXFLR_TXTFL         VTSS_ENCODE_BITMASK(0,3)
++#define  VTSS_X_SIMC_SIMC_TXFLR_TXTFL(x)      VTSS_EXTRACT_BITFIELD(x,0,3)
++
++#define VTSS_SIMC_SIMC_RXFLR                 VTSS_IOREG(VTSS_TO_SIMC,0x9)
++#define  VTSS_F_SIMC_SIMC_RXFLR_RXTFL(x)      VTSS_ENCODE_BITFIELD(x,0,6)
++#define  VTSS_M_SIMC_SIMC_RXFLR_RXTFL         VTSS_ENCODE_BITMASK(0,6)
++#define  VTSS_X_SIMC_SIMC_RXFLR_RXTFL(x)      VTSS_EXTRACT_BITFIELD(x,0,6)
++
++#define VTSS_SIMC_SIMC_SR                    VTSS_IOREG(VTSS_TO_SIMC,0xa)
++#define  VTSS_F_SIMC_SIMC_SR_RFF(x)           VTSS_ENCODE_BITFIELD(!!(x),4,1)
++#define  VTSS_M_SIMC_SIMC_SR_RFF              VTSS_BIT(4)
++#define  VTSS_X_SIMC_SIMC_SR_RFF(x)           VTSS_EXTRACT_BITFIELD(x,4,1)
++#define  VTSS_F_SIMC_SIMC_SR_RFNE(x)          VTSS_ENCODE_BITFIELD(!!(x),3,1)
++#define  VTSS_M_SIMC_SIMC_SR_RFNE             VTSS_BIT(3)
++#define  VTSS_X_SIMC_SIMC_SR_RFNE(x)          VTSS_EXTRACT_BITFIELD(x,3,1)
++#define  VTSS_F_SIMC_SIMC_SR_TFE(x)           VTSS_ENCODE_BITFIELD(!!(x),2,1)
++#define  VTSS_M_SIMC_SIMC_SR_TFE              VTSS_BIT(2)
++#define  VTSS_X_SIMC_SIMC_SR_TFE(x)           VTSS_EXTRACT_BITFIELD(x,2,1)
++#define  VTSS_F_SIMC_SIMC_SR_TFNF(x)          VTSS_ENCODE_BITFIELD(!!(x),1,1)
++#define  VTSS_M_SIMC_SIMC_SR_TFNF             VTSS_BIT(1)
++#define  VTSS_X_SIMC_SIMC_SR_TFNF(x)          VTSS_EXTRACT_BITFIELD(x,1,1)
++#define  VTSS_F_SIMC_SIMC_SR_BUSY(x)          VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_SR_BUSY             VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_SR_BUSY(x)          VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_IMR                   VTSS_IOREG(VTSS_TO_SIMC,0xb)
++#define  VTSS_F_SIMC_SIMC_IMR_MSTIM(x)        VTSS_ENCODE_BITFIELD(!!(x),5,1)
++#define  VTSS_M_SIMC_SIMC_IMR_MSTIM           VTSS_BIT(5)
++#define  VTSS_X_SIMC_SIMC_IMR_MSTIM(x)        VTSS_EXTRACT_BITFIELD(x,5,1)
++#define  VTSS_F_SIMC_SIMC_IMR_RXFIM(x)        VTSS_ENCODE_BITFIELD(!!(x),4,1)
++#define  VTSS_M_SIMC_SIMC_IMR_RXFIM           VTSS_BIT(4)
++#define  VTSS_X_SIMC_SIMC_IMR_RXFIM(x)        VTSS_EXTRACT_BITFIELD(x,4,1)
++#define  VTSS_F_SIMC_SIMC_IMR_RXOIM(x)        VTSS_ENCODE_BITFIELD(!!(x),3,1)
++#define  VTSS_M_SIMC_SIMC_IMR_RXOIM           VTSS_BIT(3)
++#define  VTSS_X_SIMC_SIMC_IMR_RXOIM(x)        VTSS_EXTRACT_BITFIELD(x,3,1)
++#define  VTSS_F_SIMC_SIMC_IMR_RXUIM(x)        VTSS_ENCODE_BITFIELD(!!(x),2,1)
++#define  VTSS_M_SIMC_SIMC_IMR_RXUIM           VTSS_BIT(2)
++#define  VTSS_X_SIMC_SIMC_IMR_RXUIM(x)        VTSS_EXTRACT_BITFIELD(x,2,1)
++#define  VTSS_F_SIMC_SIMC_IMR_TXOIM(x)        VTSS_ENCODE_BITFIELD(!!(x),1,1)
++#define  VTSS_M_SIMC_SIMC_IMR_TXOIM           VTSS_BIT(1)
++#define  VTSS_X_SIMC_SIMC_IMR_TXOIM(x)        VTSS_EXTRACT_BITFIELD(x,1,1)
++#define  VTSS_F_SIMC_SIMC_IMR_TXEIM(x)        VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_IMR_TXEIM           VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_IMR_TXEIM(x)        VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_ISR                   VTSS_IOREG(VTSS_TO_SIMC,0xc)
++#define  VTSS_F_SIMC_SIMC_ISR_MSTIS(x)        VTSS_ENCODE_BITFIELD(!!(x),5,1)
++#define  VTSS_M_SIMC_SIMC_ISR_MSTIS           VTSS_BIT(5)
++#define  VTSS_X_SIMC_SIMC_ISR_MSTIS(x)        VTSS_EXTRACT_BITFIELD(x,5,1)
++#define  VTSS_F_SIMC_SIMC_ISR_RXFIS(x)        VTSS_ENCODE_BITFIELD(!!(x),4,1)
++#define  VTSS_M_SIMC_SIMC_ISR_RXFIS           VTSS_BIT(4)
++#define  VTSS_X_SIMC_SIMC_ISR_RXFIS(x)        VTSS_EXTRACT_BITFIELD(x,4,1)
++#define  VTSS_F_SIMC_SIMC_ISR_RXOIS(x)        VTSS_ENCODE_BITFIELD(!!(x),3,1)
++#define  VTSS_M_SIMC_SIMC_ISR_RXOIS           VTSS_BIT(3)
++#define  VTSS_X_SIMC_SIMC_ISR_RXOIS(x)        VTSS_EXTRACT_BITFIELD(x,3,1)
++#define  VTSS_F_SIMC_SIMC_ISR_RXUIS(x)        VTSS_ENCODE_BITFIELD(!!(x),2,1)
++#define  VTSS_M_SIMC_SIMC_ISR_RXUIS           VTSS_BIT(2)
++#define  VTSS_X_SIMC_SIMC_ISR_RXUIS(x)        VTSS_EXTRACT_BITFIELD(x,2,1)
++#define  VTSS_F_SIMC_SIMC_ISR_TXOIS(x)        VTSS_ENCODE_BITFIELD(!!(x),1,1)
++#define  VTSS_M_SIMC_SIMC_ISR_TXOIS           VTSS_BIT(1)
++#define  VTSS_X_SIMC_SIMC_ISR_TXOIS(x)        VTSS_EXTRACT_BITFIELD(x,1,1)
++#define  VTSS_F_SIMC_SIMC_ISR_TXEIS(x)        VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_ISR_TXEIS           VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_ISR_TXEIS(x)        VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_RISR                  VTSS_IOREG(VTSS_TO_SIMC,0xd)
++#define  VTSS_F_SIMC_SIMC_RISR_MSTIR(x)       VTSS_ENCODE_BITFIELD(!!(x),5,1)
++#define  VTSS_M_SIMC_SIMC_RISR_MSTIR          VTSS_BIT(5)
++#define  VTSS_X_SIMC_SIMC_RISR_MSTIR(x)       VTSS_EXTRACT_BITFIELD(x,5,1)
++#define  VTSS_F_SIMC_SIMC_RISR_RXFIR(x)       VTSS_ENCODE_BITFIELD(!!(x),4,1)
++#define  VTSS_M_SIMC_SIMC_RISR_RXFIR          VTSS_BIT(4)
++#define  VTSS_X_SIMC_SIMC_RISR_RXFIR(x)       VTSS_EXTRACT_BITFIELD(x,4,1)
++#define  VTSS_F_SIMC_SIMC_RISR_RXOIR(x)       VTSS_ENCODE_BITFIELD(!!(x),3,1)
++#define  VTSS_M_SIMC_SIMC_RISR_RXOIR          VTSS_BIT(3)
++#define  VTSS_X_SIMC_SIMC_RISR_RXOIR(x)       VTSS_EXTRACT_BITFIELD(x,3,1)
++#define  VTSS_F_SIMC_SIMC_RISR_RXUIR(x)       VTSS_ENCODE_BITFIELD(!!(x),2,1)
++#define  VTSS_M_SIMC_SIMC_RISR_RXUIR          VTSS_BIT(2)
++#define  VTSS_X_SIMC_SIMC_RISR_RXUIR(x)       VTSS_EXTRACT_BITFIELD(x,2,1)
++#define  VTSS_F_SIMC_SIMC_RISR_TXOIR(x)       VTSS_ENCODE_BITFIELD(!!(x),1,1)
++#define  VTSS_M_SIMC_SIMC_RISR_TXOIR          VTSS_BIT(1)
++#define  VTSS_X_SIMC_SIMC_RISR_TXOIR(x)       VTSS_EXTRACT_BITFIELD(x,1,1)
++#define  VTSS_F_SIMC_SIMC_RISR_TXEIR(x)       VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_RISR_TXEIR          VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_RISR_TXEIR(x)       VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_TXOICR                VTSS_IOREG(VTSS_TO_SIMC,0xe)
++#define  VTSS_F_SIMC_SIMC_TXOICR_TXOICR(x)    VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_TXOICR_TXOICR       VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_TXOICR_TXOICR(x)    VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_RXOICR                VTSS_IOREG(VTSS_TO_SIMC,0xf)
++#define  VTSS_F_SIMC_SIMC_RXOICR_RXOICR(x)    VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_RXOICR_RXOICR       VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_RXOICR_RXOICR(x)    VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_RXUICR                VTSS_IOREG(VTSS_TO_SIMC,0x10)
++#define  VTSS_F_SIMC_SIMC_RXUICR_RXUICR(x)    VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_RXUICR_RXUICR       VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_RXUICR_RXUICR(x)    VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_MSTICR                VTSS_IOREG(VTSS_TO_SIMC,0x11)
++#define  VTSS_F_SIMC_SIMC_MSTICR_MSTICR(x)    VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_MSTICR_MSTICR       VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_MSTICR_MSTICR(x)    VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_ICR                   VTSS_IOREG(VTSS_TO_SIMC,0x12)
++#define  VTSS_F_SIMC_SIMC_ICR_ICR(x)          VTSS_ENCODE_BITFIELD(!!(x),0,1)
++#define  VTSS_M_SIMC_SIMC_ICR_ICR             VTSS_BIT(0)
++#define  VTSS_X_SIMC_SIMC_ICR_ICR(x)          VTSS_EXTRACT_BITFIELD(x,0,1)
++
++#define VTSS_SIMC_SIMC_DR(ri)                VTSS_IOREG(VTSS_TO_SIMC,0x18 + (ri))
++#define  VTSS_F_SIMC_SIMC_DR_DR(x)            VTSS_ENCODE_BITFIELD(x,0,16)
++#define  VTSS_M_SIMC_SIMC_DR_DR               VTSS_ENCODE_BITMASK(0,16)
++#define  VTSS_X_SIMC_SIMC_DR_DR(x)            VTSS_EXTRACT_BITFIELD(x,0,16)
++
++
++#endif /* _VTSS_JAGUAR2_REGS_SIMC_H_ */
+diff --git a/arch/mips/jaguar2/target_mtd.c b/arch/mips/jaguar2/target_mtd.c
+index dcd9b1b..dfb584d 100644
+--- a/arch/mips/jaguar2/target_mtd.c
++++ b/arch/mips/jaguar2/target_mtd.c
+@@ -30,7 +30,7 @@
+ #include <linux/mtd/partitions.h>
+ #include <mtd/mtd-abi.h>
+ #include <linux/spi/spi.h>
+-#include <linux/spi/spi_vcoreiii.h>
++#include <linux/spi/spi_jaguar2.h>
+ #include <linux/spi/flash.h>
+ 
+ #if defined(CONFIG_MMC_SPI) || defined(CONFIG_MMC_SPI_MODULE)
+@@ -42,7 +42,7 @@
+ #include <asm/mach-jaguar2/hardware.h>
+ 
+ static struct spi_vcoreiii_platform_data spi_jaguar2_cfg = {
+-	// .no_spi_delay = 1,
++        .no_spi_delay = 1,
+ };
+ 
+ static struct platform_device jaguar2_spi = {
+@@ -108,6 +108,32 @@ static struct mmc_spi_platform_data jaguar2_mmc_spi_pdata = {
+ };
+ #endif
+ 
++/* struct jaguar2_spi_chip_info { */
++/*     void (*cs_control)(u32 command); */
++/* }; */
++
++/* static void jaguar2_mtd_cs_control(u32 command) */
++/* { */
++/*     u32 sw_mode = readl(VTSS_ICPU_CFG_SPI_MST_SW_MODE); */
++/*     if (command) { */
++/*         sw_mode |= */
++/*                 VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS_OE(0) | /\* CS_OE *\/ */
++/*                 VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS(0); */
++/*         writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE); */
++/*     } else { */
++/*         /\* Drive CS low *\/ */
++/*         sw_mode &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS; */
++/*         writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE); */
++/*         /\* Drop everything *\/ */
++/*         sw_mode = 0; */
++/*         writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE); */
++/*     } */
++/* } */
++
++/* static struct jaguar2_spi_chip_info jaguar2_spi_flash_cs = { */
++/*     .cs_control = jaguar2_mtd_cs_control, */
++/* }; */
++
+ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
+ 	{
+ 		/* the modalias must be the same as spi device driver name */
+@@ -116,6 +142,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
+ 		.bus_num = 0, /* Framework bus number */
+ 		.chip_select = 0, /* Framework chip select. */
+ 		.platform_data = &jaguar2_spi_flash_data,
++                /* .controller_data = &jaguar2_spi_flash_cs,  /\* chip select control  *\/ */
+ 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
+         },
+ 
+diff --git a/drivers/spi/Kconfig b/drivers/spi/Kconfig
+index 6891df0..949cfd6 100644
+--- a/drivers/spi/Kconfig
++++ b/drivers/spi/Kconfig
+@@ -515,6 +515,12 @@ config SPI_VCOREIII_MK1
+ 	help
+ 	  SPI driver for VCore-III.
+ 
++config SPI_JAGUAR2
++       tristate "Jaguar2 SPI controller"
++       depends on SPI_MASTER && VTSS_VCOREIII_JAGUAR2
++       help
++         SPI driver for Jaguar2.
++
+ config SPI_XILINX
+ 	tristate "Xilinx SPI controller common module"
+ 	depends on HAS_IOMEM
+diff --git a/drivers/spi/Makefile b/drivers/spi/Makefile
+index 21dbcfa..e25aacd 100644
+--- a/drivers/spi/Makefile
++++ b/drivers/spi/Makefile
+@@ -78,5 +78,6 @@ obj-$(CONFIG_SPI_TLE62X0)		+= spi-tle62x0.o
+ obj-$(CONFIG_SPI_TOPCLIFF_PCH)		+= spi-topcliff-pch.o
+ obj-$(CONFIG_SPI_TXX9)			+= spi-txx9.o
+ obj-$(CONFIG_SPI_VCOREIII_MK1)		+= spi_vcoreiii.o
++obj-$(CONFIG_SPI_JAGUAR2)               += spi_jaguar2.o spi_jaguar2_mmio.o
+ obj-$(CONFIG_SPI_XCOMM)		+= spi-xcomm.o
+ obj-$(CONFIG_SPI_XILINX)		+= spi-xilinx.o
+diff --git a/drivers/spi/spi_jaguar2.c b/drivers/spi/spi_jaguar2.c
+new file mode 100644
+index 0000000..f5749c3
+--- /dev/null
++++ b/drivers/spi/spi_jaguar2.c
+@@ -0,0 +1,889 @@
++/*
++ * Hardware SPI master controller driver for Jaguar2
++ *
++ * Copyright (c) 2014 Wenxi Jin.
++ *
++ * based on spi-dw.c
++ *  Copyright (c) 2009, Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ */
++
++#include <linux/interrupt.h>
++#include <linux/module.h>
++#include <linux/highmem.h>
++#include <linux/delay.h>
++#include <linux/slab.h>
++#include <linux/spi/spi.h>
++
++#include "spi_jaguar2.h"
++
++#ifdef CONFIG_DEBUG_FS
++#include <linux/debugfs.h>
++#endif
++
++#define START_STATE	((void *)0)
++#define RUNNING_STATE	((void *)1)
++#define DONE_STATE	((void *)2)
++#define ERROR_STATE	((void *)-1)
++
++#define QUEUE_RUNNING	0
++#define QUEUE_STOPPED	1
++
++#define MRST_SPI_DEASSERT	0
++#define MRST_SPI_ASSERT		1
++
++/* Slave spi_dev related */
++struct chip_data {
++	u16 cr0;
++	u8 cs;			/* chip select pin */
++	u8 n_bytes;		/* current is a 1/2/4 byte op */
++	u8 tmode;		/* TR/TO/RO/EEPROM */
++	u8 type;		/* SPI/SSP/MicroWire */
++
++	u8 poll_mode;		/* 1 means use poll mode */
++
++	/* u32 dma_width; */
++	u32 rx_threshold;
++	u32 tx_threshold;
++	/* u8 enable_dma; */
++	u8 bits_per_word;
++	u16 clk_div;		/* baud rate divider */
++	u32 speed_hz;		/* baud rate */
++	void (*cs_control)(u32 command);
++};
++
++#ifdef CONFIG_DEBUG_FS
++#define SPI_REGS_BUFSIZE	1024
++static ssize_t  spi_show_regs(struct file *file, char __user *user_buf,
++                              size_t count, loff_t *ppos)
++{
++    struct jaguar2_spi *jaguar2s;
++    char *buf;
++    u32 len = 0;
++    ssize_t ret;
++
++    dws = file->private_data;
++
++    buf = kzalloc(SPI_REGS_BUFSIZE, GFP_KERNEL);
++    if (!buf)
++        return 0;
++
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "MRST SPI0 registers:\n");
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "=================================\n");
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "CTRL0: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_CTRLR0));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "CTRL1: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_CTRLR1));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "SSIENR: \t0x%08x\n", readl(VTSS_SIMC_SIMC_SSIENR));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "SER: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_SER));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "BAUDR: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_BAUDR));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "TXFTLR: \t0x%08x\n", readl(VTSS_SIMC_SIMC_TXFTLR));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "RXFTLR: \t0x%08x\n", readl(VTSS_SIMC_SIMC_RXFTLR));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "TXFLR: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_TXFLR));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "RXFLR: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_RXFLR));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "SR: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_SR));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "IMR: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_IMR));
++    len += snprintf(buf + len, SPI_REGS_BUFSIZE - len,
++                    "ISR: \t\t0x%08x\n", readl(VTSS_SIMC_SIMC_ISR));
++                    "=================================\n");
++
++    ret =  simple_read_from_buffer(user_buf, count, ppos, buf, len);
++    kfree(buf);
++    return ret;
++}
++
++static const struct file_operations mrst_spi_regs_ops = {
++	.owner		= THIS_MODULE,
++	.open		= simple_open,
++	.read		= spi_show_regs,
++	.llseek		= default_llseek,
++};
++
++static int mrst_spi_debugfs_init(struct jaguar2_spi *jaguar2s)
++{
++	jaguar2s->debugfs = debugfs_create_dir("mrst_spi", NULL);
++	if (!jaguar2s->debugfs)
++		return -ENOMEM;
++
++	debugfs_create_file("registers", S_IFREG | S_IRUGO,
++		jaguar2s->debugfs, (void *)jaguar2s, &mrst_spi_regs_ops);
++	return 0;
++}
++
++static void mrst_spi_debugfs_remove(struct jaguar2_spi *jaguar2s)
++{
++	if (jaguar2s->debugfs)
++		debugfs_remove_recursive(jaguar2s->debugfs);
++}
++
++#else
++static inline int mrst_spi_debugfs_init(struct jaguar2_spi *jaguar2s)
++{
++	return 0;
++}
++
++static inline void mrst_spi_debugfs_remove(struct jaguar2_spi *jaguar2s)
++{
++}
++#endif /* CONFIG_DEBUG_FS */
++
++/* Return the max entries we can fill into tx fifo */
++static inline u32 tx_max(struct jaguar2_spi *jaguar2s)
++{
++	u32 tx_left, tx_room, rxtx_gap;
++
++	tx_left = (jaguar2s->tx_end - jaguar2s->tx) / jaguar2s->n_bytes;
++	tx_room = jaguar2s->fifo_len - (u32)readl(VTSS_SIMC_SIMC_TXFLR);
++
++	/*
++	 * Another concern is about the tx/rx mismatch, we
++	 * though to use (jaguar2s->fifo_len - rxflr - txflr) as
++	 * one maximum value for tx, but it doesn't cover the
++	 * data which is out of tx/rx fifo and inside the
++	 * shift registers. So a control from sw point of
++	 * view is taken.
++	 */
++	rxtx_gap =  ((jaguar2s->rx_end - jaguar2s->rx) - (jaguar2s->tx_end - jaguar2s->tx))
++			/ jaguar2s->n_bytes;
++
++	return min3(tx_left, tx_room, (u32) (jaguar2s->fifo_len - rxtx_gap));
++}
++
++/* Return the max entries we should read out of rx fifo */
++static inline u32 rx_max(struct jaguar2_spi *jaguar2s)
++{
++	u32 rx_left = (jaguar2s->rx_end - jaguar2s->rx) / jaguar2s->n_bytes;
++
++	return min(rx_left, (u32)readl(VTSS_SIMC_SIMC_RXFLR));
++}
++
++static void jaguar2_writer(struct jaguar2_spi *jaguar2s)
++{
++	u32 max = tx_max(jaguar2s);
++	u16 txw = 0;
++        struct jaguar2_spi *sp;
++        u32 sw_mode = readl(VTSS_ICPU_CFG_SPI_MST_SW_MODE);
++
++        /*
++         * SPI master controller automatically deasserts chip select when tx fifo is empty
++         * Workaround: continuous toggle the chip select of SPI boot controller since the
++         * final chip select is AND gate between these two.
++         * Note: it is only valid on jaguar2 platform. ServalT is using multiplexer
++         * instead of AND gate.
++         */
++        sw_mode |= VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_PIN_CTRL_MODE(1);
++        writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
++        
++        sw_mode |= VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS_OE(VTSS_BIT(jaguar2s->cur_chip->cs)) |
++                VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS(VTSS_BIT(jaguar2s->cur_chip->cs));
++        writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
++        
++	while (max--) {
++		/* Set the tx word if the transfer's original "tx" is not null */
++		if (jaguar2s->tx_end - jaguar2s->len) {
++			if (jaguar2s->n_bytes == 1)
++				txw = *(u8 *)(jaguar2s->tx);
++			else
++				txw = *(u16 *)(jaguar2s->tx);
++		}
++                
++                sp = spidev_to_sg(jaguar2s->master);
++		sp->bb_cur = VTSS_F_SIMC_SIMC_DR_DR(txw);
++                writel(sp->bb_cur, VTSS_SIMC_SIMC_DR(0));
++		jaguar2s->tx += jaguar2s->n_bytes;
++	}
++}
++
++static void jaguar2_reader(struct jaguar2_spi *jaguar2s)
++{
++	u32 max = rx_max(jaguar2s);
++	u16 rxw;
++
++	while (max--) {
++            rxw = readl(VTSS_SIMC_SIMC_DR(0));
++		/* Care rx only if the transfer's original "rx" is not null */
++		if (jaguar2s->rx_end - jaguar2s->len) {
++			if (jaguar2s->n_bytes == 1)
++				*(u8 *)(jaguar2s->rx) = rxw;
++			else
++				*(u16 *)(jaguar2s->rx) = rxw;
++		}
++		jaguar2s->rx += jaguar2s->n_bytes;
++	}
++}
++
++static void *next_transfer(struct jaguar2_spi *jaguar2s)
++{
++	struct spi_message *msg = jaguar2s->cur_msg;
++	struct spi_transfer *trans = jaguar2s->cur_transfer;
++
++	/* Move to next transfer */
++	if (trans->transfer_list.next != &msg->transfers) {
++		jaguar2s->cur_transfer =
++			list_entry(trans->transfer_list.next,
++					struct spi_transfer,
++					transfer_list);
++		return RUNNING_STATE;
++	} else
++		return DONE_STATE;
++}
++
++/* Caller already set message->status; dma and pio irqs are blocked */
++static void giveback(struct jaguar2_spi *jaguar2s)
++{
++	struct spi_transfer *last_transfer;
++	unsigned long flags;
++	struct spi_message *msg;
++        u32 sw_mode = readl(VTSS_ICPU_CFG_SPI_MST_SW_MODE);
++        
++	spin_lock_irqsave(&jaguar2s->lock, flags);
++	msg = jaguar2s->cur_msg;
++	jaguar2s->cur_msg = NULL;
++	jaguar2s->cur_transfer = NULL;
++	jaguar2s->prev_chip = jaguar2s->cur_chip;
++	jaguar2s->cur_chip = NULL;
++	queue_work(jaguar2s->workqueue, &jaguar2s->pump_messages);
++	spin_unlock_irqrestore(&jaguar2s->lock, flags);
++
++	last_transfer = list_entry(msg->transfers.prev,
++					struct spi_transfer,
++					transfer_list);
++
++	if (!last_transfer->cs_change && jaguar2s->cs_control)
++		jaguar2s->cs_control(MRST_SPI_DEASSERT);
++
++        /*  untoggle chip select */
++        sw_mode |= VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_PIN_CTRL_MODE(1);
++        writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
++        
++        sw_mode &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS_OE &
++                ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS;
++        writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
++        
++	msg->state = NULL;
++	if (msg->complete)
++		msg->complete(msg->context);
++}
++
++static void int_error_stop(struct jaguar2_spi *jaguar2s, const char *msg)
++{
++	/* Stop the hw */
++	spi_enable_chip(jaguar2s, 0);
++
++	dev_err(&jaguar2s->master->dev, "%s\n", msg);
++	jaguar2s->cur_msg->state = ERROR_STATE;
++	tasklet_schedule(&jaguar2s->pump_transfers);
++}
++
++void jaguar2_spi_xfer_done(struct jaguar2_spi *jaguar2s)
++{
++	/* Update total byte transferred return count actual bytes read */
++	jaguar2s->cur_msg->actual_length += jaguar2s->len;
++
++	/* Move to next transfer */
++	jaguar2s->cur_msg->state = next_transfer(jaguar2s);
++
++	/* Handle end of message */
++	if (jaguar2s->cur_msg->state == DONE_STATE) {
++		jaguar2s->cur_msg->status = 0;
++		giveback(jaguar2s);
++	} else
++		tasklet_schedule(&jaguar2s->pump_transfers);
++}
++EXPORT_SYMBOL_GPL(jaguar2_spi_xfer_done);
++
++static irqreturn_t interrupt_transfer(struct jaguar2_spi *jaguar2s)
++{
++	u32 irq_status = readl(VTSS_SIMC_SIMC_ISR);
++
++	/* Error handling */
++	if (irq_status & (SPI_INT_TXOI | SPI_INT_RXOI | SPI_INT_RXUI)) {
++		readl(VTSS_SIMC_SIMC_TXOICR);
++		readl(VTSS_SIMC_SIMC_RXOICR);
++		readl(VTSS_SIMC_SIMC_RXUICR);
++		int_error_stop(jaguar2s, "interrupt_transfer: fifo overrun/underrun");
++		return IRQ_HANDLED;
++	}
++
++	jaguar2_reader(jaguar2s);
++	if (jaguar2s->rx_end == jaguar2s->rx) {
++		spi_mask_intr(jaguar2s, SPI_INT_TXEI);
++		jaguar2_spi_xfer_done(jaguar2s);
++		return IRQ_HANDLED;
++	}
++	if (irq_status & SPI_INT_TXEI) {
++		spi_mask_intr(jaguar2s, SPI_INT_TXEI);
++		jaguar2_writer(jaguar2s);
++		/* Enable TX irq always, it will be disabled when RX finished */
++		spi_umask_intr(jaguar2s, SPI_INT_TXEI);
++	}
++
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t jaguar2_spi_irq(int irq, void *dev_id)
++{
++	struct jaguar2_spi *jaguar2s = dev_id;
++	u32 irq_status = readl(VTSS_SIMC_SIMC_ISR) & 0x3f;
++
++	if (!irq_status)
++		return IRQ_NONE;
++
++	if (!jaguar2s->cur_msg) {
++		spi_mask_intr(jaguar2s, SPI_INT_TXEI);
++		return IRQ_HANDLED;
++	}
++
++	return jaguar2s->transfer_handler(jaguar2s);
++}
++
++/* Must be called inside pump_transfers() */
++static void poll_transfer(struct jaguar2_spi *jaguar2s)
++{
++	do {
++		jaguar2_writer(jaguar2s);
++		jaguar2_reader(jaguar2s);
++		cpu_relax();
++	} while (jaguar2s->rx_end > jaguar2s->rx);
++
++	jaguar2_spi_xfer_done(jaguar2s);
++}
++
++static void pump_transfers(unsigned long data)
++{
++	struct jaguar2_spi *jaguar2s = (struct jaguar2_spi *)data;
++	struct spi_message *message = NULL;
++	struct spi_transfer *transfer = NULL;
++	struct spi_transfer *previous = NULL;
++	struct spi_device *spi = NULL;
++	struct chip_data *chip = NULL;
++	u8 bits = 0;
++	u8 imask = 0;
++	u8 cs_change = 0;
++	u32 txint_level = 0;
++	u32 clk_div = 250;
++	u32 speed = 1000000;  // 1 MHz
++	u32 cr0 = 0;
++
++	/* Get current state information */
++	message = jaguar2s->cur_msg;
++	transfer = jaguar2s->cur_transfer;
++	chip = jaguar2s->cur_chip;
++	spi = message->spi;
++
++	if (unlikely(!chip->clk_div))
++		chip->clk_div = jaguar2s->max_freq / chip->speed_hz;
++
++	if (message->state == ERROR_STATE) {
++		message->status = -EIO;
++		goto early_exit;
++	}
++
++	/* Handle end of message */
++	if (message->state == DONE_STATE) {
++		message->status = 0;
++		goto early_exit;
++	}
++
++	/* Delay if requested at end of transfer*/
++	if (message->state == RUNNING_STATE) {
++		previous = list_entry(transfer->transfer_list.prev,
++					struct spi_transfer,
++					transfer_list);
++		if (previous->delay_usecs)
++			udelay(previous->delay_usecs);
++	}
++
++	jaguar2s->n_bytes = chip->n_bytes;
++	jaguar2s->cs_control = chip->cs_control;
++	jaguar2s->tx = (void *)transfer->tx_buf;
++	jaguar2s->tx_end = jaguar2s->tx + transfer->len;
++	jaguar2s->rx = transfer->rx_buf;
++	jaguar2s->rx_end = jaguar2s->rx + transfer->len;
++	jaguar2s->len = jaguar2s->cur_transfer->len;
++	if (chip != jaguar2s->prev_chip)
++		cs_change = 1;
++
++	cr0 = chip->cr0;
++
++	/* Handle per transfer options for bpw and speed */
++	if (transfer->speed_hz) {
++		speed = chip->speed_hz;
++
++		if (transfer->speed_hz != speed) {
++			speed = transfer->speed_hz;
++			if (speed > jaguar2s->max_freq) {
++				printk(KERN_ERR "MRST SPI0: unsupported"
++					"freq: %dHz\n", speed);
++				message->status = -EIO;
++				goto early_exit;
++			}
++
++			/* clk_div doesn't support odd number */
++			clk_div = jaguar2s->max_freq / speed;
++			clk_div = (clk_div + 1) & 0xfffe;
++
++			chip->speed_hz = speed;
++			chip->clk_div = clk_div;
++		}
++	}
++	if (transfer->bits_per_word) {
++		bits = transfer->bits_per_word;
++		jaguar2s->n_bytes = bits >> 3;
++		cr0 = (bits - 1)
++			| (chip->type << SPI_FRF_OFFSET)
++			| (spi->mode << SPI_MODE_OFFSET)
++			| (chip->tmode << SPI_TMOD_OFFSET);
++	}
++	message->state = RUNNING_STATE;
++
++	/*
++	 * Adjust transfer mode if necessary. Requires platform dependent
++	 * chipselect mechanism.
++	 */
++	if (jaguar2s->cs_control) {
++		if (jaguar2s->rx && jaguar2s->tx)
++			chip->tmode = SPI_TMOD_TR;
++		else if (jaguar2s->rx)
++			chip->tmode = SPI_TMOD_RO;
++		else
++			chip->tmode = SPI_TMOD_TO;
++
++		cr0 &= ~SPI_TMOD_MASK;
++		cr0 |= (chip->tmode << SPI_TMOD_OFFSET);
++	}
++
++	/*
++	 * Interrupt mode
++	 * we only need set the TXEI IRQ, as TX/RX always happen syncronizely
++	 */
++	if (!chip->poll_mode) {
++		int templen = jaguar2s->len / jaguar2s->n_bytes;
++		txint_level = jaguar2s->fifo_len / 2;
++		txint_level = (templen > txint_level) ? txint_level : templen;
++
++		imask |= SPI_INT_TXEI | SPI_INT_TXOI | SPI_INT_RXUI | SPI_INT_RXOI;
++		jaguar2s->transfer_handler = interrupt_transfer;
++	}
++
++	/*
++	 * Reprogram registers only if
++	 *	1. chip select changes
++	 *	2. clk_div is changed
++	 *	3. control value changes
++	 */
++	if (readl(VTSS_SIMC_SIMC_CTRLR0) != cr0 || cs_change || clk_div || imask) {
++		spi_enable_chip(jaguar2s, 0);
++
++		if (readl(VTSS_SIMC_SIMC_CTRLR0) != cr0)
++                    writel(cr0, VTSS_SIMC_SIMC_CTRLR0);
++
++		spi_set_clk(jaguar2s, clk_div ? clk_div : chip->clk_div);
++                
++		spi_chip_sel(jaguar2s, spi->chip_select);
++
++		/* Set the interrupt mask, for poll mode just disable all int */
++		spi_mask_intr(jaguar2s, 0xff);
++		if (imask)
++			spi_umask_intr(jaguar2s, imask);
++		if (txint_level)
++                    writel(txint_level, VTSS_SIMC_SIMC_TXFTLR);
++
++		spi_enable_chip(jaguar2s, 1);
++		if (cs_change)
++			jaguar2s->prev_chip = chip;
++	}
++
++	if (chip->poll_mode)
++                poll_transfer(jaguar2s);
++
++	return;
++
++early_exit:
++	giveback(jaguar2s);
++	return;
++}
++
++static void pump_messages(struct work_struct *work)
++{
++	struct jaguar2_spi *jaguar2s =
++		container_of(work, struct jaguar2_spi, pump_messages);
++	unsigned long flags;
++
++	/* Lock queue and check for queue work */
++	spin_lock_irqsave(&jaguar2s->lock, flags);
++	if (list_empty(&jaguar2s->queue) || jaguar2s->run == QUEUE_STOPPED) {
++		jaguar2s->busy = 0;
++		spin_unlock_irqrestore(&jaguar2s->lock, flags);
++		return;
++	}
++
++	/* Make sure we are not already running a message */
++	if (jaguar2s->cur_msg) {
++		spin_unlock_irqrestore(&jaguar2s->lock, flags);
++		return;
++	}
++
++	/* Extract head of queue */
++	jaguar2s->cur_msg = list_entry(jaguar2s->queue.next, struct spi_message, queue);
++	list_del_init(&jaguar2s->cur_msg->queue);
++
++	/* Initial message state*/
++	jaguar2s->cur_msg->state = START_STATE;
++	jaguar2s->cur_transfer = list_entry(jaguar2s->cur_msg->transfers.next,
++						struct spi_transfer,
++						transfer_list);
++	jaguar2s->cur_chip = spi_get_ctldata(jaguar2s->cur_msg->spi);
++
++	/* Mark as busy and launch transfers */
++	tasklet_schedule(&jaguar2s->pump_transfers);
++
++	jaguar2s->busy = 1;
++	spin_unlock_irqrestore(&jaguar2s->lock, flags);
++}
++
++/* spi_device use this to queue in their spi_msg */
++static int jaguar2_spi_transfer(struct spi_device *spi, struct spi_message *msg)
++{
++	struct jaguar2_spi *jaguar2s = spi_master_get_devdata(spi->master);
++	unsigned long flags;
++
++	spin_lock_irqsave(&jaguar2s->lock, flags);
++
++	if (jaguar2s->run == QUEUE_STOPPED) {
++		spin_unlock_irqrestore(&jaguar2s->lock, flags);
++		return -ESHUTDOWN;
++	}
++
++	msg->actual_length = 0;
++	msg->status = -EINPROGRESS;
++	msg->state = START_STATE;
++
++	list_add_tail(&msg->queue, &jaguar2s->queue);
++
++	if (jaguar2s->run == QUEUE_RUNNING && !jaguar2s->busy) {
++
++		if (jaguar2s->cur_transfer || jaguar2s->cur_msg)
++			queue_work(jaguar2s->workqueue,
++					&jaguar2s->pump_messages);
++		else {
++			/* If no other data transaction in air, just go */
++			spin_unlock_irqrestore(&jaguar2s->lock, flags);
++			pump_messages(&jaguar2s->pump_messages);
++			return 0;
++		}
++	}
++
++	spin_unlock_irqrestore(&jaguar2s->lock, flags);
++	return 0;
++}
++
++/* This may be called twice for each spi dev */
++static int jaguar2_spi_setup(struct spi_device *spi)
++{
++	struct jaguar2_spi_chip *chip_info = NULL;
++	struct chip_data *chip;
++
++	/* Only alloc on first setup */
++	chip = spi_get_ctldata(spi);
++	if (!chip) {
++                chip = kzalloc(sizeof(struct chip_data), GFP_KERNEL);
++		if (!chip)
++			return -ENOMEM;
++		spi_set_ctldata(spi, chip);
++	}
++
++	/*
++	 * Protocol drivers may change the chip settings, so...
++	 * if chip_info exists, use it
++	 */
++	chip_info = spi->controller_data;
++
++	/* chip_info doesn't always exist */
++	if (chip_info) {
++		if (chip_info->cs_control)
++			chip->cs_control = chip_info->cs_control;
++
++		chip->poll_mode = chip_info->poll_mode;
++		chip->type = chip_info->type;
++
++		chip->rx_threshold = 0;
++		chip->tx_threshold = 0;
++	}
++
++	if (spi->bits_per_word == 8) {
++		chip->n_bytes = 1;
++	} else if (spi->bits_per_word == 16) {
++		chip->n_bytes = 2;
++	}
++	chip->bits_per_word = spi->bits_per_word;
++
++	if (!spi->max_speed_hz) {
++		dev_err(&spi->dev, "No max speed HZ parameter\n");
++		return -EINVAL;
++	}
++	chip->speed_hz = spi->max_speed_hz;
++
++	chip->tmode = 0; /* Tx & Rx */
++	/* Default SPI mode is SCPOL = 0, SCPH = 0 */
++	chip->cr0 = (chip->bits_per_word - 1)
++			| (chip->type << SPI_FRF_OFFSET)
++			| (spi->mode  << SPI_MODE_OFFSET)
++			| (chip->tmode << SPI_TMOD_OFFSET);
++
++	return 0;
++}
++
++static void jaguar2_spi_cleanup(struct spi_device *spi)
++{
++        /* cleanup for kalloc */
++        struct chip_data *chip = spi_get_ctldata(spi);
++
++        kfree(chip);
++        spi_set_ctldata(spi, NULL);
++}
++
++static int init_queue(struct jaguar2_spi *jaguar2s)
++{
++	INIT_LIST_HEAD(&jaguar2s->queue);
++	spin_lock_init(&jaguar2s->lock);
++
++	jaguar2s->run = QUEUE_STOPPED;
++	jaguar2s->busy = 0;
++
++	tasklet_init(&jaguar2s->pump_transfers,
++			pump_transfers,	(unsigned long)jaguar2s);
++
++        
++	INIT_WORK(&jaguar2s->pump_messages, pump_messages);
++	jaguar2s->workqueue = create_singlethread_workqueue(
++					dev_name(jaguar2s->master->dev.parent));
++	if (jaguar2s->workqueue == NULL)
++		return -EBUSY;
++        
++	return 0;
++}
++
++static int start_queue(struct jaguar2_spi *jaguar2s)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&jaguar2s->lock, flags);
++
++	if (jaguar2s->run == QUEUE_RUNNING || jaguar2s->busy) {
++                spin_unlock_irqrestore(&jaguar2s->lock, flags);
++		return -EBUSY;
++	}
++
++	jaguar2s->run = QUEUE_RUNNING;
++	jaguar2s->cur_msg = NULL;
++	jaguar2s->cur_transfer = NULL;
++	jaguar2s->cur_chip = NULL;
++	jaguar2s->prev_chip = NULL;
++
++	spin_unlock_irqrestore(&jaguar2s->lock, flags);
++        
++	queue_work(jaguar2s->workqueue, &jaguar2s->pump_messages);
++        
++	return 0;
++}
++
++static int stop_queue(struct jaguar2_spi *jaguar2s)
++{
++	unsigned long flags;
++	unsigned limit = 50;
++	int status = 0;
++
++	spin_lock_irqsave(&jaguar2s->lock, flags);
++	jaguar2s->run = QUEUE_STOPPED;
++
++
++	while ((!list_empty(&jaguar2s->queue) || jaguar2s->busy) && limit--) {
++		spin_unlock_irqrestore(&jaguar2s->lock, flags);
++		msleep(10);
++		spin_lock_irqsave(&jaguar2s->lock, flags);
++	}
++        
++	if (!list_empty(&jaguar2s->queue) || jaguar2s->busy)
++		status = -EBUSY;
++	spin_unlock_irqrestore(&jaguar2s->lock, flags);
++
++	return status;
++}
++
++static int destroy_queue(struct jaguar2_spi *jaguar2s)
++{
++	int status;
++
++	status = stop_queue(jaguar2s);
++	if (status != 0)
++		return status;
++	destroy_workqueue(jaguar2s->workqueue);
++	return 0;
++}
++
++/* Restart the controller, disable all interrupts, clean rx fifo */
++static void spi_hw_init(struct jaguar2_spi *jaguar2s)
++{
++        spi_enable_chip(jaguar2s, 0);
++        /* mask all the interrupts  */
++	spi_mask_intr(jaguar2s, 0xff);
++	spi_enable_chip(jaguar2s, 1);
++
++        /* The transmit FIFO depth is 8, do not program value exceeding 7.
++         * By default, fifo_len is set to 7.
++         */
++        spi_set_fifo_len(jaguar2s, 7);        
++        
++	/*
++	 * Try to detect the FIFO depth if not set by interface driver,
++	 * the depth could be from 2 to 256 from HW spec
++	 */
++	if (!jaguar2s->fifo_len) {
++		u32 fifo;
++		for (fifo = 2; fifo <= 257; fifo++) {
++                    writel(fifo, VTSS_SIMC_SIMC_TXFTLR);
++			if (fifo != readl(VTSS_SIMC_SIMC_TXFTLR))
++				break;
++		}
++
++		jaguar2s->fifo_len = (fifo == 257) ? 0 : fifo;
++		writel(0, VTSS_SIMC_SIMC_TXFTLR);
++	}
++}
++
++int jaguar2_spi_add_host(struct device *dev, struct jaguar2_spi *jaguar2s)
++{
++	struct spi_master *master;
++	int ret;
++
++	BUG_ON(jaguar2s == NULL);
++
++	master = spi_alloc_master(dev, 0);
++	if (!master)
++            return -ENOMEM;
++
++	jaguar2s->master = master;
++	jaguar2s->type = SSI_MOTO_SPI;
++        jaguar2s->max_freq = 25000000;  // the maximum baud rate is 25 MHz
++	jaguar2s->prev_chip = NULL;
++	snprintf(jaguar2s->name, sizeof(jaguar2s->name), "jaguar2_spi%d",
++			jaguar2s->bus_num);
++
++	ret = devm_request_irq(dev, jaguar2s->irq, jaguar2_spi_irq, IRQF_SHARED,
++			jaguar2s->name, jaguar2s);
++	if (ret < 0) {
++		dev_err(&master->dev, "can not get IRQ\n");
++		goto err_free_master;
++	}
++
++	master->mode_bits = SPI_CPOL | SPI_CPHA;
++	master->bits_per_word_mask = SPI_BPW_MASK(8) | SPI_BPW_MASK(16);
++	master->bus_num = jaguar2s->bus_num;
++	master->num_chipselect = jaguar2s->num_cs;
++	master->setup = jaguar2_spi_setup;
++        master->cleanup = jaguar2_spi_cleanup;
++	master->transfer = jaguar2_spi_transfer;
++
++        /* Make SI master controller the owner of SI interface */
++        spi_set_owner(jaguar2s, 2);
++        
++	/* Basic HW init */
++	spi_hw_init(jaguar2s);
++
++	/* Initial and start queue */
++	ret = init_queue(jaguar2s);
++	if (ret) {
++		dev_err(&master->dev, "problem initializing queue\n");
++		goto err_diable_hw;
++	}
++
++	ret = start_queue(jaguar2s);
++	if (ret) {
++		dev_err(&master->dev, "problem starting queue\n");
++		goto err_diable_hw;
++	}
++
++	spi_master_set_devdata(master, jaguar2s);
++	ret = devm_spi_register_master(dev, master);
++	if (ret) {
++		dev_err(&master->dev, "problem registering spi master\n");
++		goto err_queue_alloc;
++	}        
++
++	mrst_spi_debugfs_init(jaguar2s);
++	return 0;
++
++err_queue_alloc:
++	destroy_queue(jaguar2s);
++err_diable_hw:
++	spi_enable_chip(jaguar2s, 0);
++err_free_master:
++	spi_master_put(master);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(jaguar2_spi_add_host);
++
++void jaguar2_spi_remove_host(struct jaguar2_spi *jaguar2s)
++{
++	int status = 0;
++
++	if (!jaguar2s)
++		return;
++	mrst_spi_debugfs_remove(jaguar2s);
++
++	/* Remove the queue */
++	status = destroy_queue(jaguar2s);
++	if (status != 0)
++		dev_err(&jaguar2s->master->dev,
++			"jaguar2_spi_remove: workqueue will not complete, message memory not freed\n");
++
++	spi_enable_chip(jaguar2s, 0);
++	/* Disable clk */
++	spi_set_clk(jaguar2s, 0);
++}
++EXPORT_SYMBOL_GPL(jaguar2_spi_remove_host);
++
++int jaguar2_spi_suspend_host(struct jaguar2_spi *jaguar2s)
++{
++	int ret = 0;
++
++	ret = stop_queue(jaguar2s);
++	if (ret)
++		return ret;
++	spi_enable_chip(jaguar2s, 0);
++	spi_set_clk(jaguar2s, 0);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(jaguar2_spi_suspend_host);
++
++int jaguar2_spi_resume_host(struct jaguar2_spi *jaguar2s)
++{
++	int ret;
++
++	spi_hw_init(jaguar2s);
++	ret = start_queue(jaguar2s);
++	if (ret)
++		dev_err(&jaguar2s->master->dev, "fail to start queue (%d)\n", ret);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(jaguar2_spi_resume_host);
++
++MODULE_AUTHOR("Wenxi Jin <wjin@vitesse.com>");
++MODULE_DESCRIPTION("Driver for SPI master controller on Jaguar2 platform");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/spi/spi_jaguar2.h b/drivers/spi/spi_jaguar2.h
+new file mode 100644
+index 0000000..b612baf
+--- /dev/null
++++ b/drivers/spi/spi_jaguar2.h
+@@ -0,0 +1,243 @@
++#ifndef SPI_JAGUAR2_HEADER_H
++#define SPI_JAGUAR2_HEADER_H
++
++#include <linux/io.h>
++#include <linux/scatterlist.h>
++#include <linux/spi/spi_jaguar2.h>
++#include <asm/mach-jaguar2/hardware.h>
++
++/* Bit fields in CTRLR0 */
++#define SPI_FRF_OFFSET			4
++#define SPI_FRF_SPI			0x0
++#define SPI_FRF_SSP			0x1
++#define SPI_FRF_RESV1                   0x2
++#define SPI_FRF_RESV2			0x3
++
++#define SPI_MODE_OFFSET			6
++#define SPI_SCPH_OFFSET			6
++#define SPI_SCOL_OFFSET			7
++
++#define SPI_TMOD_OFFSET			8
++#define SPI_TMOD_MASK			(0x3 << SPI_TMOD_OFFSET)
++#define	SPI_TMOD_TR			0x0		/* xmit & recv */
++#define SPI_TMOD_TO			0x1		/* xmit only */
++#define SPI_TMOD_RO			0x2		/* recv only */
++#define SPI_TMOD_EPROMREAD		0x3		/* eeprom read mode */
++
++#define SPI_SLVOE_OFFSET		10
++#define SPI_SRL_OFFSET			11
++#define SPI_CFS_OFFSET			12
++
++/* Bit fields in SR, 7 bits */
++#define SR_MASK				0x7f		/* cover 7 bits */
++#define SR_BUSY				(1 << 0)
++#define SR_TF_NOT_FULL			(1 << 1)
++#define SR_TF_EMPT			(1 << 2)
++#define SR_RF_NOT_EMPT			(1 << 3)
++#define SR_RF_FULL			(1 << 4)
++#define SR_TX_ERR			(1 << 5)
++#define SR_DCOL				(1 << 6)
++
++/* Bit fields in ISR, IMR, RISR, 7 bits */
++#define SPI_INT_TXEI			(1 << 0)
++#define SPI_INT_TXOI			(1 << 1)
++#define SPI_INT_RXUI			(1 << 2)
++#define SPI_INT_RXOI			(1 << 3)
++#define SPI_INT_RXFI			(1 << 4)
++#define SPI_INT_MSTI			(1 << 5)
++
++/* TX RX interrupt level threshold, max can be 256 */
++#define SPI_INT_THRESHOLD		32
++
++enum jaguar2_ssi_type {
++	SSI_MOTO_SPI = 0,
++	SSI_TI_SSP,
++	SSI_NS_MICROWIRE,
++};
++
++struct jaguar2_spi {
++	struct spi_master	*master;
++	struct spi_device	*cur_dev;
++	enum jaguar2_ssi_type	type;
++	char			name[16];
++
++	void __iomem		*regs;
++	unsigned long		paddr;
++	int			irq;
++	u32			fifo_len;	/* depth of the FIFO buffer */
++	u32			max_freq;	/* max bus freq supported */
++
++	u16			bus_num;
++	u16			num_cs;		/* supported slave numbers */
++
++	/* Driver message queue */
++	struct workqueue_struct	*workqueue;
++	struct work_struct	pump_messages;
++	spinlock_t		lock;
++	struct list_head	queue;
++	int			busy;
++	int			run;
++
++	/* Message Transfer pump */
++	struct tasklet_struct	pump_transfers;
++
++	/* Current message transfer state info */
++	struct spi_message	*cur_msg;
++	struct spi_transfer	*cur_transfer;
++	struct chip_data	*cur_chip;
++	struct chip_data	*prev_chip;
++	size_t			len;
++	void			*tx;
++	void			*tx_end;
++	void			*rx;
++	void			*rx_end;
++	size_t			rx_map_len;
++	size_t			tx_map_len;
++	u8			n_bytes;	/* current is a 1/2 bytes op */
++	u8			max_bits_per_word;	/* maxim is 16b */
++	/* u32			dma_width; */
++	irqreturn_t		(*transfer_handler)(struct jaguar2_spi *jaguar2s);
++	void			(*cs_control)(u32 command);
++
++	/* Bus interface info */
++	void			*priv;
++#ifdef CONFIG_DEBUG_FS
++	struct dentry *debugfs;
++#endif
++        u32                     bb_cur;
++};
++
++static inline struct jaguar2_spi *spidev_to_sg(struct spi_master *master)
++{
++    return spi_master_get_devdata(master);
++}
++
++/* Make SI master controller the owner of the SI interface */
++static inline void spi_set_owner(struct jaguar2_spi *jaguar2s, u32 val)
++{
++    u32 general_ctrl = readl(VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL);
++
++    /* IF_SI0_OWNER, select the owner of the SI interface
++     * Encoding: 0: SI Slave
++     *           1: SI Boot Master
++     *           2: SI Master Controller
++     */
++    general_ctrl |= VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL_IF_SI_OWNER(val);
++    writel(general_ctrl, VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL);
++}
++
++/* Set 16-bit data frame */
++static inline void spi_set_dataframe(struct jaguar2_spi *jaguar2s, u32 bits)
++{
++    struct jaguar2_spi *sp = spidev_to_sg(jaguar2s->master);
++
++    /* Selects the data frame length. See SIMC::DR register description for how to read/write words of less than 16 bit.
++     * Encoding: 0-2: Reserved
++     *           n: n+1 bit serial data transfer
++     * Default:  0x7
++     */
++    sp->bb_cur |= VTSS_F_SIMC_SIMC_CTRLR0_DFS(bits);
++    writel(sp->bb_cur, VTSS_SIMC_SIMC_CTRLR0);
++}
++
++/* Set mode for serial transmision */
++static inline void spi_set_tmod(struct jaguar2_spi *jaguar2s, u32 tmod)
++{
++    struct jaguar2_spi *sp = spidev_to_sg(jaguar2s->master);
++    /*
++     * Select the mode of transfer for serial communication.
++     * Encoding: 0: Transmit and Receive.
++     *           1: Transmit only
++     *           2: Reveive only
++     *           3: Reserved
++     * Default:  0x0
++     */
++    sp->bb_cur |= VTSS_F_SIMC_SIMC_CTRLR0_TMOD(tmod);
++    writew(sp->bb_cur, VTSS_SIMC_SIMC_CTRLR0);
++}
++
++static inline void spi_enable_chip(struct jaguar2_spi *jaguar2s, u32 enable)
++{
++    struct jaguar2_spi *sp = spidev_to_sg(jaguar2s->master);
++            
++    if (enable) {
++        sp->bb_cur |= VTSS_F_SIMC_SIMC_SIMCEN_SIMCEN(1);
++    }
++    else
++        sp->bb_cur &= ~VTSS_M_SIMC_SIMC_SIMCEN_SIMCEN;
++
++    writew(sp->bb_cur, VTSS_SIMC_SIMC_SIMCEN);
++}
++
++static inline void spi_set_fifo_len(struct jaguar2_spi *jaguar2s, u32 fifo_len)
++{
++    struct jaguar2_spi *sp = spidev_to_sg(jaguar2s->master);
++
++    if (fifo_len < 0) {
++        printk(KERN_ERR "invalid fifo depth!\n");
++    } else if (fifo_len > 7) {
++        jaguar2s->fifo_len = 7; // fifo depth must be less than 8
++    } else {
++        jaguar2s->fifo_len = fifo_len;
++    }
++
++    sp->bb_cur |= VTSS_F_SIMC_SIMC_TXFTLR_TFT(jaguar2s->fifo_len);
++    writew(sp->bb_cur, VTSS_SIMC_SIMC_TXFTLR);
++}
++
++static inline void spi_set_clk(struct jaguar2_spi *jaguar2s, u32 div)
++{
++    struct jaguar2_spi *sp = spidev_to_sg(jaguar2s->master);
++    sp->bb_cur = VTSS_F_SIMC_SIMC_BAUDR_SCKDV(div);
++    writew(sp->bb_cur, VTSS_SIMC_SIMC_BAUDR);
++}
++
++static inline void spi_chip_sel(struct jaguar2_spi *jaguar2s, u32 cs)
++{
++    if (cs > jaguar2s->num_cs)
++        return;
++
++    if (jaguar2s->cs_control)
++        jaguar2s->cs_control(1);
++    writew(1 << cs, VTSS_SIMC_SIMC_SER);
++}
++
++/* Disable IRQ bits */
++static inline void spi_mask_intr(struct jaguar2_spi *jaguar2s, u32 mask)
++{
++	u32 new_mask;
++
++	new_mask = readl(VTSS_SIMC_SIMC_IMR) & ~mask;
++	writel(new_mask, VTSS_SIMC_SIMC_IMR);
++}
++
++/* Enable IRQ bits */
++static inline void spi_umask_intr(struct jaguar2_spi *jaguar2s, u32 mask)
++{
++	u32 new_mask;
++
++	new_mask = readl(VTSS_SIMC_SIMC_IMR) | mask;
++	writel(new_mask, VTSS_SIMC_SIMC_IMR);
++}
++
++/*
++ * Each SPI slave device to work with jaguar2_spi controller should
++ * has such a structure claiming its working mode (PIO/DMA etc),
++ * which can be save in the "controller_data" member of the
++ * struct spi_device
++ */
++struct jaguar2_spi_chip {
++	u8 poll_mode;	/* 0 for contoller polling mode */
++	u8 type;	/* SPI/SSP/Micrwire */
++	void (*cs_control)(u32 command);
++};
++
++extern int jaguar2_spi_add_host(struct device *dev, struct jaguar2_spi *jaguar2s);
++extern void jaguar2_spi_remove_host(struct jaguar2_spi *jaguar2s);
++extern int jaguar2_spi_suspend_host(struct jaguar2_spi *jaguar2s);
++extern int jaguar2_spi_resume_host(struct jaguar2_spi *jaguar2s);
++extern void jaguar2_spi_xfer_done(struct jaguar2_spi *jaguar2s);
++
++/* platform related setup */
++extern int jaguar2_spi_mid_init(struct jaguar2_spi *jaguar2s); /* Intel MID platforms */
++#endif /* SPI_JAGUAR2_HEADER_H */
+diff --git a/drivers/spi/spi_jaguar2_mmio.c b/drivers/spi/spi_jaguar2_mmio.c
+new file mode 100644
+index 0000000..a79d5d3
+--- /dev/null
++++ b/drivers/spi/spi_jaguar2_mmio.c
+@@ -0,0 +1,91 @@
++/*
++ * Memory-mapped interface driver for SPI master controller on Jaguar2
++ *
++ * Copyright (c) 2014, Wenxi Jin.
++ *
++ * based on: spi-dw-mmio.c
++ *  Copyright (c) 2010, Octasic semiconductor.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++#include <linux/clk.h>
++#include <linux/err.h>
++#include <linux/interrupt.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <linux/spi/spi.h>
++#include <linux/spi/spi_jaguar2.h>
++#include <linux/scatterlist.h>
++#include <linux/module.h>
++
++#include "spi_jaguar2.h"
++
++struct jaguar2_spi_mmio {
++	struct jaguar2_spi  jaguar2s;
++	struct clk     *clk;
++};
++
++static int jaguar2_spi_mmio_probe(struct platform_device *pdev)
++{
++	struct jaguar2_spi_mmio *jaguar2smmio;
++	struct jaguar2_spi *jaguar2s;
++	int ret;
++
++	jaguar2smmio = devm_kzalloc(&pdev->dev, sizeof(struct jaguar2_spi_mmio),
++			GFP_KERNEL);
++	if (!jaguar2smmio)
++		return -ENOMEM;
++
++	jaguar2s = &jaguar2smmio->jaguar2s;
++
++ 	jaguar2s->irq = SIMC_IRQ;
++
++	jaguar2smmio->clk = devm_clk_get(&pdev->dev, NULL);
++	if (IS_ERR(jaguar2smmio->clk))
++            return PTR_ERR(jaguar2smmio->clk);
++        ret = clk_prepare_enable(jaguar2smmio->clk);
++	if (ret)
++            return ret;
++
++	jaguar2s->bus_num = 0;
++	jaguar2s->num_cs = 4;
++	jaguar2s->max_freq = clk_get_rate(jaguar2smmio->clk);
++
++	ret = jaguar2_spi_add_host(&pdev->dev, jaguar2s);
++	if (ret)
++            goto out;
++
++	platform_set_drvdata(pdev, jaguar2smmio);
++	return 0;
++
++out:
++	clk_disable_unprepare(jaguar2smmio->clk);
++	return ret;
++}
++
++static int jaguar2_spi_mmio_remove(struct platform_device *pdev)
++{
++	struct jaguar2_spi_mmio *jaguar2smmio = platform_get_drvdata(pdev);
++
++	clk_disable_unprepare(jaguar2smmio->clk);
++	jaguar2_spi_remove_host(&jaguar2smmio->jaguar2s);
++
++	return 0;
++}
++
++static struct platform_driver jaguar2_spi_mmio_driver = {
++	.probe		= jaguar2_spi_mmio_probe,
++	.remove		= jaguar2_spi_mmio_remove,
++	.driver		= {
++		.name	= SPI_VCOREIII_PLATDEV_NAME,
++		.owner	= THIS_MODULE,
++	},
++};
++module_platform_driver(jaguar2_spi_mmio_driver);
++
++MODULE_AUTHOR("Wenxi Jin <wjin@vitesse.com>");
++MODULE_DESCRIPTION("Memory-mapped I/O interface driver for Jaguar2 SPI master controller");
++MODULE_LICENSE("GPL v2");
+diff --git a/include/linux/spi/spi_jaguar2.h b/include/linux/spi/spi_jaguar2.h
+new file mode 100644
+index 0000000..ccafa7b
+--- /dev/null
++++ b/include/linux/spi/spi_jaguar2.h
+@@ -0,0 +1,43 @@
++/*
++ * spi_jaguar2 interface to platform code
++ *
++ * Copyright (c) 2014 Wenxi Jin
++ *
++ * based on spi_gpio.c
++ *  Copyright (c) 2008 Piotr Skamruk
++ *  Copyright (c) 2008 Michael Buesch
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#ifndef _LINUX_SPI_SPI_JAGUAR2
++#define _LINUX_SPI_SPI_JAGUAR2
++
++#include <linux/types.h>
++#include <linux/spi/spi.h>
++
++
++/**
++ * struct spi_vcoreiii_platform_data - Data definitions for a SPI-GPIO device.
++ *
++ * This structure holds information about a GPIO-based SPI device.
++ *
++ * @no_spi_delay: If true, no delay is done in the lowlevel bitbanging.
++ *                Note that doing no delay is not standards compliant,
++ *                but it might be needed to speed up transfers on some
++ *                slow embedded machines.
++ */
++struct spi_vcoreiii_platform_data {
++	bool no_spi_delay;
++};
++
++/**
++ * SPI_VCOREIII_PLATDEV_NAME - The platform device name string.
++ *
++ * The name string that has to be used for platform_device_alloc
++ * when allocating a spi-vcoreiii device.
++ */
++#define SPI_VCOREIII_PLATDEV_NAME	"spi-jaguar2"
++
++#endif /* _LINUX_SPI_SPI_JAGUAR2 */
+diff --git a/spi_jaguar2.diff b/spi_jaguar2.diff
+new file mode 100644
+index 0000000..e69de29

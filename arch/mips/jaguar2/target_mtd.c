@@ -30,7 +30,7 @@
 #include <linux/mtd/partitions.h>
 #include <mtd/mtd-abi.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi_vcoreiii.h>
+#include <linux/spi/spi_jaguar2.h>
 #include <linux/spi/flash.h>
 
 #if defined(CONFIG_MMC_SPI) || defined(CONFIG_MMC_SPI_MODULE)
@@ -42,7 +42,7 @@
 #include <asm/mach-jaguar2/hardware.h>
 
 static struct spi_vcoreiii_platform_data spi_jaguar2_cfg = {
-	// .no_spi_delay = 1,
+        .no_spi_delay = 1,
 };
 
 static struct platform_device jaguar2_spi = {
@@ -108,6 +108,32 @@ static struct mmc_spi_platform_data jaguar2_mmc_spi_pdata = {
 };
 #endif
 
+/* struct jaguar2_spi_chip_info { */
+/*     void (*cs_control)(u32 command); */
+/* }; */
+
+/* static void jaguar2_mtd_cs_control(u32 command) */
+/* { */
+/*     u32 sw_mode = readl(VTSS_ICPU_CFG_SPI_MST_SW_MODE); */
+/*     if (command) { */
+/*         sw_mode |= */
+/*                 VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS_OE(0) | /\* CS_OE *\/ */
+/*                 VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS(0); */
+/*         writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE); */
+/*     } else { */
+/*         /\* Drive CS low *\/ */
+/*         sw_mode &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS; */
+/*         writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE); */
+/*         /\* Drop everything *\/ */
+/*         sw_mode = 0; */
+/*         writel(sw_mode, VTSS_ICPU_CFG_SPI_MST_SW_MODE); */
+/*     } */
+/* } */
+
+/* static struct jaguar2_spi_chip_info jaguar2_spi_flash_cs = { */
+/*     .cs_control = jaguar2_mtd_cs_control, */
+/* }; */
+
 static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
@@ -116,6 +142,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 		.bus_num = 0, /* Framework bus number */
 		.chip_select = 0, /* Framework chip select. */
 		.platform_data = &jaguar2_spi_flash_data,
+                /* .controller_data = &jaguar2_spi_flash_cs,  /\* chip select control  *\/ */
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
         },
 
