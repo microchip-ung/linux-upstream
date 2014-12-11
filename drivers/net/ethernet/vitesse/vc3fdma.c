@@ -187,8 +187,8 @@ static struct sk_buff *read_xtrgrp(struct net_device *dev, int grp)
             }
         }
         if (total) {
-            /* Do not count the CRC */
-            skb_put(skb, total - ETH_FCS_LEN);
+            /* Frame - including original frame FCS */
+            skb_put(skb, total);
             return skb;
         }
     } else {
@@ -255,6 +255,8 @@ static int vc3fdma_poll(struct napi_struct *napi, int budget)
                     vc3fdma_receive(dev, skb);
                     // Loose the ifh encap + ifh and receive again on 'eth'
                     skb_pull_inline(skb1, sizeof(ifh_encap) + IFH_SIZE);
+                    // Loose FCS
+                    skb_trim(skb, skb->len - ETH_FCS_LEN);
                     vc3fdma_receive(eth, skb1);
                 }
                 work_done++;
