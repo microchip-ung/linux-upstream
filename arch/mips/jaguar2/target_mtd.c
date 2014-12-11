@@ -30,7 +30,7 @@
 #include <linux/mtd/partitions.h>
 #include <mtd/mtd-abi.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi_jaguar2.h>
+#include <linux/spi/spi_vcoreiii.h>
 #include <linux/spi/flash.h>
 
 #if defined(CONFIG_MMC_SPI) || defined(CONFIG_MMC_SPI_MODULE)
@@ -42,7 +42,7 @@
 #include <asm/mach-jaguar2/hardware.h>
 
 static struct spi_vcoreiii_platform_data spi_jaguar2_cfg = {
-        .no_spi_delay = 1,
+    // .no_spi_delay = 1,
 };
 
 static struct platform_device jaguar2_spi = {
