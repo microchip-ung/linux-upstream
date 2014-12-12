@@ -189,7 +189,6 @@ static struct sk_buff *read_xtrgrp(struct net_device *dev, int grp)
         }
         if (total) {
             skb_put(skb, total);
-            printk(KERN_DEBUG "RX1: Got %d bytes, skb len %d, encap %d\n", total, skb->len, sizeof(ifh_encap));
             return skb;
         }
     } else {
