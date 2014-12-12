@@ -108,7 +108,8 @@ static void inject_send(struct net_device *dev,
 
     // IFH
     for (w = 0; w < IFH_SIZE_WORDS; w++) {
-        writel(ifh[w], VTSS_DEVCPU_QS_INJ_INJ_WR(grp));
+        val = get_unaligned(&ifh[w]);
+        writel(val, VTSS_DEVCPU_QS_INJ_INJ_WR(grp));
     }
 
     count = (round_up(skb->len,4) / 4);
@@ -150,7 +151,7 @@ static struct sk_buff *read_xtrgrp(struct net_device *dev, int grp)
     struct sk_buff *skb = netdev_alloc_skb(dev, maxdata);
     if (skb) {
         u32 total = 0, *ptr;
-        skb_copy_to_linear_data(skb, ifh_encap, sizeof(ifh_encap));
+        memcpy(skb_tail_pointer(skb), ifh_encap, sizeof(ifh_encap));
         skb_put(skb, sizeof(ifh_encap));
         ptr = (u32*) skb_tail_pointer(skb);
         while(!done) {
@@ -187,8 +188,8 @@ static struct sk_buff *read_xtrgrp(struct net_device *dev, int grp)
             }
         }
         if (total) {
-            /* Frame - including original frame FCS */
             skb_put(skb, total);
+            printk(KERN_DEBUG "RX1: Got %d bytes, skb len %d, encap %d\n", total, skb->len, sizeof(ifh_encap));
             return skb;
         }
     } else {
@@ -221,11 +222,19 @@ static struct sk_buff *read_xtrgrp(struct net_device *dev, int grp)
 static void vc3fdma_receive(struct net_device *dev, 
                             struct sk_buff *skb)
 {
+    bool is_eth = (dev == eth);
     int len = skb->len;
 
 #ifdef DEBUG
-    print_hex_dump_bytes(dev == eth ? "ethrx " : "npirx ", DUMP_PREFIX_NONE, skb->data, skb->len);
+    print_hex_dump_bytes(is_eth ? "ethrx " : "npirx ", DUMP_PREFIX_NONE, skb->data, skb->len);
 #endif
+    if (is_eth) {
+        // Loose the ifh encap + ifh and receive again on 'eth'
+        skb_pull_inline(skb, sizeof(ifh_encap) + IFH_SIZE);
+        // Loose FCS
+        skb_trim(skb, skb->len - ETH_FCS_LEN);
+    }
+
     skb->protocol = eth_type_trans(skb, dev);
     dev_dbg(&dev->dev, "Deliver skb %p, len %d, proto 0x%x\n", skb, skb->len, skb->protocol);
 
@@ -253,10 +262,6 @@ static int vc3fdma_poll(struct napi_struct *napi, int budget)
                 if(skb) {
                     struct sk_buff *skb1 = skb_clone(skb, GFP_KERNEL);
                     vc3fdma_receive(dev, skb);
-                    // Loose the ifh encap + ifh and receive again on 'eth'
-                    skb_pull_inline(skb1, sizeof(ifh_encap) + IFH_SIZE);
-                    // Loose FCS
-                    skb_trim(skb, skb->len - ETH_FCS_LEN);
                     vc3fdma_receive(eth, skb1);
                 }
                 work_done++;
@@ -329,7 +334,9 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
             kfree_skb(skb);
             return NETDEV_TX_OK;
         }
-        // Transmit on npi - ifh included in skb
+        // Transmit on npi - first loose encap
+        skb_pull_inline(skb, sizeof(ifh_encap));
+        // Then pull the ifh
         ifh_ptr = (u32*) skb->data;
         skb_pull_inline(skb, IFH_SIZE);
     } else {
