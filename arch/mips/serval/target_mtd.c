@@ -64,11 +64,7 @@ static struct mtd_partition serval_spi_flash_partitions[] = {
 	}, {
 		.name =		"linux",
 		.offset = 	0x00880000,
-		.size =		0x00200000,
-	}, {
-		.name =		"rootfs",
-		.offset = 	MTDPART_OFS_APPEND,
-		.size =		0x00480000,
+		.size =		0x00680000,
 	}
 };
 
