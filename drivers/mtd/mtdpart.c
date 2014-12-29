@@ -536,7 +536,7 @@ out_register:
 }
 
 static int
-__mtd_add_partition(struct mtd_info *master, char *name,
+__mtd_add_partition(struct mtd_info *master, const char *name,
 		    long long offset, long long length, bool dup_check)
 {
 	struct mtd_partition part;
@@ -596,7 +596,7 @@ err_inv:
 }
 EXPORT_SYMBOL_GPL(mtd_add_partition);
 
-int mtd_add_partition(struct mtd_info *master, char *name,
+int mtd_add_partition(struct mtd_info *master, const char *name,
 		      long long offset, long long length)
 {
 	return __mtd_add_partition(master, name, offset, length, true);
