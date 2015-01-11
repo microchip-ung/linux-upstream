@@ -39,9 +39,11 @@
 #if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
 #include <asm/mach-serval/hardware.h>
 #define IFH_SIZE 16
+#define IFH_ID   0x05
 #elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
 #include <asm/mach-jaguar2/hardware.h>
 #define IFH_SIZE 28
+#define IFH_ID   0x07
 #else
 #error Invalid architecture type
 #endif
@@ -49,10 +51,10 @@
 
 static u8 ifh_encap [] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                           0x88, 0x80, 0xa8, 0xa9 };
+                           0x88, 0x80, 0x00, IFH_ID };
 
-#define PORT_B0 12
-#define PORT_B1 13
+#define PROTO_B0 12
+#define PROTO_B1 13
 
 static const u32 ifh_default[IFH_SIZE_WORDS] = {
 #if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
@@ -325,10 +327,10 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
     dev_dbg(&dev->dev, "%s: Transmit %d bytes @ %p\n", dev->name, skb->len, skb->data);
     if(dev != eth) {
         // Check for proper encapsulation
-        if( skb->data[PORT_B0] != ifh_encap[PORT_B0] ||
-            skb->data[PORT_B1] != ifh_encap[PORT_B1]) {
+        if( skb->data[PROTO_B0] != ifh_encap[PROTO_B0] ||
+            skb->data[PROTO_B1] != ifh_encap[PROTO_B1]) {
             dev_dbg(&dev->dev, "Wrong encapsulation - dropping %d bytes @ %p (%02x:%02x)\n", 
-                    skb->len, skb->data, skb->data[PORT_B0], skb->data[PORT_B1]);
+                    skb->len, skb->data, skb->data[PROTO_B0], skb->data[PROTO_B1]);
             dev->stats.tx_dropped++;
             kfree_skb(skb);
             return NETDEV_TX_OK;
