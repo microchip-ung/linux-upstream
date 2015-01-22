@@ -21,4 +21,13 @@ config VC3FDMA
 	  To compile this driver as a module, choose M here: the
 	  module will be called vc3fdma.
 
+config VC3MUX
+	tristate "VCore-III IFH Frame VLAN MUX support"
+	depends on VTSS_VCOREIII_ARCH
+	default y
+	---help---
+	  This driver multiplex frames received with Vitess IFH encapulation into respective 
+          network vlan interfaces.
+
+
 endif # NET_VENDOR_VITESSE
