@@ -56,23 +56,6 @@ static u8 ifh_encap [] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 #define PROTO_B0 12
 #define PROTO_B1 13
 
-static const u32 ifh_default[IFH_SIZE_WORDS] = {
-#if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x80000000,
-    0x00000000,
-    0x01040000,
-    0x000000a8,
-#endif
-};
-
 #if !defined(VTSS_M_DEVCPU_QS_INJ_INJ_CTRL_SOF)
 #define VTSS_M_DEVCPU_QS_INJ_INJ_CTRL_SOF VTSS_F_DEVCPU_QS_INJ_INJ_CTRL_SOF
 #endif
@@ -80,11 +63,9 @@ static const u32 ifh_default[IFH_SIZE_WORDS] = {
 #define VTSS_M_DEVCPU_QS_INJ_INJ_CTRL_EOF VTSS_F_DEVCPU_QS_INJ_INJ_CTRL_EOF
 #endif
 
-struct net_device *eth;
-
 #define DRV_NAME        "vc3fdma"
-#define DRV_VERSION     "0.10"
-#define DRV_RELDATE     "2014/12/08"
+#define DRV_VERSION     "0.11"
+#define DRV_RELDATE     "2015/23/01"
 
 struct vc3fdma_device {
     struct net_device *dev;
@@ -223,19 +204,11 @@ static struct sk_buff *read_xtrgrp(struct net_device *dev, int grp)
 static void vc3fdma_receive(struct net_device *dev, 
                             struct sk_buff *skb)
 {
-    bool is_eth = (dev == eth);
     int len = skb->len;
 
 #ifdef DEBUG
-    print_hex_dump_bytes(is_eth ? "ethrx " : "npirx ", DUMP_PREFIX_NONE, skb->data, skb->len);
+    print_hex_dump_bytes(is_eth ? "ifhrx ", DUMP_PREFIX_NONE, skb->data, skb->len);
 #endif
-    if (is_eth) {
-        // Loose the ifh encap + ifh and receive again on 'eth'
-        skb_pull_inline(skb, sizeof(ifh_encap) + IFH_SIZE);
-        // Loose FCS
-        skb_trim(skb, skb->len - ETH_FCS_LEN);
-    }
-
     skb->protocol = eth_type_trans(skb, dev);
     dev_dbg(&dev->dev, "Deliver skb %p, len %d, proto 0x%x\n", skb, skb->len, skb->protocol);
 
@@ -261,9 +234,7 @@ static int vc3fdma_poll(struct napi_struct *napi, int budget)
             if (val & (1 << i)) {
                 struct sk_buff *skb = read_xtrgrp(dev, i);
                 if(skb) {
-                    struct sk_buff *skb1 = skb_clone(skb, GFP_KERNEL);
                     vc3fdma_receive(dev, skb);
-                    vc3fdma_receive(eth, skb1);
                 }
                 work_done++;
             }
@@ -325,25 +296,21 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
     const u32 *ifh_ptr;
 
     dev_dbg(&dev->dev, "%s: Transmit %d bytes @ %p\n", dev->name, skb->len, skb->data);
-    if(dev != eth) {
-        // Check for proper encapsulation
-        if( skb->data[PROTO_B0] != ifh_encap[PROTO_B0] ||
-            skb->data[PROTO_B1] != ifh_encap[PROTO_B1]) {
-            dev_dbg(&dev->dev, "Wrong encapsulation - dropping %d bytes @ %p (%02x:%02x)\n", 
-                    skb->len, skb->data, skb->data[PROTO_B0], skb->data[PROTO_B1]);
-            dev->stats.tx_dropped++;
-            kfree_skb(skb);
-            return NETDEV_TX_OK;
-        }
-        // Transmit on npi - first loose encap
-        skb_pull_inline(skb, sizeof(ifh_encap));
-        // Then pull the ifh
-        ifh_ptr = (u32*) skb->data;
-        skb_pull_inline(skb, IFH_SIZE);
-    } else {
-        // Transmit on eth - use 'ifh_default'
-        ifh_ptr = ifh_default;
+
+    // Check for proper encapsulation
+    if( skb->data[PROTO_B0] != ifh_encap[PROTO_B0] ||
+        skb->data[PROTO_B1] != ifh_encap[PROTO_B1]) {
+        dev_dbg(&dev->dev, "Wrong encapsulation - dropping %d bytes @ %p (%02x:%02x)\n", 
+                skb->len, skb->data, skb->data[PROTO_B0], skb->data[PROTO_B1]);
+        dev->stats.tx_dropped++;
+        kfree_skb(skb);
+        return NETDEV_TX_OK;
     }
+    // Transmit - first loose encap
+    skb_pull_inline(skb, sizeof(ifh_encap));
+    // Then pull the ifh
+    ifh_ptr = (u32*) skb->data;
+    skb_pull_inline(skb, IFH_SIZE);
 
     spin_lock_irqsave(&lp->lock, flags);
     dev->trans_start = jiffies;
@@ -401,8 +368,8 @@ static int vc3fdma_probe(struct platform_device *pdev)
     } else {
         struct vc3fdma_private *lp;
 
-        // We're special aka. "npi"
-        strcpy(dev->name, "npi");
+        // We're special aka. "vtss.ifh"
+        strcpy(dev->name, "vtss.ifh");
 
         // Hook the devices together netdev <-> pdev
         SET_NETDEV_DEV(dev, &pdev->dev);
@@ -419,21 +386,12 @@ static int vc3fdma_probe(struct platform_device *pdev)
             dev_err(&dev->dev, "Cannot register net device: %d\n", rc);
             free_netdev(dev);
         } else {
-            // Create shallow ethernet
-            if (!(eth = vc3fdma_create()) ||
-                (rc = register_netdev(eth)) < 0) {
-                dev_err(&dev->dev, "cannot register eth device: %d\n", rc);
-                if(eth)
-                    free_netdev(eth);
-                free_netdev(dev);
-            } else {
-                // Turn on npi device handling
-                lp = netdev_priv(dev);
-                netif_napi_add(dev, &lp->napi, vc3fdma_poll, 64);
-                enable_irq(dev->irq);
+            // Turn on device handling
+            lp = netdev_priv(dev);
+            netif_napi_add(dev, &lp->napi, vc3fdma_poll, 64);
+            enable_irq(dev->irq);
 
-                printk(KERN_INFO "%s: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n", dev->name);
-            }
+            printk(KERN_INFO "%s: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n", dev->name);
         }
     }
     return rc;

@@ -43,7 +43,7 @@ struct net_device *vtss_if_mux_parent_dev_get(void) {
     if (vtss_if_mux_parent_dev)
         return vtss_if_mux_parent_dev;
 
-    vtss_if_mux_parent_dev = dev_get_by_name(&init_net, "npi");
+    vtss_if_mux_parent_dev = dev_get_by_name(&init_net, "vtss.ifh");
     if (!vtss_if_mux_parent_dev) {
         return NULL;
     }
