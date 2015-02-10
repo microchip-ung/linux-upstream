@@ -28,6 +28,7 @@
  */
 
 #include "vtss_luton26_regs_devcpu_gcb.h"
+#include "vtss_luton26_regs_devcpu_qs.h"
 #include "vtss_luton26_regs_icpu_cfg.h"
 #include "vtss_luton26_regs_uart.h"
 #include "vtss_luton26_regs_twi.h"

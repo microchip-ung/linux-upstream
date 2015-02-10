@@ -77,6 +77,31 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 
     skb = *pskb;
 
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
+    if (skb->len < (10 +4)) {
+        printk(KERN_INFO "skb->len < 14\n");
+        return RX_HANDLER_PASS;
+    }
+
+    if (skb->protocol != htons(0x8880) || skb->data[0] != 0 || skb->data[1] != 1) {
+        // TODO, Where should this be counted??
+        printk(KERN_INFO "Not for us: 0x%04x %02hhx %02hhx\n",
+               skb->protocol, skb->data[0], skb->data[1]);
+        return RX_HANDLER_PASS;
+    }
+
+    // Parse the VID
+    vid = (skb->data[8] & 0xf);
+    vid <<= 8;
+    vid |= skb->data[9];
+
+    if (vid < 1 || vid >= VLAN_N_VID) {
+        // TODO, Where should this be counted??
+        printk(KERN_INFO "Vid out of range: %u\n", vid);
+        return RX_HANDLER_PASS;
+    }
+
+#else
     // Start of hack ///////////////////////////////////////////////////////////
     // TODO - rewrite, this is just a hack to get us started. The following
     // should be supported:
@@ -107,6 +132,7 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
         return RX_HANDLER_PASS;
     }
     // End of hack /////////////////////////////////////////////////////////////
+#endif
 
     // Do nothing if we have no dependend device
     dev = vtss_if_mux_vlan_net_dev[vid];
@@ -122,7 +148,12 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
         goto DO_CNT;
     }
 
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
+    skb_pull_inline(skb_new, 10); // Discard the VTSS headers
+#else
     skb_pull_inline(skb_new, 18); // Discard the VTSS headers
+#endif
+
     skb_trim(skb_new, skb_new->len - ETH_FCS_LEN); // Discard the FCS
 #if 0
     printk(KERN_INFO "RX %u bytes on vlan %u\n", skb_new->len, vid);

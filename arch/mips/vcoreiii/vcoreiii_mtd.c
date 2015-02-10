@@ -182,11 +182,18 @@ static int __init vcoreiii_mtd_init(void)
                              VTSS_F_ICPU_CFG_PI_MST_PI_MST_CTRL_WAITCC(8));
 
 	platform_device_register(&vcoreiii_spi);
-	platform_device_register(&vcoreiii_nand);
 
 	spi_register_board_info(vcoreiii_spi_board_info, ARRAY_SIZE(vcoreiii_spi_board_info));
 
 	return 0;
 }
 
+static int __init vcoreiii_mtd_init_nand(void)
+{
+        platform_device_register(&vcoreiii_nand);
+
+        return 0;
+}
+
 module_init(vcoreiii_mtd_init)
+late_initcall(vcoreiii_mtd_init_nand);

@@ -44,6 +44,11 @@
 #include <asm/mach-jaguar2/hardware.h>
 #define IFH_SIZE 28
 #define IFH_ID   0x07
+#elif defined(CONFIG_VTSS_VCOREIII_LUTON26)
+#include <asm/mach-vcoreiii/hardware.h>
+#define IFH_SIZE 8
+#define IFH_ID   0x01  /* No IFH_ID in Luton26, madeup 0x01 */
+#define DO_PADDING
 #else
 #error Invalid architecture type
 #endif
@@ -64,8 +69,8 @@ static u8 ifh_encap [] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 #endif
 
 #define DRV_NAME        "vc3fdma"
-#define DRV_VERSION     "0.11"
-#define DRV_RELDATE     "2015/23/01"
+#define DRV_VERSION     "0.13"
+#define DRV_RELDATE     "2015/10/02"
 
 struct vc3fdma_device {
     struct net_device *dev;
@@ -107,6 +112,13 @@ static void inject_send(struct net_device *dev,
         writel(val, VTSS_DEVCPU_QS_INJ_INJ_WR(grp));
     }
 
+#if defined DO_PADDING
+    while (w < (60 / 4)) {
+        writel(0, VTSS_DEVCPU_QS_INJ_INJ_WR(grp));
+        w++;
+    }
+#endif
+
     /* Indicate EOF and valid bytes in last word */
     writel(VTSS_F_DEVCPU_QS_INJ_INJ_CTRL_GAP_SIZE(1) |
            VTSS_F_DEVCPU_QS_INJ_INJ_CTRL_VLD_BYTES(skb->len < 60 ? 0 : last) |
@@ -118,6 +130,18 @@ static void inject_send(struct net_device *dev,
     w++;
 }
 
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
+#define XTR_EOF_0          0x80000000U
+#define XTR_EOF_1          0x80000001U
+#define XTR_EOF_2          0x80000002U
+#define XTR_EOF_3          0x80000003U
+#define XTR_PRUNED         0x80000004U
+#define XTR_ABORT          0x80000005U
+#define XTR_ESCAPE         0x80000006U
+#define XTR_NOT_READY      0x80000007U
+#define XTR_VALID_BYTES(x) (4 - (((x) >> 24) & 3))
+
+#else
 #define XTR_EOF_0          0x00000080U
 #define XTR_EOF_1          0x01000080U
 #define XTR_EOF_2          0x02000080U
@@ -127,6 +151,8 @@ static void inject_send(struct net_device *dev,
 #define XTR_ESCAPE         0x06000080U
 #define XTR_NOT_READY      0x07000080U
 #define XTR_VALID_BYTES(x) (4 - (((x) >> 24) & 3))
+
+#endif
 
 static struct sk_buff *read_xtrgrp(struct net_device *dev, int grp)
 {
