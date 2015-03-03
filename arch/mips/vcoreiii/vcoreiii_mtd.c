@@ -86,6 +86,32 @@ static struct spi_board_info vcoreiii_spi_board_info[] __initdata = {
 		.platform_data = &vcoreiii_spi_flash_data,
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
 	},
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
+        {
+                .modalias = "spidev",
+                .max_speed_hz = 100000,
+                .bus_num = 0,
+                .chip_select = SPI_VCOREIII_NUM_HW_CS + 10,    // GPIO 10 == CS
+                .mode = SPI_MODE_0,
+        },
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR)
+        // sync
+        {
+                .modalias = "spidev",
+                .max_speed_hz = 100000,
+                .bus_num = 0,
+                .chip_select = 2,
+                .mode = SPI_MODE_0,
+        },
+        // cpld
+        {
+                .modalias = "spidev",
+                .max_speed_hz = 100000,
+                .bus_num = 0,
+                .chip_select = 3,
+                .mode = SPI_MODE_0,
+        },
+#endif
 };
 
 #if defined(CONFIG_VTSS_VCOREIII_JAGUAR)

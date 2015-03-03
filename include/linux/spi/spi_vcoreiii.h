@@ -16,6 +16,8 @@
 #include <linux/types.h>
 #include <linux/spi/spi.h>
 
+#define SPI_VCOREIII_NUM_HW_CS   4
+#define SPI_VCOREIII_NUM_GPIO_CS 32
 
 /**
  * struct spi_vcoreiii_platform_data - Data definitions for a SPI-GPIO device.

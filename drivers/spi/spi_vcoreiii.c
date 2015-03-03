@@ -119,8 +119,14 @@ static u32 spi_vcoreiii_txrx_mode0(struct spi_device *spi,
 
 static void spi_vcoreiii_chipselect(struct spi_device *dev, int on)
 {
-	struct spi_vcoreiii *sp = spidev_to_sg(dev);
-	int cs_high = !!(dev->mode & SPI_CS_HIGH);
+    struct spi_vcoreiii *sp = spidev_to_sg(dev);
+    int cs_high = !!(dev->mode & SPI_CS_HIGH);
+    int use_gpio_cs = (dev->chip_select >= SPI_VCOREIII_NUM_HW_CS), cs_mask;
+
+    if (use_gpio_cs) {
+        cs_mask = VTSS_BIT(dev->chip_select - SPI_VCOREIII_NUM_HW_CS);
+    }
+
 
 	if(on) {
 		sp->bb_cur = 
@@ -129,17 +135,25 @@ static void spi_vcoreiii_chipselect(struct spi_device *dev, int on)
 			VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_PIN_CTRL_MODE ; /* SW Bitbang */
 		/* Setup clock in right state before driving CS */
 		writel(sp->bb_cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
-		/* Now enable CS */
-                if (!cs_high) {
+                /* Activate GPIO CS - if applicable */
+                if (use_gpio_cs) {
+                    writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OE) | cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OE);
+                    writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OUT) | cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OUT);
+                } else if (!cs_high) {
                     sp->bb_cur |=
                             VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS_OE(VTSS_BIT(dev->chip_select)) | /* CS_OE */
                             VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS(VTSS_BIT(dev->chip_select));
+                    writel(sp->bb_cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
                 }
-		writel(sp->bb_cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
 	} else {
 		/* Drive CS low */
-		sp->bb_cur &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS;
-		writel(sp->bb_cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
+                if (use_gpio_cs) {
+                    writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OUT) & ~cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OUT);
+                    writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OE) & ~cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OE);
+                } else {
+                    sp->bb_cur &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS;
+                    writel(sp->bb_cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
+                }
 		/* Drop everything */
 		sp->bb_cur = 0;
 		writel(sp->bb_cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
@@ -164,7 +178,7 @@ static int spi_vcoreiii_probe(struct platform_device *pdev)
 
 	sp->bitbang.master = spi_master_get(master);
 	sp->bitbang.master->bus_num = 0;
-	sp->bitbang.master->num_chipselect = 4;
+	sp->bitbang.master->num_chipselect = SPI_VCOREIII_NUM_HW_CS + SPI_VCOREIII_NUM_GPIO_CS;
 	sp->bitbang.chipselect = spi_vcoreiii_chipselect;
 	sp->bitbang.txrx_word[SPI_MODE_0] = spi_vcoreiii_txrx_mode0;
 	sp->bitbang.setup_transfer = spi_bitbang_setup_transfer;

@@ -158,6 +158,23 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 	},
 #endif
 
+        // sync
+        {
+                .modalias = "spidev",
+                .max_speed_hz = 100000,
+                .bus_num = 0,
+                .chip_select = 1,
+                .mode = SPI_MODE_0,
+        },
+        // cpld
+        {
+                .modalias = "spidev",
+                .max_speed_hz = 100000,
+                .bus_num = 0,
+                .chip_select = SPI_VCOREIII_NUM_HW_CS + 18,    // GPIO 18 == CS
+                .mode = SPI_MODE_0,
+        },
+
 };
 
 #define NAND_ADDR_BIT_ALE (1 << 2)

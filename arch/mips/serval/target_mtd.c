@@ -127,6 +127,23 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 	},
 #endif
 
+        // sync
+        {
+                .modalias = "spidev",
+                .max_speed_hz = 100000,
+                .bus_num = 0,
+                .chip_select = SPI_VCOREIII_NUM_HW_CS + 6,    // GPIO 6 == CS
+                .mode = SPI_MODE_0,
+        },
+        // t1e1j1
+        {
+                .modalias = "spidev",
+                .max_speed_hz = 100000,
+                .bus_num = 0,
+                .chip_select = SPI_VCOREIII_NUM_HW_CS + 17,    // GPIO 17 == CS
+                .mode = SPI_MODE_0,
+        },
+
 };
 
 static int __init vcoreiii_mtd_init(void)
