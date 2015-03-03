@@ -16,16 +16,16 @@ menu "OpenWrt specific MTD options"
 
 config MTD_ROOTFS_ROOT_DEV
 	bool "Automatically set 'rootfs' partition to be root filesystem"
-	default y
+	default n
 
 config MTD_ROOTFS_SPLIT
 	bool "Automatically split 'rootfs' partition for squashfs"
 	select MTD_SPLIT
-	default y
+	default n
 
 config MTD_SPLIT_FIRMWARE
 	bool "Automatically split firmware partition for kernel+rootfs"
-	default y
+	default n
 
 config MTD_SPLIT_FIRMWARE_NAME
 	string "Firmware partition name"
@@ -35,7 +35,7 @@ config MTD_SPLIT_FIRMWARE_NAME
 config MTD_UIMAGE_SPLIT
 	bool "Enable split support for firmware partitions containing a uImage"
 	depends on MTD_SPLIT_FIRMWARE
-	default y
+	default n
 
 comment "Rootfs partition parsers"
 
