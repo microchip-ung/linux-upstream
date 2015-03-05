@@ -138,7 +138,8 @@ static void spi_vcoreiii_chipselect(struct spi_device *dev, int on)
                 /* Activate GPIO CS - if applicable */
                 if (use_gpio_cs) {
                     writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OE) | cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OE);
-                    writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OUT) | cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OUT);
+                    // Active = high
+                    writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OUT) & ~cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OUT);
                 } else if (!cs_high) {
                     sp->bb_cur |=
                             VTSS_F_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS_OE(VTSS_BIT(dev->chip_select)) | /* CS_OE */
@@ -146,9 +147,10 @@ static void spi_vcoreiii_chipselect(struct spi_device *dev, int on)
                     writel(sp->bb_cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
                 }
 	} else {
-		/* Drive CS low */
+		/* Drop CS */
                 if (use_gpio_cs) {
-                    writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OUT) & ~cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OUT);
+                    // In-Active = high
+                    writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OUT) | cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OUT);
                     writel(readl(VTSS_DEVCPU_GCB_GPIO_GPIO_OE) & ~cs_mask, VTSS_DEVCPU_GCB_GPIO_GPIO_OE);
                 } else {
                     sp->bb_cur &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_CS;
