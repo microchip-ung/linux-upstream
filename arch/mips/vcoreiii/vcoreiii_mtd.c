@@ -59,11 +59,7 @@ static struct mtd_partition vcoreiii_spi_flash_partitions[] = {
 	}, {
 		.name =		"linux",
 		.offset = 	0x00800000,
-		.size =		0x00200000,
-	}, {
-		.name =		"rootfs",
-		.offset = 	MTDPART_OFS_APPEND,
-		.size =		0x00500000,
+		.size =		0x00700000,
 	}
 };
 
