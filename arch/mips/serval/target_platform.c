@@ -48,6 +48,7 @@ static struct plat_serial8250_port uart8250_vcoreiii_data[] = {
 		.flags		= (UPF_BOOT_AUTOCONF | UPF_SKIP_TEST | UPF_IOREMAP),
 		.regshift	= 2,
 	},
+#if defined(CONFIG_SERIAL_8250_RUNTIME_UARTS) && (CONFIG_SERIAL_8250_RUNTIME_UARTS > 1)
 	{
 		.mapbase	= 0x70100800,
 		.irq		= UART2_IRQ,
@@ -56,6 +57,7 @@ static struct plat_serial8250_port uart8250_vcoreiii_data[] = {
 		.flags		= (UPF_BOOT_AUTOCONF | UPF_SKIP_TEST | UPF_IOREMAP),
 		.regshift	= 2,
 	},
+#endif
 	{ },
 };
 
