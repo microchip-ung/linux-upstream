@@ -52,27 +52,9 @@ static struct platform_device serval_spi = {
         },
 };
 
-static struct mtd_partition serval_spi_flash_partitions[] = {
-	{
-		.name =		"redboot",
-		.offset = 	0x00000000,
-		.size =		0x00040000,
-	}, {
-		.name =		"config",
-		.offset = 	MTDPART_OFS_APPEND,
-		.size =		0x00040000,
-	}, {
-		.name =		"linux",
-		.offset = 	0x00880000,
-		.size =		0x00680000,
-	}
-};
-
 static struct flash_platform_data serval_spi_flash_data = {
 	.type = "mx25l12805d",
 	.name = "spi_flash",
-	.parts = serval_spi_flash_partitions,
-	.nr_parts = ARRAY_SIZE(serval_spi_flash_partitions),
         .read_mapped = 1,
         .phys_offset = 0x40000000,
 };

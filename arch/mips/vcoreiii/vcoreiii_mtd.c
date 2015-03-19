@@ -47,27 +47,9 @@ static struct platform_device vcoreiii_spi = {
         },
 };
 
-static struct mtd_partition vcoreiii_spi_flash_partitions[] = {
-	{
-		.name =		"redboot",
-		.offset = 	0x00000000,
-		.size =		0x00040000,
-	}, {
-		.name =		"config",
-		.offset = 	MTDPART_OFS_APPEND,
-		.size =		0x00040000,
-	}, {
-		.name =		"linux",
-		.offset = 	0x00800000,
-		.size =		0x00700000,
-	}
-};
-
 static struct flash_platform_data vcoreiii_spi_flash_data = {
 	.type = "m25p128",
 	.name = "spi_flash",
-	.parts = vcoreiii_spi_flash_partitions,
-	.nr_parts = ARRAY_SIZE(vcoreiii_spi_flash_partitions),
         .read_mapped = 1,
         .phys_offset = 0x40000000,
 };

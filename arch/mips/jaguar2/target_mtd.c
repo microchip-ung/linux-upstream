@@ -53,27 +53,9 @@ static struct platform_device jaguar2_spi = {
         },
 };
 
-static struct mtd_partition jaguar2_spi_flash_partitions[] = {
-	{
-		.name =		"redboot",
-		.offset = 	0x00000000,
-		.size =		0x00040000,
-	}, {
-		.name =		"config",
-		.offset = 	MTDPART_OFS_APPEND,
-		.size =		0x00040000,
-	}, {
-		.name =		"linux",
-		.offset = 	0x00E00000,
-		.size =		0x00C00000,
-	}
-};
-
 static struct flash_platform_data jaguar2_spi_flash_data = {
 	.type = "mx25l25635e",
 	.name = "spi_flash",
-	.parts = jaguar2_spi_flash_partitions,
-	.nr_parts = ARRAY_SIZE(jaguar2_spi_flash_partitions),
         //        .read_mapped = 1,
         //        .phys_offset = 0x40000000,
         .use_4byte_commands = 1,
