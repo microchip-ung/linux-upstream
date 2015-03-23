@@ -195,7 +195,7 @@ static void stuff_rx(struct vcoreiii_twi_iface *dev)
     spin_lock_irqsave(&dev->lock, flags);
 
     /* read from slave */
-    while ((lev = VTSS_RD(VTSS_TWI_TWI_RXFLR)) < VCOREIII_RX_FIFO_THRESHOLD) {
+    if ((lev = VTSS_RD(VTSS_TWI_TWI_RXFLR)) < VCOREIII_RX_FIFO_THRESHOLD) {
         if (lev != pre_lev) {
             DEBUG_I2C("GET 1 byte, level %d\n", lev);
         }
@@ -247,8 +247,14 @@ static int do_xfer(struct i2c_adapter *adap, struct i2c_msg *msg)
     if (msg->flags & I2C_M_RD) {
         // read command - data = 0x00 (don't care)
         //VTSS_WR(VTSS_M_TWI_TWI_DATA_CMD_CMD, VTSS_TWI_TWI_DATA_CMD);
-        VTSS_WR(VTSS_M_TWI_TWI_INTR_MASK_M_RX_FULL, VTSS_TWI_TWI_INTR_MASK); // enable rx fifo interrupt
+        VTSS_WR(VTSS_M_TWI_TWI_INTR_MASK_M_RX_FULL|
+                VTSS_M_TWI_TWI_INTR_MASK_M_TX_ABRT,
+                VTSS_TWI_TWI_INTR_MASK); // enable rx fifo interrupt
         while (dev->buf_len > 0) {
+            if (dev->cmd_err == I2C_CMPLT_ABORT) {
+                dev->buf_len = 0;
+                return -EIO;
+            }
             stuff_rx(dev);
         }
     } else {
@@ -276,6 +282,10 @@ static int do_xfer(struct i2c_adapter *adap, struct i2c_msg *msg)
     if (r == 0) {
         DEBUG_I2C("controller timed out\n");
         return -ETIMEDOUT;
+    }
+
+    if (dev->cmd_err == I2C_CMPLT_ABORT) {
+        dev->buf_len = 0;
     }
 
     /* Something else... */
