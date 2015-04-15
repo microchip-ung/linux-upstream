@@ -154,6 +154,8 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 
 };
 
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+
 #define NAND_ADDR_BIT_ALE (1 << 2)
 #define NAND_ADDR_BIT_CLE (1 << 3)
 
@@ -215,6 +217,7 @@ static struct platform_device jaguar2_nand = {
         .platform_data = &jaguar2_nane_platdata,
     }
 };
+#endif
 
 static int __init vcoreiii_mtd_init(void)
 {
@@ -236,7 +239,9 @@ static int __init vcoreiii_mtd_init(void)
 
 static int __init vcoreiii_mtd_init_nand(void)
 {
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
     platform_device_register(&jaguar2_nand);
+#endif
     return 0;
 }
 
