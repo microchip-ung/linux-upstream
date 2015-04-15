@@ -40,7 +40,7 @@
 #include <asm/mach-serval/hardware.h>
 #define IFH_SIZE 16
 #define IFH_ID   0x05
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
 #include <asm/mach-jaguar2/hardware.h>
 #define IFH_SIZE 28
 #define IFH_ID   0x07

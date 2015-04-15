@@ -41,6 +41,10 @@
 
 #if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
 #include <vtss_jaguar2_core_regs.h>
+#define VTSS_TARGET_NAME "Jaguar2"
+#elif defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#include <vtss_servalt_core_regs.h>
+#define VTSS_TARGET_NAME "Serval-T"
 #else
 #error Invalid sub-architecture type
 #endif
