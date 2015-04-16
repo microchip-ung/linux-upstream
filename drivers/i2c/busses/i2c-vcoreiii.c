@@ -44,7 +44,7 @@
 #elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
 #include <asm/mach-serval/hardware.h>
 #include <asm/mach-serval/i2c.h>
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVAL_T)
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
 #include <asm/mach-jaguar2/hardware.h>
 #include <asm/mach-jaguar2/i2c.h>
 #else
@@ -66,7 +66,7 @@
 
 // Macro for accessing registers - Used for being able to see when we do registers accesses
 /* Single-instance macros */
-#if !defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if !defined(CONFIG_VTSS_VCOREIII_JAGUAR2) && !defined(CONFIG_VTSS_VCOREIII_SERVALT)
 /* Only one instance available */
 #define VTSS_WR(data, address) writel(data, address)
 #define VTSS_RD(address) readl(address)
@@ -439,7 +439,7 @@ static int i2c_vcoreiii_probe(struct platform_device *pdev)
 #elif defined(CONFIG_VTSS_VCOREIII_LUTON26)
     vcoreiii_gpio_set_alternate(5, 1); /* TWI_SCL */
     vcoreiii_gpio_set_alternate(6, 1); /* TWI_SDA */
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVAL_T)
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
     vcoreiii_gpio_set_alternate(14, 1); /* TWI_SCL */
     vcoreiii_gpio_set_alternate(15, 1); /* TWI_SDA */
 #else
