@@ -160,7 +160,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 #define NAND_ADDR_BIT_CLE (1 << 3)
 
 /* hardware specific access to control-lines */
-static void jaguar2_nane_cmd_ctl(struct mtd_info *mtd, int dat,
+static void jaguar2_nand_cmd_ctl(struct mtd_info *mtd, int dat,
                                  unsigned int ctrl)
 {
     struct nand_chip *this = mtd->priv;
@@ -185,7 +185,7 @@ static struct mtd_partition vcoreiii_partition_info[] = {
     },
 };
 
-struct platform_nand_data jaguar2_nane_platdata = {
+struct platform_nand_data jaguar2_nand_platdata = {
     .chip = {
         .nr_chips = 1,
         .chip_offset = 0,
@@ -194,13 +194,13 @@ struct platform_nand_data jaguar2_nane_platdata = {
         .chip_delay = 50,
     },
     .ctrl = {
-        .cmd_ctrl = jaguar2_nane_cmd_ctl,
+        .cmd_ctrl = jaguar2_nand_cmd_ctl,
     },
 };
 
 #define JAGUAR2_NAND_CS	0 /* CS0 */
 
-static struct resource jaguar2_nane_resource[] = {
+static struct resource jaguar2_nand_resource[] = {
     [0] = {
         .start = 0x50000000 + (JAGUAR2_NAND_CS*0x4000000), /* CS0 */
         .end   = 0x50000000 + (JAGUAR2_NAND_CS*0x4000000) + NAND_ADDR_BIT_CLE*2,
@@ -210,11 +210,11 @@ static struct resource jaguar2_nane_resource[] = {
 
 static struct platform_device jaguar2_nand = {
     .name		= "gen_nand",
-    .num_resources	= ARRAY_SIZE(jaguar2_nane_resource),
-    .resource	= jaguar2_nane_resource,
+    .num_resources	= ARRAY_SIZE(jaguar2_nand_resource),
+    .resource	= jaguar2_nand_resource,
     .id		= -1,
     .dev		= {
-        .platform_data = &jaguar2_nane_platdata,
+        .platform_data = &jaguar2_nand_platdata,
     }
 };
 #endif

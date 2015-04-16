@@ -88,7 +88,7 @@ config I2C_VCOREIII_MK1
 
 config I2C_VCOREIII_JAGUAR2
         tristate "Vitesse VCore-III I2C driver for Jaguar2"
-	depends on VTSS_VCOREIII_JAGUAR2
+	depends on (VTSS_VCOREIII_JAGUAR2 || VTSS_VCOREIII_SERVALT)
 	help
 	  Support for Vitesse Vcore-III I2C controller driver.
 

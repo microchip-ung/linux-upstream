@@ -510,14 +510,14 @@ config SPI_XCOMM
 
 config SPI_VCOREIII_MK1
 	tristate "VCore-III SPI controller"
-	depends on SPI_MASTER && (VTSS_VCOREIII_MK1 || VTSS_VCOREIII_SERVAL1 || VTSS_VCOREIII_JAGUAR2)
+	depends on SPI_MASTER && VTSS_VCOREIII_ARCH
 	select SPI_BITBANG
 	help
 	  SPI driver for VCore-III.
 
 config SPI_JAGUAR2
        tristate "Jaguar2 SPI controller"
-       depends on SPI_MASTER && VTSS_VCOREIII_JAGUAR2
+       depends on SPI_MASTER && (VTSS_VCOREIII_JAGUAR2 || VTSS_VCOREIII_SERVALT)
        help
          SPI driver for Jaguar2.
 
