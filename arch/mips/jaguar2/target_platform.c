@@ -117,10 +117,22 @@ static struct platform_device *target_devices[] __initdata = {
 
 static int __init target_device_init(void)
 {
+#if defined(CONFIG_SERIAL_8250_RUNTIME_UARTS) && (CONFIG_SERIAL_8250_RUNTIME_UARTS > 1)
+    // Bootloader *may* not have set this up, be sure...
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+    vcoreiii_gpio_set_alternate(24, 1);
+    vcoreiii_gpio_set_alternate(25, 1);
+#elif defined(CONFIG_VTSS_VCOREIII_SERVALT)
+    vcoreiii_gpio_set_alternate(20, 1);
+    vcoreiii_gpio_set_alternate(21, 1);
+#else
+#error Unknown platform
+#endif
+#endif
     return platform_add_devices(target_devices, ARRAY_SIZE(target_devices)); 
 }
 module_init(target_device_init);
 
 MODULE_AUTHOR("Lars Povlsen <lpovlsen@vitesse.com>");
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Platform drivers for Jaguar21 platform");
+MODULE_DESCRIPTION("Platform drivers for Jaguar2 platform");
