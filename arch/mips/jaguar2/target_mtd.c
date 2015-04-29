@@ -179,7 +179,7 @@ static void jaguar2_nand_cmd_ctl(struct mtd_info *mtd, int dat,
 
 static struct mtd_partition vcoreiii_partition_info[] = {
     [0] = {
-        .name	= "nand",
+        .name	= "rootfs_data",
         .offset	= 0,
         .size	= MTDPART_SIZ_FULL,
     },
