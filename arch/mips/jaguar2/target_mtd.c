@@ -41,6 +41,14 @@
 
 #include <asm/mach-jaguar2/hardware.h>
 
+static struct mtd_partition vcoreiii_partition_info[] = {
+    [0] = {
+        .name	= "rootfs_data",
+        .offset	= 0,
+        .size	= MTDPART_SIZ_FULL,
+    },
+};
+
 static struct spi_vcoreiii_platform_data spi_jaguar2_cfg = {
     // .no_spi_delay = 1,
 };
@@ -111,6 +119,16 @@ static struct mmc_spi_platform_data jaguar2_mmc_spi_pdata = {
 /*     .cs_control = jaguar2_mtd_cs_control, */
 /* }; */
 
+
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+static struct flash_platform_data jaguar2_spinand_flash_data = {
+    .name = "spi_nand",
+    .parts = vcoreiii_partition_info,
+    .nr_parts = ARRAY_SIZE(vcoreiii_partition_info),
+};
+#endif
+
+
 static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
@@ -122,6 +140,17 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
                 /* .controller_data = &jaguar2_spi_flash_cs,  /\* chip select control  *\/ */
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
         },
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+	{
+		/* the modalias must be the same as spi device driver name */
+		.modalias = "mx35", /* Name of spi_driver for this device */
+		.max_speed_hz = 50000000,     /* max spi clock (SCK) speed in HZ */
+		.bus_num = 0, /* Framework bus number */
+		.chip_select = 1, /* Framework chip select. */
+		.platform_data = &jaguar2_spinand_flash_data,
+		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
+        },
+#endif
 
 #if defined(CONFIG_MMC_SPI) || defined(CONFIG_MMC_SPI_MODULE)
 	{
@@ -135,6 +164,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 	},
 #endif
 
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
         // sync
         {
                 .modalias = "spidev",
@@ -151,6 +181,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
                 .chip_select = SPI_VCOREIII_NUM_HW_CS + 18,    // GPIO 18 == CS
                 .mode = SPI_MODE_0,
         },
+#endif
 
 };
 
@@ -176,14 +207,6 @@ static void jaguar2_nand_cmd_ctl(struct mtd_info *mtd, int dat,
         writeb(dat, this->IO_ADDR_W + offset);
     }
 }
-
-static struct mtd_partition vcoreiii_partition_info[] = {
-    [0] = {
-        .name	= "rootfs_data",
-        .offset	= 0,
-        .size	= MTDPART_SIZ_FULL,
-    },
-};
 
 struct platform_nand_data jaguar2_nand_platdata = {
     .chip = {
@@ -231,6 +254,10 @@ static int __init vcoreiii_mtd_init(void)
                          VTSS_F_ICPU_CFG_PI_MST_PI_MST_CTRL_WAITCC(8));
 
     platform_device_register(&jaguar2_spi);
+
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+    vcoreiii_gpio_set_alternate(8, 1); /* SI_nCS1 */
+#endif
 
     spi_register_board_info(jaguar2_spi_board_info, ARRAY_SIZE(jaguar2_spi_board_info));
 
