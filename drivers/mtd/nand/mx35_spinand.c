@@ -5,6 +5,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/flash.h>
 
 #include "mx35_spinand.h"
 
@@ -832,6 +833,7 @@ static int spinand_probe(struct spi_device *spi_nand)
         struct spinand_info *info;
         struct spinand_state *state;
         struct mtd_part_parser_data ppdata;
+        struct flash_platform_data *data;
 
         info  = devm_kzalloc(&spi_nand->dev, sizeof(struct spinand_info),
                         GFP_KERNEL);
@@ -890,8 +892,12 @@ static int spinand_probe(struct spi_device *spi_nand)
 
         dev_set_drvdata(&spi_nand->dev, mtd);
 
+        data = dev_get_platdata(&spi_nand->dev);
         mtd->priv = chip;
-        mtd->name = dev_name(&spi_nand->dev);
+        if (data && data->name)
+            mtd->name = data->name;
+        else
+            mtd->name = dev_name(&spi_nand->dev);
         mtd->owner = THIS_MODULE;
         mtd->oobsize = 64;
 
@@ -899,7 +905,9 @@ static int spinand_probe(struct spi_device *spi_nand)
                 return -ENXIO;
 
         ppdata.of_node = spi_nand->dev.of_node;
-        return mtd_device_parse_register(mtd, NULL, &ppdata, NULL, 0);
+        return mtd_device_parse_register(mtd, NULL, &ppdata,
+                                         data ? data->parts : NULL,
+                                         data ? data->nr_parts : 0);
 }
 
 /*
