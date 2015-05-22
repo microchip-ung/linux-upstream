@@ -101,7 +101,7 @@ static void rx_buffers_refresh(struct net_device *dev)
             buf_dscr.buf_size_bytes = ETH_FRAME_LEN + ETH_FCS_LEN + lp->driver->props.rx_ifh_size_bytes;
             buf_dscr.buf_state      = lp->rx_desc[i].ufdma_bufstate;
             if((rc = lp->driver->rx_buf_add(lp->driver, &buf_dscr))) {
-                printk(KERN_ERR "uFDMA rx_buf_add error: %s\n", lp->driver->error_txt(lp->driver, rc));
+                dev_err(&dev->dev, "uFDMA rx_buf_add error: %s\n", lp->driver->error_txt(lp->driver, rc));
                 consume_skb(skb);
             } else {
                 lp->rx_desc[i].skb = skb;
@@ -119,6 +119,12 @@ static void RX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
     struct sk_buff *skb = bd->skb;
     struct net_device *dev = skb->dev;
     struct vc3fdma_private *lp = netdev_priv(dev);
+
+    if (unlikely(skb_headroom(skb) < sizeof(ifh_encap))) {
+        dev_err(&dev->dev, "Not enough headroom in SKB (need %u, only have %u)\n", sizeof(ifh_encap), skb_headroom(skb));
+        kfree_skb(skb);
+        return;
+     }
 
     // First add the frame as received by uFDMA (includes IFH *and* FCS)
     skb_put(skb, buf_dscr->frm_length_bytes);
@@ -300,7 +306,7 @@ static int vc3fdma_open(struct net_device *dev)
 
     want = ETH_FRAME_LEN + dev->hard_header_len + ETH_FCS_LEN + lp->driver->props.rx_ifh_size_bytes;
     if ((i = lp->driver->rx_buf_alloc_size_get(lp->driver, want, &alloc_size))) {
-        printk(KERN_ERR "uFDMA rx_buf_alloc_size_get error: %s\n", lp->driver->error_txt(lp->driver, i));
+        dev_err(&dev->dev, "uFDMA rx_buf_alloc_size_get error: %s\n", lp->driver->error_txt(lp->driver, i));
         return -ENOMEM;
     }
     lp->rx_bufsize = alloc_size;   // Add buffer state data
@@ -366,7 +372,7 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
         // Start Tx
         dev->trans_start = jiffies;
         if ((rc = lp->driver->tx(lp->driver, &tbd))) {
-            printk(KERN_ERR "uFDMA transmit error: %s\n", lp->driver->error_txt(lp->driver, rc));
+            dev_err(&dev->dev, "uFDMA transmit error: %s\n", lp->driver->error_txt(lp->driver, rc));
             dev->stats.tx_dropped++;
             kfree_skb(skb);
         } else {
@@ -374,8 +380,8 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
             dev->stats.tx_bytes += skb->len;
         }
     } else {
-        printk(KERN_ERR "tx: skb(%d) tailroom too small: %d - need %d\n", 
-               skb->len, skb_tailroom(skb), lp->driver->props.buf_state_size_bytes);
+        dev_err(&dev->dev, "tx: skb(%d) tailroom too small: %d - need %d\n", 
+                skb->len, skb_tailroom(skb), lp->driver->props.buf_state_size_bytes);
         dev->stats.tx_dropped++;
         kfree_skb(skb);
     }
@@ -421,6 +427,7 @@ struct net_device *vc3fdma_create(void)
     lp->driver = &vtss_ufdma_platform_driver_jaguar2ab;
 #elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C)
     lp->driver = &vtss_ufdma_platform_driver_jaguar2c;
+#else
 #error "Unsupported platform"
 #endif
 

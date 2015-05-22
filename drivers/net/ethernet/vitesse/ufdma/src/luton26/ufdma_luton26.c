@@ -571,21 +571,11 @@ static int CIL_dcb_status_decode(ufdma_state_t *state, ufdma_dcb_t *dcb, ufdma_h
         status->eof                 = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_EOF(dstat);
         status->aborted             = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_ABORT(dstat);
         status->pruned              = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_PRUNED(dstat);
-        status->fragment_size_bytes = 4 * VTSS_X_FDMA_CH_CTL1_BLOCK_TS(ctl1);
 
-        // For non-EOF DCBs, we know that this is the number of bytes received, because
-        // the data area size is always a multiple of 4.
-        // For EOF DCBs, we have to figure out exactly how many bytes the last DCB contains.
-        if (status->eof) {
-            // The accummulated frame size (incl. IFH) is available in dstat.
-            u32 total_frm_size_bytes = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_FRM_LEN(dstat);
-            u32 bytes_avail_in_last_dcb = 4 - (total_frm_size_bytes & 0x3);
-
-            // The number of bytes available in this DCB must be adjusted.
-            if (bytes_avail_in_last_dcb != 4) {
-                status->fragment_size_bytes -= bytes_avail_in_last_dcb;
-            }
-        }
+        // The following is the accummulated frame size, so if a frame spans multiple DCBs, the
+        // fragment size of previous DCBs must be subtracted from this number before it can be
+        // used for anything. "Luckily", this uFDMA driver discards multi-DCB frames.
+        status->fragment_size_bytes = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_FRM_LEN(dstat);
     } else {
         UFDMA_AIL_FUNC_RC(state, cpu_to_bus, hw_dcb->dar, &dar);
         status->sof     = VTSS_X_FDMA_DAR_SOF(dar);

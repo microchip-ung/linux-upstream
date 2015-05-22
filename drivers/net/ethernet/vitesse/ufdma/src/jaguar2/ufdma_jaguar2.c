@@ -28,9 +28,9 @@
 #include "../ail/ufdma.h"       /* Internal header file          */
 #include "ufdma_jaguar2_regs.h" /* For chip register definitions */
 #ifdef __KERNEL__
-#include <linux/string.h> /* For memset() */
+#include <linux/string.h>       /* For memset()                  */
 #else
-#include <string.h>       /* For memset() */
+#include <string.h>             /* For memset()                  */
 #endif
 
 #define JR2_RX_IFH_SIZE_BYTES 28
@@ -581,6 +581,7 @@ static int CIL_uninit(ufdma_state_t *state)
 static int CIL_init(vtss_ufdma_platform_driver_t *self, vtss_ufdma_init_conf_t *init_conf, ufdma_chip_arch_t chip_arch)
 {
     ufdma_state_t *state;
+    u32           pcp, dei;
 
     // Call AIL. This will a.o. check #self and #init_conf and
     // install the remaining public functions.
@@ -612,16 +613,88 @@ static int CIL_init(vtss_ufdma_platform_driver_t *self, vtss_ufdma_init_conf_t *
 
     CIL_interrupts_disable(state, FALSE);
 
-    // Configure the extraction and injection groups for FDMA-based operation (default by API-setup is register-based if running on internal CPU, VRAP if running on external).
+    /*
+     * Rx initialization
+     */
+
+    // Configure the extraction group for FDMA-based operation
     REG_WRM(VTSS_DEVCPU_QS_XTR_XTR_GRP_CFG(JR2_RX_GRP), VTSS_F_DEVCPU_QS_XTR_XTR_GRP_CFG_MODE(2), VTSS_M_DEVCPU_QS_XTR_XTR_GRP_CFG_MODE);
+
+    // Set the channel priority
+    REG_WRM(VTSS_ICPU_CFG_FDMA_FDMA_CH_CFG(JR2_RX_CH), VTSS_F_ICPU_CFG_FDMA_FDMA_CH_CFG_CH_PRIO(JR2_RX_PRIO), VTSS_M_ICPU_CFG_FDMA_FDMA_CH_CFG_CH_PRIO);
+
+    // Enable IFH insertion upon Rx
+    REG_WRM(VTSS_REW_COMMON_PORT_CTRL(JR2_CHIP_PORT_CPU_0), VTSS_F_REW_COMMON_PORT_CTRL_KEEP_IFH_SEL(1), VTSS_M_REW_COMMON_PORT_CTRL_KEEP_IFH_SEL);
+
+    // Disable aging of Rx CPU queues to allow the frames to stay there longer than
+    // on normal front ports.
+    REG_WRM(VTSS_HSCH_HSCH_MISC_PORT_MODE(JR2_CHIP_PORT_CPU_0), VTSS_F_HSCH_HSCH_MISC_PORT_MODE_AGE_DIS(1), VTSS_M_HSCH_HSCH_MISC_PORT_MODE_AGE_DIS);
+    REG_WRM(VTSS_DSM_CFG_BUF_CFG(JR2_CHIP_PORT_CPU_0),          VTSS_F_DSM_CFG_BUF_CFG_AGING_ENA(0),        VTSS_M_DSM_CFG_BUF_CFG_AGING_ENA);
+
+    /*
+     * Tx initialization
+     */
+
+    // Configure the injection group for FDMA-based operation
     REG_WRM(VTSS_DEVCPU_QS_INJ_INJ_GRP_CFG(JR2_TX_GRP), VTSS_F_DEVCPU_QS_INJ_INJ_GRP_CFG_MODE(2), VTSS_M_DEVCPU_QS_INJ_INJ_GRP_CFG_MODE);
 
-    // Set the channel priorities
-    REG_WRM(VTSS_ICPU_CFG_FDMA_FDMA_CH_CFG(JR2_RX_CH), VTSS_F_ICPU_CFG_FDMA_FDMA_CH_CFG_CH_PRIO(JR2_RX_PRIO), VTSS_M_ICPU_CFG_FDMA_FDMA_CH_CFG_CH_PRIO);
+    // Set the channel priority
     REG_WRM(VTSS_ICPU_CFG_FDMA_FDMA_CH_CFG(JR2_TX_CH), VTSS_F_ICPU_CFG_FDMA_FDMA_CH_CFG_CH_PRIO(JR2_TX_PRIO), VTSS_M_ICPU_CFG_FDMA_FDMA_CH_CFG_CH_PRIO);
 
     // Set GAP_SIZE to 0 when injecting with an IFH
     REG_WRM(VTSS_DEVCPU_QS_INJ_INJ_CTRL(JR2_TX_GRP), VTSS_F_DEVCPU_QS_INJ_INJ_CTRL_GAP_SIZE(0), VTSS_M_DEVCPU_QS_INJ_INJ_CTRL_GAP_SIZE);
+
+    // Enable IFH parsing upon injection (no prefix)
+    REG_WRM(VTSS_ASM_CFG_PORT_CFG(JR2_CHIP_PORT_CPU_0), VTSS_F_ASM_CFG_PORT_CFG_INJ_FORMAT_CFG(1), VTSS_M_ASM_CFG_PORT_CFG_INJ_FORMAT_CFG);
+
+    // We don't have a preamble when injecting into the CPU ports (when not using VRAP).
+    REG_WRM(VTSS_ASM_CFG_PORT_CFG(JR2_CHIP_PORT_CPU_0), VTSS_F_ASM_CFG_PORT_CFG_NO_PREAMBLE_ENA(1), VTSS_M_ASM_CFG_PORT_CFG_NO_PREAMBLE_ENA);
+
+    // Prevent chip from moving a possible VStaX header from the frame payload into the IFH (we have already composed
+    // the IFH with a proper VStaX header).
+    REG_WRM(VTSS_ASM_CFG_PORT_CFG(JR2_CHIP_PORT_CPU_0), VTSS_F_ASM_CFG_PORT_CFG_VSTAX2_AWR_ENA(0), VTSS_M_ASM_CFG_PORT_CFG_VSTAX2_AWR_ENA);
+
+    // Setup CPU port 0 to allow for classification of transmission of
+    // switched frames into a user-module-specifiable QoS class.
+    // For the CPU port, we set a one-to-one mapping between a VLAN tag's
+    // PCP and the resulting QoS class. When transmitting switched frames,
+    // the PCP value of the VLAN tag (which is always inserted to get it
+    // switched on a given VID), then controls the priority.
+    // Enable looking into PCP and DEI bits
+    REG_WRM(VTSS_ANA_CL_PORT_QOS_CFG(JR2_CHIP_PORT_CPU_0),
+            VTSS_F_ANA_CL_PORT_QOS_CFG_PCP_DEI_DP_ENA(1) | VTSS_F_ANA_CL_PORT_QOS_CFG_PCP_DEI_QOS_ENA(1),
+            VTSS_M_ANA_CL_PORT_QOS_CFG_PCP_DEI_DP_ENA    | VTSS_M_ANA_CL_PORT_QOS_CFG_PCP_DEI_QOS_ENA);
+
+    // Set-up the one-to-one PCP->QoS mapping
+    for (pcp = 0; pcp < 8; pcp++) {
+        for (dei = 0; dei < 2; dei++) {
+            REG_WR(VTSS_ANA_CL_PORT_PCP_DEI_MAP_CFG(JR2_CHIP_PORT_CPU_0, (8 * dei + pcp)), VTSS_F_ANA_CL_PORT_PCP_DEI_MAP_CFG_PCP_DEI_QOS_VAL(pcp));
+        }
+    }
+
+    // Set CPU ports to be VLAN aware, since frames that we send switched
+    // must contain a VLAN tag for correct classification. One could use
+    // the frame's VStaX header, but that won't work for stacking solutions.
+    // We also set it to pop one tag.
+    REG_WRM(VTSS_ANA_CL_PORT_VLAN_CTRL(JR2_CHIP_PORT_CPU_0),
+            VTSS_F_ANA_CL_PORT_VLAN_CTRL_PORT_VID      (0) |
+            VTSS_F_ANA_CL_PORT_VLAN_CTRL_VLAN_AWARE_ENA(1) |
+            VTSS_F_ANA_CL_PORT_VLAN_CTRL_VLAN_POP_CNT  (1),
+            VTSS_M_ANA_CL_PORT_VLAN_CTRL_PORT_VID          |
+            VTSS_M_ANA_CL_PORT_VLAN_CTRL_VLAN_AWARE_ENA    |
+            VTSS_M_ANA_CL_PORT_VLAN_CTRL_VLAN_POP_CNT);
+
+    // Enable stacking on CPU ports for VLAN classification purposes
+    REG_WRM(VTSS_ANA_CL_PORT_STACKING_CTRL(JR2_CHIP_PORT_CPU_0),
+            VTSS_F_ANA_CL_PORT_STACKING_CTRL_STACKING_AWARE_ENA(1),
+            VTSS_M_ANA_CL_PORT_STACKING_CTRL_STACKING_AWARE_ENA);
+    REG_WRM(VTSS_ANA_CL_PORT_STACKING_CTRL(JR2_CHIP_PORT_CPU_0),
+            VTSS_F_ANA_CL_PORT_STACKING_CTRL_STACKING_HEADER_DISCARD_ENA(0),
+            VTSS_M_ANA_CL_PORT_STACKING_CTRL_STACKING_HEADER_DISCARD_ENA);
+
+    /**
+     * Common Rx/Tx initialization
+     */
 
     // Clear and enable LLP, FRM and global interrupts.
     CIL_interrupts_enable(state);

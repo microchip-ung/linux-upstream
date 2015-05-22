@@ -64,7 +64,6 @@
 #define VTSS_F_FDMA_CH_CTL0_INT_EN                                       VTSS_BIT(0)
 #define VTSS_FDMA_CH_CTL1(gi)                                            VTSS_IOREG_IX(VTSS_TO_DMAC, 0x0, gi, 22, 0, 7)
 #define VTSS_X_FDMA_CH_CTL1_DONE(x)                                      VTSS_EXTRACT_BITFIELD(x, 12, 1)
-#define VTSS_X_FDMA_CH_CTL1_BLOCK_TS(x)                                  VTSS_EXTRACT_BITFIELD(x, 0, 12)
 #define VTSS_FDMA_CH_DSTAT(gi)                                           VTSS_IOREG_IX(VTSS_TO_DMAC, 0x0, gi, 22, 0, 10)
 #define VTSS_FDMA_CH_DSTATAR(gi)                                         VTSS_IOREG_IX(VTSS_TO_DMAC, 0x0, gi, 22, 0, 14)
 #define VTSS_FDMA_CH_CFG0(gi)                                            VTSS_IOREG_IX(VTSS_TO_DMAC, 0x0, gi, 22, 0, 16)
