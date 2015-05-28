@@ -139,102 +139,103 @@ static int AIL_buf_dscr_chk(ufdma_state_t *state, vtss_ufdma_buf_dscr_t *buf_dsc
 /**
  * AIL_debug_print_dcb_list()
  */
-static void AIL_debug_print_dcb_list(ufdma_state_t *state, BOOL full, int (*pr)(const char *fmt, ...), ufdma_dcb_t *dcb, char *name)
+static void AIL_debug_print_dcb_list(ufdma_state_t *state, BOOL full, int (*pr)(void *ref, const char *fmt, ...), void *ref, ufdma_dcb_t *dcb, char *name)
 {
     u32  cnt = 1;
 
-    pr("%s:%s\n", name, dcb ? "" : " NULL");
+    pr(ref, "%s:%s\n", name, dcb ? "" : " NULL");
     while (dcb) {
         void *llp;
 
         // Print all of them or the first four and the last.
         if (full || cnt <= 4 || dcb->next == NULL) {
-            pr(" %3u: 0x%08x[&dscr=%p, dscr.buf=%p (%u), dscr.buf_state=%p, hw->next=", cnt, dcb, &dcb->buf_dscr, dcb->buf_dscr.buf, dcb->buf_dscr.buf_size_bytes, dcb->buf_dscr.buf_state);
+            pr(ref, " %3u: 0x%08x[&dscr=%p, dscr.buf=%p (%u), dscr.buf_state=%p, hw->next=", cnt, dcb, &dcb->buf_dscr, dcb->buf_dscr.buf, dcb->buf_dscr.buf_size_bytes, dcb->buf_dscr.buf_state);
             llp = state->cil.hw_dcb_next(state, dcb);
 
             if (llp) {
-                pr("%p]\n", llp);
+                pr(ref, "%p]\n", llp);
             } else {
-                pr("NULL]\n");
+                pr(ref, "NULL]\n");
             }
         } else if (cnt == 5) {
-            pr(" ...\n");
+            pr(ref, " ...\n");
         }
 
         dcb = dcb->next;
         cnt++;
     }
 
-    pr("\n");
+    pr(ref, "\n");
 }
 
 /**
  * AIL_debug_print_do()
  */
-static int AIL_debug_print_do(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, int (*pr)(const char *fmt, ...))
+static int AIL_debug_print_do(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, int (*pr)(void *ref, const char *fmt, ...))
 {
     vtss_ufdma_throttle_conf_t *throttle_conf  = &state->throttle_conf;
     ufdma_throttle_state_t     *throttle_state = &state->throttle_state;
     u32                        rx_qu;
+    void                       *ref = info->ref;
     BOOL                       pr_full = (info->full != 0);
     BOOL                       pr_rx   = (info->group == VTSS_UFDMA_DEBUG_GROUP_ALL || info->group == VTSS_UFDMA_DEBUG_GROUP_RX);
     BOOL                       pr_tx   = (info->group == VTSS_UFDMA_DEBUG_GROUP_ALL || info->group == VTSS_UFDMA_DEBUG_GROUP_TX);
 
     if (pr_rx) {
-        pr("Rx\n");
-        pr("--\n");
-        pr("Poll calls:      %12u\n",    state->stati.rx_poll_calls);
-        pr("Buf Add calls:   %12u\n",    state->stati.rx_buf_add_calls);
-        pr("Callback calls:  %12u\n",    state->stati.rx_callback_calls);
-        pr("Callback bytes:  %12llu\n",  state->stati.rx_callback_bytes);
-        pr("Multi-DCB drops: %12u\n",    state->stati.rx_multi_dcb_drops);
-        pr("Oversize drops:  %12u\n",    state->stati.rx_oversize_drops);
-        pr("Abort drops:     %12u\n",    state->stati.rx_abort_drops);
-        pr("Pruned drops:    %12u\n",    state->stati.rx_pruned_drops);
-        pr("Suspended drops: %12u\n",    state->stati.rx_suspended_drops);
-        pr("CIL drops:       %12u\n\n",  state->stati.rx_cil_drops);
+        pr(ref, "Rx\n");
+        pr(ref, "--\n");
+        pr(ref, "Poll calls:      %12u\n",    state->stati.rx_poll_calls);
+        pr(ref, "Buf Add calls:   %12u\n",    state->stati.rx_buf_add_calls);
+        pr(ref, "Callback calls:  %12u\n",    state->stati.rx_callback_calls);
+        pr(ref, "Callback bytes:  %12llu\n",  state->stati.rx_callback_bytes);
+        pr(ref, "Multi-DCB drops: %12u\n",    state->stati.rx_multi_dcb_drops);
+        pr(ref, "Oversize drops:  %12u\n",    state->stati.rx_oversize_drops);
+        pr(ref, "Abort drops:     %12u\n",    state->stati.rx_abort_drops);
+        pr(ref, "Pruned drops:    %12u\n",    state->stati.rx_pruned_drops);
+        pr(ref, "Suspended drops: %12u\n",    state->stati.rx_suspended_drops);
+        pr(ref, "CIL drops:       %12u\n\n",  state->stati.rx_cil_drops);
 
-        pr("Qu Frames       Bytes\n");
-        pr("-- ------------ ------------\n");
+        pr(ref, "Qu Frames       Bytes\n");
+        pr(ref, "-- ------------ ------------\n");
         for (rx_qu = 0; rx_qu < ARRSZ(state->stati.rx_frms); rx_qu++) {
-            pr("%2u %12u %12llu\n", rx_qu, state->stati.rx_frms[rx_qu], state->stati.rx_bytes[rx_qu]);
+            pr(ref, "%2u %12u %12llu\n", rx_qu, state->stati.rx_frms[rx_qu], state->stati.rx_bytes[rx_qu]);
         }
 
         // Print throttle statistics.
-        pr("\nThrottle ticks: %llu\n", throttle_state->tick_cnt);
-        pr("Qu Frame Limit/Tick Byte Limit/Tick Max Frames/Tick Max Bytes/Tick # Suspends Suspend Ticks Left\n");
-        pr("-- ---------------- --------------- --------------- -------------- ---------- ------------------\n");
+        pr(ref, "\nThrottle ticks: %llu\n", throttle_state->tick_cnt);
+        pr(ref, "Qu Frame Limit/Tick Byte Limit/Tick Max Frames/Tick Max Bytes/Tick # Suspends Suspend Ticks Left\n");
+        pr(ref, "-- ---------------- --------------- --------------- -------------- ---------- ------------------\n");
         for (rx_qu = 0; rx_qu < ARRSZ(throttle_conf->frm_limit_per_tick); rx_qu++) {
             u32 frm_limit  = throttle_conf->frm_limit_per_tick[rx_qu];
             u32 byte_limit = throttle_conf->byte_limit_per_tick[rx_qu];
-            pr("%2u %16u %15u %15u %14u %10u %18u\n", rx_qu, frm_limit, byte_limit, throttle_state->statistics_max_frames_per_tick[rx_qu], throttle_state->statistics_max_bytes_per_tick[rx_qu], throttle_state->suspend_cnt[rx_qu], throttle_state->ticks_left[rx_qu]);
+            pr(ref, "%2u %16u %15u %15u %14u %10u %18u\n", rx_qu, frm_limit, byte_limit, throttle_state->statistics_max_frames_per_tick[rx_qu], throttle_state->statistics_max_bytes_per_tick[rx_qu], throttle_state->suspend_cnt[rx_qu], throttle_state->ticks_left[rx_qu]);
         }
 
-        pr("\nRx Pointers\n");
-        pr("-----------\n");
-        AIL_debug_print_dcb_list(state, pr_full, pr, state->rx_head_sw, "rx_head_sw");
-        AIL_debug_print_dcb_list(state, pr_full, pr, state->rx_head_hw, "rx_head_hw");
+        pr(ref, "\nRx Pointers\n");
+        pr(ref, "-----------\n");
+        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->rx_head_sw, "rx_head_sw");
+        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->rx_head_hw, "rx_head_hw");
 
     }
 
     if (pr_tx) {
-        pr("\nTx\n");
-        pr("--\n");
-        pr("Poll calls:      %12u\n",   state->stati.tx_poll_calls);
-        pr("Tx calls:        %12u\n",   state->stati.tx_calls);
-        pr("Tx bytes:        %12llu\n", state->stati.tx_bytes);
-        pr("Callback calls:  %12u\n",   state->stati.tx_done_callback_calls);
+        pr(ref, "\nTx\n");
+        pr(ref, "--\n");
+        pr(ref, "Poll calls:      %12u\n",   state->stati.tx_poll_calls);
+        pr(ref, "Tx calls:        %12u\n",   state->stati.tx_calls);
+        pr(ref, "Tx bytes:        %12llu\n", state->stati.tx_bytes);
+        pr(ref, "Callback calls:  %12u\n",   state->stati.tx_done_callback_calls);
 
-        pr("\nTx Pointers\n");
-        pr("-----------\n");
-        AIL_debug_print_dcb_list(state, pr_full, pr, state->tx_head_sw, "tx_head_sw");
-        AIL_debug_print_dcb_list(state, pr_full, pr, state->tx_tail_sw, "tx_tail_sw");
-        AIL_debug_print_dcb_list(state, pr_full, pr, state->tx_head_hw, "tx_head_hw");
+        pr(ref, "\nTx Pointers\n");
+        pr(ref, "-----------\n");
+        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_head_sw, "tx_head_sw");
+        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_tail_sw, "tx_tail_sw");
+        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_head_hw, "tx_head_hw");
     }
 
-    pr("\nRx/Tx\n");
-    pr("-----\n");
-    pr("Poll calls:      %12u\n", state->stati.poll_calls);
+    pr(ref, "\nRx/Tx\n");
+    pr(ref, "-----\n");
+    pr(ref, "Poll calls:      %12u\n", state->stati.poll_calls);
 
     return UFDMA_RC_OK;
 }
@@ -919,9 +920,10 @@ static int AIL_uninit(vtss_ufdma_platform_driver_t *self)
 /**
  * AIL_debug_print()
  */
-static int AIL_debug_print(vtss_ufdma_platform_driver_t *self, vtss_ufdma_debug_info_t *info, int (*pr)(const char *fmt, ...))
+static int AIL_debug_print(vtss_ufdma_platform_driver_t *self, vtss_ufdma_debug_info_t *info, int (*pr)(void *ref, const char *fmt, ...))
 {
     ufdma_state_t *state;
+    void          *ref;
 
     UFDMA_RC(AIL_self_chk(self, &state));
 
@@ -933,18 +935,19 @@ static int AIL_debug_print(vtss_ufdma_platform_driver_t *self, vtss_ufdma_debug_
         return UFDMA_RC_ARG;
     }
 
+    ref = info->ref;
     if (info->layer == VTSS_UFDMA_DEBUG_LAYER_AIL || info->layer == VTSS_UFDMA_DEBUG_LAYER_ALL) {
-        (void)pr("Application Interface Layer\n");
-        (void)pr("---------------------------\n\n");
+        (void)pr(ref, "Application Interface Layer\n");
+        (void)pr(ref, "---------------------------\n\n");
         UFDMA_RC(AIL_debug_print_do(state, info, pr));
         if (info->layer == VTSS_UFDMA_DEBUG_LAYER_ALL) {
-            (void)pr("\n");
+            (void)pr(ref, "\n");
         }
     }
 
     if (info->layer == VTSS_UFDMA_DEBUG_LAYER_CIL || info->layer == VTSS_UFDMA_DEBUG_LAYER_ALL) {
-        (void)pr("Chip Interface Layer\n");
-        (void)pr("--------------------\n\n");
+        (void)pr(ref, "Chip Interface Layer\n");
+        (void)pr(ref, "--------------------\n\n");
         UFDMA_CIL_FUNC_RC(state, debug_print, info, pr);
     }
 

@@ -450,7 +450,7 @@ typedef struct {
     int (*uninit)(struct ufdma_state_s *state);
 
     // CIL function for printing state
-    int (*debug_print)(struct ufdma_state_s *state, vtss_ufdma_debug_info_t *info, int (*pr)(const char *fmt, ...) __attribute__ ((format (printf, 1, 2))));
+    int (*debug_print)(struct ufdma_state_s *state, vtss_ufdma_debug_info_t *info, int (*pr)(void *ref, const char *fmt, ...) __attribute__ ((format (printf, 2, 3))));
 
     // CIL function for getting a DCB's H/W LLP pointer (for debugging purposes)
     void *(*hw_dcb_next)(struct ufdma_state_s *state, ufdma_dcb_t *dcb);

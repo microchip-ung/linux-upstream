@@ -351,6 +351,7 @@ typedef struct {
     vtss_ufdma_debug_layer_t layer; /**< Layer                  */
     vtss_ufdma_debug_group_t group; /**< Group                  */
     unsigned int             full;  /**< 0 to limit information */
+    void                    *ref;   /**< Print function reference */
 } vtss_ufdma_debug_info_t;
 
 /**
@@ -634,12 +635,12 @@ typedef struct vtss_ufdma_platform_driver_s {
      *
      * \param self [IN] Reference to this structure (kind of 'this' pointer)
      * \param info [IN] Controls which layer and group to print.
-     * \param pr   [IN] printf()-like function used to print the debug info.
+     * \param pr   [IN] printf()-like function used to print the debug info. 'ref' is implementation-defined.
      *
      * \return 0 on success, anything else on error. Use vtss_ufdma_platform_driver_t::error_txt()
      * to convert to a textual representation.
      */
-    int (*debug_print)(struct vtss_ufdma_platform_driver_s *self, vtss_ufdma_debug_info_t *info, int (*pr)(const char *fmt, ...) __attribute__ ((format (printf, 1, 2))));
+    int (*debug_print)(struct vtss_ufdma_platform_driver_s *self, vtss_ufdma_debug_info_t *info, int (*pr)(void *ref, const char *fmt, ...) __attribute__ ((format (printf, 2, 3))));
 
     /**
      * Clear internal statistics

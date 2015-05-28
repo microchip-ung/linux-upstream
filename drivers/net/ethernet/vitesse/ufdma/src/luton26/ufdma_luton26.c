@@ -54,22 +54,23 @@
 /**
  * CIL_debug_print()
  */
-static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, int (*pr)(const char *fmt, ...))
+static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, int (*pr)(void *ref, const char *fmt, ...))
 {
     u32  i;
+    void *ref    = info->ref;
     BOOL pr_full = (info->full != 0);
     BOOL pr_rx   = (info->group == VTSS_UFDMA_DEBUG_GROUP_ALL || info->group == VTSS_UFDMA_DEBUG_GROUP_RX);
     BOOL pr_tx   = (info->group == VTSS_UFDMA_DEBUG_GROUP_ALL || info->group == VTSS_UFDMA_DEBUG_GROUP_TX);
 
     if (pr_rx) {
-        pr("Rx channel: %u\n", LU26_RX_CH);
+        pr(ref, "Rx channel: %u\n", LU26_RX_CH);
     }
 
     if (pr_tx) {
-        pr("Tx channel: %u\n", LU26_TX_CH);
+        pr(ref, "Tx channel: %u\n", LU26_TX_CH);
     }
 
-    pr("\nFDMA:CH[x] registers:\n");
+    pr(ref, "\nFDMA:CH[x] registers:\n");
     for (i = 0; i < 8; i++) {
         if (!pr_full) {
             if (i == LU26_RX_CH) {
@@ -85,44 +86,44 @@ static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, 
             }
         }
 
-        pr(" SAR[%u]                    = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_SAR(i)));
-        pr(" DAR[%u]                    = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_DAR(i)));
-        pr(" LLP[%u]                    = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_LLP(i)));
-        pr(" CTL0[%u]                   = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_CTL0(i)));
-        pr(" CTL1[%u]                   = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_CTL1(i)));
-        pr(" DSTAT[%u]                  = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_DSTAT(i)));
-        pr(" DSTATAR[%u]                = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_DSTATAR(i)));
-        pr(" CFG0[%u]                   = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_CFG0(i)));
-        pr(" CFG1[%u]                   = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_CFG1(i)));
+        pr(ref, " SAR[%u]                    = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_SAR(i)));
+        pr(ref, " DAR[%u]                    = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_DAR(i)));
+        pr(ref, " LLP[%u]                    = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_LLP(i)));
+        pr(ref, " CTL0[%u]                   = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_CTL0(i)));
+        pr(ref, " CTL1[%u]                   = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_CTL1(i)));
+        pr(ref, " DSTAT[%u]                  = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_DSTAT(i)));
+        pr(ref, " DSTATAR[%u]                = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_DSTATAR(i)));
+        pr(ref, " CFG0[%u]                   = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_CFG0(i)));
+        pr(ref, " CFG1[%u]                   = 0x%08x\n", i, REG_RD(VTSS_FDMA_CH_CFG1(i)));
     }
 
-    pr("\nFDMA:INTR registers:\n");
-    pr(" RAW_TFR                   = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_RAW_TFR));
-    pr(" RAW_BLOCK                 = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_RAW_BLOCK));
-    pr(" RAW_ERR                   = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_RAW_ERR));
-    pr(" STATUS_TFR                = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_STATUS_TFR));
-    pr(" STATUS_BLOCK              = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_STATUS_BLOCK));
-    pr(" STATUS_ERR                = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_STATUS_ERR));
-    pr(" MASK_TFR                  = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_MASK_TFR));
-    pr(" MASK_BLOCK                = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_MASK_BLOCK));
-    pr(" MASK_ERR                  = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_MASK_ERR));
-    pr(" STATUSINT                 = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_STATUSINT));
+    pr(ref, "\nFDMA:INTR registers:\n");
+    pr(ref, " RAW_TFR                   = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_RAW_TFR));
+    pr(ref, " RAW_BLOCK                 = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_RAW_BLOCK));
+    pr(ref, " RAW_ERR                   = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_RAW_ERR));
+    pr(ref, " STATUS_TFR                = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_STATUS_TFR));
+    pr(ref, " STATUS_BLOCK              = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_STATUS_BLOCK));
+    pr(ref, " STATUS_ERR                = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_STATUS_ERR));
+    pr(ref, " MASK_TFR                  = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_MASK_TFR));
+    pr(ref, " MASK_BLOCK                = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_MASK_BLOCK));
+    pr(ref, " MASK_ERR                  = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_MASK_ERR));
+    pr(ref, " STATUSINT                 = 0x%08x\n", REG_RD(VTSS_FDMA_INTR_STATUSINT));
 
-    pr("\nFDMA:MISC registers:\n");
-    pr(" DMA_CFG_REG               = 0x%08x\n", REG_RD(VTSS_FDMA_MISC_DMA_CFG_REG));
-    pr(" CH_EN_REG                 = 0x%08x\n", REG_RD(VTSS_FDMA_MISC_CH_EN_REG));
-    pr(" DMA_COMP_VERSION          = 0x%08x\n\n", REG_RD(VTSS_FDMA_MISC_DMA_COMP_VERSION));
+    pr(ref, "\nFDMA:MISC registers:\n");
+    pr(ref, " DMA_CFG_REG               = 0x%08x\n", REG_RD(VTSS_FDMA_MISC_DMA_CFG_REG));
+    pr(ref, " CH_EN_REG                 = 0x%08x\n", REG_RD(VTSS_FDMA_MISC_CH_EN_REG));
+    pr(ref, " DMA_COMP_VERSION          = 0x%08x\n\n", REG_RD(VTSS_FDMA_MISC_DMA_COMP_VERSION));
 
     if (pr_rx) {
-        pr("Rx group: %u\n", LU26_RX_GRP);
+        pr(ref, "Rx group: %u\n", LU26_RX_GRP);
     }
 
     if (pr_tx) {
-        pr("Tx group: %u\n", LU26_TX_GRP);
+        pr(ref, "Tx group: %u\n", LU26_TX_GRP);
     }
 
     if (pr_rx) {
-        pr("\nDEVCPU_QS:XTR registers:\n");
+        pr(ref, "\nDEVCPU_QS:XTR registers:\n");
         for (i = 0; i < 2; i++) {
             if (!pr_full) {
                 if (i != LU26_RX_GRP) {
@@ -130,18 +131,18 @@ static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, 
                 }
             }
 
-            pr(" XTR_FRM_PRUNING[%u]        = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_XTR_XTR_FRM_PRUNING(i)));
-            pr(" XTR_GRP_CFG[%u]            = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_XTR_XTR_GRP_CFG(i)));
-            pr(" XTR_MAP[%u]                = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_XTR_XTR_MAP(i)));
+            pr(ref, " XTR_FRM_PRUNING[%u]        = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_XTR_XTR_FRM_PRUNING(i)));
+            pr(ref, " XTR_GRP_CFG[%u]            = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_XTR_XTR_GRP_CFG(i)));
+            pr(ref, " XTR_MAP[%u]                = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_XTR_XTR_MAP(i)));
         }
 
-        pr(" XTR_FLUSH                 = 0x%08x\n", REG_RD(VTSS_DEVCPU_QS_XTR_XTR_QU_FLUSH));
-        pr(" XTR_DATA_PRESENT          = 0x%08x\n", REG_RD(VTSS_DEVCPU_QS_XTR_XTR_DATA_PRESENT));
-        pr(" XTR_QU_DBG                = 0x%08x\n", REG_RD(VTSS_DEVCPU_QS_XTR_XTR_QU_DBG));
+        pr(ref, " XTR_FLUSH                 = 0x%08x\n", REG_RD(VTSS_DEVCPU_QS_XTR_XTR_QU_FLUSH));
+        pr(ref, " XTR_DATA_PRESENT          = 0x%08x\n", REG_RD(VTSS_DEVCPU_QS_XTR_XTR_DATA_PRESENT));
+        pr(ref, " XTR_QU_DBG                = 0x%08x\n", REG_RD(VTSS_DEVCPU_QS_XTR_XTR_QU_DBG));
     }
 
     if (pr_tx) {
-        pr("\nDEVCPU_QS:INJ registers:\n");
+        pr(ref, "\nDEVCPU_QS:INJ registers:\n");
         for (i = 0; i < 2; i++) {
             if (!pr_full) {
                 if (i != LU26_TX_GRP) {
@@ -149,19 +150,19 @@ static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, 
                 }
             }
 
-            pr(" INJ_GRP_CFG[%u]            = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_INJ_INJ_GRP_CFG(i)));
-            pr(" INJ_CTRL[%u]               = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_INJ_INJ_CTRL(i)));
-            pr(" INJ_ERR[%u]                = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_INJ_INJ_ERR(i)));
+            pr(ref, " INJ_GRP_CFG[%u]            = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_INJ_INJ_GRP_CFG(i)));
+            pr(ref, " INJ_CTRL[%u]               = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_INJ_INJ_CTRL(i)));
+            pr(ref, " INJ_ERR[%u]                = 0x%08x\n", i, REG_RD(VTSS_DEVCPU_QS_INJ_INJ_ERR(i)));
         }
 
-        pr(" INJ_STATUS                = 0x%08x\n", REG_RD(VTSS_DEVCPU_QS_INJ_INJ_STATUS));
+        pr(ref, " INJ_STATUS                = 0x%08x\n", REG_RD(VTSS_DEVCPU_QS_INJ_INJ_STATUS));
     }
 
-    pr("\nICPU_CFG:GPDMA registers:\n");
-    pr(" FDMA_CFG                  = 0x%08x\n", REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_CFG));
-    pr(" FDMA_FRM_CNT              = 0x%08x\n", REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_FRM_CNT));
-    pr(" FDMA_BP_TO_INT            = 0x%08x\n", REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_BP_TO_INT));
-    pr(" FDMA_BP_TO_DIV            = 0x%08x\n", REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_BP_TO_DIV));
+    pr(ref, "\nICPU_CFG:GPDMA registers:\n");
+    pr(ref, " FDMA_CFG                  = 0x%08x\n", REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_CFG));
+    pr(ref, " FDMA_FRM_CNT              = 0x%08x\n", REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_FRM_CNT));
+    pr(ref, " FDMA_BP_TO_INT            = 0x%08x\n", REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_BP_TO_INT));
+    pr(ref, " FDMA_BP_TO_DIV            = 0x%08x\n", REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_BP_TO_DIV));
 
     for (i = 0; i < 8; i++) {
         if (!pr_full) {
@@ -178,7 +179,7 @@ static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, 
             }
         }
 
-        pr(" FDMA_CH_CFG[%u]            = 0x%08x\n", i, REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_CH_CFG(i)));
+        pr(ref, " FDMA_CH_CFG[%u]            = 0x%08x\n", i, REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_CH_CFG(i)));
     }
 
     if (pr_rx) {
@@ -189,8 +190,8 @@ static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, 
                 }
             }
 
-            pr(" FDMA_XTR_CFG[%u]           = 0x%08x\n", i, REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_XTR_CFG(i)));
-            pr(" FDMA_XTR_STAT_LAST_DCB[%u] = 0x%08x\n", i, REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB(i)));
+            pr(ref, " FDMA_XTR_CFG[%u]           = 0x%08x\n", i, REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_XTR_CFG(i)));
+            pr(ref, " FDMA_XTR_STAT_LAST_DCB[%u] = 0x%08x\n", i, REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB(i)));
         }
     }
 
@@ -202,18 +203,18 @@ static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, 
                 }
             }
 
-            pr(" FDMA_INJ_CFG[%u]           = 0x%08x\n", i, REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_INJ_CFG(i)));
+            pr(ref, " FDMA_INJ_CFG[%u]           = 0x%08x\n", i, REG_RD(VTSS_ICPU_CFG_GPDMA_FDMA_INJ_CFG(i)));
         }
     }
 
     if (pr_rx) {
         // For throttling
-        pr("\nSYS registers\n");
-        pr(" SYSTEM:PORT_MODE(27)      = 0x%08x\n", REG_RD(VTSS_SYS_SYSTEM_PORT_MODE(27)));
-        pr(" SCH:SCH_CPU               = 0x%08x\n", REG_RD(VTSS_SYS_SCH_SCH_CPU));
+        pr(ref, "\nSYS registers\n");
+        pr(ref, " SYSTEM:PORT_MODE(27)      = 0x%08x\n", REG_RD(VTSS_SYS_SYSTEM_PORT_MODE(27)));
+        pr(ref, " SCH:SCH_CPU               = 0x%08x\n", REG_RD(VTSS_SYS_SCH_SCH_CPU));
     }
 
-    pr("\n");
+    pr(ref, "\n");
     return UFDMA_RC_OK;
 }
 
