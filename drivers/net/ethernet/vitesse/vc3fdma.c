@@ -35,6 +35,12 @@
 #include <linux/skbuff.h>
 #include <linux/platform_device.h>
 #include <linux/jiffies.h>
+#include <linux/seq_file.h>
+#if defined(CONFIG_DEBUG_FS)
+#include <linux/debugfs.h>
+#elif defined(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
 
 #include "vtss_ufdma_api.h"
 
@@ -59,14 +65,16 @@ static u8 ifh_encap [] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 #define PROTO_B1 13
 
 #define DRV_NAME        "vc3fdma"
-#define DRV_VERSION     "0.30"
-#define DRV_RELDATE     "2015/21/05"
+#define DRV_VERSION     "0.32"
+#define DRV_RELDATE     "2015/28/05"
+
+static vtss_ufdma_platform_driver_t *ufdma_driver;
 
 struct vc3fdma_device {
     struct net_device *dev;
 };
 
-#define RX_BUFFERS 16
+#define RX_BUFFERS 64
 
 typedef struct {
     struct sk_buff        *skb;               // Associated SKB (or NULL)
@@ -79,6 +87,11 @@ struct vc3fdma_private {
     struct net_device *dev;
     struct napi_struct napi;
     vtss_ufdma_platform_driver_t *driver;
+#if defined(CONFIG_DEBUG_FS)
+    struct dentry *dump_file;
+#elif defined(CONFIG_PROC_FS)
+    struct proc_dir_entry *dump_file;
+#endif
     // Rx state
     int rx_work_done;
     size_t rx_bufsize;
@@ -399,6 +412,34 @@ static const struct net_device_ops vc3fdma_netdev_ops = {
     .ndo_set_mac_address = eth_mac_addr,
 };
 
+static int show_ufdma(struct seq_file *m, void *v)
+{
+    vtss_ufdma_debug_info_t info;
+
+    memset(&info, 0, sizeof(info));
+    info.layer = VTSS_UFDMA_DEBUG_LAYER_ALL;
+    info.group = VTSS_UFDMA_DEBUG_GROUP_ALL;
+    info.full = 1;
+    info.ref = m;
+
+    seq_printf(m, "Driver: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n\n");
+    seq_printf(m, "uFDMA state:\n\n");
+    ufdma_driver->debug_print(ufdma_driver, &info, (void*)seq_printf);
+
+    return 0;
+}
+
+static int ufdma_open(struct inode *inode, struct file *file)
+{
+    return single_open(file, show_ufdma, NULL);
+}
+
+static const struct file_operations ufdma_fops = {
+    .open       = ufdma_open,
+    .read       = seq_read,
+    .llseek     = seq_lseek,
+    .release	= single_release,
+};
 
 struct net_device *vc3fdma_create(void)
 {
@@ -430,6 +471,9 @@ struct net_device *vc3fdma_create(void)
 #else
 #error "Unsupported platform"
 #endif
+
+    // For debug reference
+    ufdma_driver = lp->driver;
 
     // Initialize uFDMA
     memset(&init_conf, 0, sizeof(init_conf));
@@ -478,6 +522,13 @@ struct net_device *vc3fdma_create(void)
     eth_hw_addr_random(dev);
     memset(&dev->broadcast[0], 0xff, 6);
 
+    // Debug procfs file
+#if defined(CONFIG_DEBUG_FS)
+    lp->dump_file = debugfs_create_file(DRV_NAME, S_IRUGO, NULL, NULL, &ufdma_fops);
+#elif defined(CONFIG_PROC_FS)
+    lp->dump_file = proc_create(DRV_NAME, S_IRUGO,  NULL, &ufdma_fops);
+#endif
+
     spin_lock_init(&lp->lock);
 
     return dev;
@@ -522,7 +573,15 @@ static int vc3fdma_probe(struct platform_device *pdev)
 static int vc3fdma_remove(struct platform_device *pdev)
 {
     struct net_device *dev = platform_get_drvdata(pdev);
+    struct vc3fdma_private *lp = netdev_priv(dev);
 
+    if (lp->dump_file) {
+#if defined(CONFIG_DEBUG_FS)
+        debugfs_remove(lp->dump_file);
+#elif defined(CONFIG_PROC_FS)
+        proc_remove(lp->dump_file);
+#endif
+    }
     unregister_netdev(dev);
     free_netdev(dev);
 
@@ -530,7 +589,7 @@ static int vc3fdma_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver vc3fdma_driver = {
-    .driver.name = "vc3fdma",
+    .driver.name = DRV_NAME,
     .probe = vc3fdma_probe,
     .remove = vc3fdma_remove,
 };
