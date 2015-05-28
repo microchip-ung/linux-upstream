@@ -29,6 +29,20 @@
 #include <linux/netdevice.h>
 #include <linux/u64_stats_sync.h>
 
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
+#define IFH_ID   0x01  /* No IFH_ID in Luton26, madeup 0x01 */
+#define IFH_LEN  8
+#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
+#define IFH_ID   0x05
+#define IFH_LEN  16
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#define IFH_ID   0x07
+#define IFH_LEN  28
+#else
+#error Invalid architecture type
+#endif
+#define IFH_ENCAP_LEN (12+4+IFH_LEN)    // Eth encap + IFH
+
 struct vtss_if_mux_pcpu_stats {
     u64                         rx_packets;
     u64                         rx_bytes;

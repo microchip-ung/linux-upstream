@@ -77,62 +77,44 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 
     skb = *pskb;
 
-#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
-    if (skb->len < (10 +4)) {
-        printk(KERN_INFO "skb->len < 14\n");
+    if (skb->len < ETH_ZLEN) {
+        // Where should this be counted??
+        dev_err(&dev->dev, "Short frame: %u bytes\n", skb->len);
         return RX_HANDLER_PASS;
     }
 
-    if (skb->protocol != htons(0x8880) || skb->data[0] != 0 || skb->data[1] != 1) {
+    if (skb->protocol != htons(0x8880) || skb->data[0] != 0 || skb->data[1] != IFH_ID) {
         // TODO, Where should this be counted??
         printk(KERN_INFO "Not for us: 0x%04x %02hhx %02hhx\n",
                skb->protocol, skb->data[0], skb->data[1]);
         return RX_HANDLER_PASS;
     }
 
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
     // Parse the VID
     vid = (skb->data[8] & 0xf);
     vid <<= 8;
     vid |= skb->data[9];
-
-    if (vid < 1 || vid >= VLAN_N_VID) {
-        // TODO, Where should this be counted??
-        printk(KERN_INFO "Vid out of range: %u\n", vid);
-        return RX_HANDLER_PASS;
-    }
-
-#else
-    // Start of hack ///////////////////////////////////////////////////////////
-    // TODO - rewrite, this is just a hack to get us started. The following
-    // should be supported:
-    // - An option to controle header type
-    // - Multiple chips
-    // - Take extraction queue and sflow into account
-    if (skb->len < (18 + 4)) { // TODO!!!
-        // Where should this be counted??
-        return RX_HANDLER_PASS;
-    }
-
-    // check that this is for Serval - currently the only supported chip
-    if (skb->protocol != htons(0x8880) || skb->data[0] != 0 || skb->data[1] != 5) {
-        // TODO, Where should this be counted??
-        //printk(KERN_INFO "Not for us: 0x%04x %02hhx %02hhx\n",
-        //       skb->protocol, skb->data[0], skb->data[1]);
-        return RX_HANDLER_PASS;
-    }
-
+#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
     // Parse the VID
     vid = (skb->data[16] & 0xf);
     vid <<= 8;
     vid |= skb->data[17];
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#define IFH_OFF  2                 // We have IFH ID first (2 bytes)
+#define VLAN_OFF (IFH_OFF + 18)    // Classified VID at byte offset 18(msb)+19(lsb)
+    vid = (skb->data[VLAN_OFF] & 0xf);
+    vid <<= 8;
+    vid |= skb->data[VLAN_OFF+1];
+#else
+#error Invalid architecture type
+#endif
 
     if (vid < 1 || vid >= VLAN_N_VID) {
         // TODO, Where should this be counted??
-        printk(KERN_INFO "Vid out of range: %u\n", vid);
+        dev_info(&dev->dev, "Vid out of range: %u\n", vid);
         return RX_HANDLER_PASS;
     }
-    // End of hack /////////////////////////////////////////////////////////////
-#endif
 
     // Do nothing if we have no dependend device
     dev = vtss_if_mux_vlan_net_dev[vid];
@@ -148,13 +130,11 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
         goto DO_CNT;
     }
 
-#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
-    skb_pull_inline(skb_new, 10); // Discard the VTSS headers
-#else
-    skb_pull_inline(skb_new, 18); // Discard the VTSS headers
-#endif
+    // Front: Discard the VTSS headers (IFH + 2-byte IFH_ID)
+    skb_pull_inline(skb_new, IFH_LEN+2);
+    // Back: Discard the FCS
+    skb_trim(skb_new, skb_new->len - ETH_FCS_LEN);
 
-    skb_trim(skb_new, skb_new->len - ETH_FCS_LEN); // Discard the FCS
 #if 0
     printk(KERN_INFO "RX %u bytes on vlan %u\n", skb_new->len, vid);
     print_hex_dump(KERN_INFO, "RX: ", DUMP_PREFIX_OFFSET, 16, 1,
