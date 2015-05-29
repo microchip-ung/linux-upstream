@@ -164,6 +164,7 @@ static void RX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
 static void TX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dscr_t *buf_dscr)
 {
     struct sk_buff *skb = buf_dscr->context;
+    kfree(buf_dscr->buf_state);
     consume_skb(skb);
 }
 
@@ -375,26 +376,26 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
     // Transmit - first loose encap, leave SKB pointing at the IFH
     skb_pull_inline(skb, sizeof(ifh_encap));
 
+    memset(&tbd, 0, sizeof(tbd));
+    tbd.buf = skb->data;
+    tbd.buf_size_bytes = skb->len + ETH_FCS_LEN;    // Include dummy FCS bytes
+    tbd.context = skb;
     spin_lock_irqsave(&lp->lock, flags);
-    if (skb_tailroom(skb) >= lp->driver->props.buf_state_size_bytes) {
-        memset(&tbd, 0, sizeof(tbd));
-        tbd.buf = skb->data;
-        tbd.buf_size_bytes = skb->len + ETH_FCS_LEN;    // Include dummy FCS bytes
-        tbd.context = skb;
-        tbd.buf_state = skb->tail;
+    if ((tbd.buf_state = kmalloc(lp->driver->props.buf_state_size_bytes, GFP_KERNEL)) != NULL) {
         // Start Tx
         dev->trans_start = jiffies;
         if ((rc = lp->driver->tx(lp->driver, &tbd))) {
             dev_err(&dev->dev, "uFDMA transmit error: %s\n", lp->driver->error_txt(lp->driver, rc));
             dev->stats.tx_dropped++;
+            kfree(tbd.buf_state);
             kfree_skb(skb);
         } else {
             dev->stats.tx_packets++;
             dev->stats.tx_bytes += skb->len;
         }
     } else {
-        dev_err(&dev->dev, "tx: skb(%d) tailroom too small: %d - need %d\n", 
-                skb->len, skb_tailroom(skb), lp->driver->props.buf_state_size_bytes);
+        dev_err(&dev->dev, "tx: Unable to allocate %u bytes descriptor\n",
+                lp->driver->props.buf_state_size_bytes);
         dev->stats.tx_dropped++;
         kfree_skb(skb);
     }
@@ -514,9 +515,6 @@ struct net_device *vc3fdma_create(void)
                 lp->driver->state + lp->driver->props.ufdma_state_size_bytes +
                 (i * lp->driver->props.buf_state_size_bytes);
     }
-
-    // Reserve TX skb state
-    dev->needed_tailroom = lp->driver->props.buf_state_size_bytes;
 
     // Set initial, bogus MAC address
     eth_hw_addr_random(dev);
