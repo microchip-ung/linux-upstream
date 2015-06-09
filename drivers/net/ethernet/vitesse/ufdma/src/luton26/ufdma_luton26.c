@@ -444,8 +444,6 @@ static int CIL_tx_dcb_init(ufdma_state_t *state, ufdma_dcb_t *dcb, ufdma_dcb_t *
     // Get the DCB written to main memory
     DCACHE_FLUSH(hw_dcb, sizeof(*hw_dcb));
 
-    return UFDMA_RC_OK;
-
     if (dcb_prev) {
         // We also need to link the previous DCB to this one.
         ufdma_hw_dcb_v1_t *hw_dcb_prev = &dcb_prev->hw_dcb.v1;
