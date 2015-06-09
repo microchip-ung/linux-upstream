@@ -57,6 +57,8 @@
 #error Invalid architecture type
 #endif
 
+static vtss_ufdma_platform_driver_t *driver;
+
 static u8 ifh_encap [] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
                            0x88, 0x80, 0x00, IFH_ID };
@@ -82,7 +84,6 @@ struct vc3fdma_private {
     spinlock_t lock;        /* NIC xmit lock */
     struct net_device *dev;
     struct napi_struct napi;
-    vtss_ufdma_platform_driver_t *driver;
 #if defined(CONFIG_DEBUG_FS)
     struct dentry *dump_file;
 #elif defined(CONFIG_PROC_FS)
@@ -107,10 +108,10 @@ static void rx_buffers_refresh(struct net_device *dev)
             struct sk_buff *skb = netdev_alloc_skb(dev, lp->rx_bufsize);
             buf_dscr.context        = &lp->rx_desc[i];
             buf_dscr.buf            = skb->data;
-            buf_dscr.buf_size_bytes = ETH_FRAME_LEN + ETH_FCS_LEN + lp->driver->props.rx_ifh_size_bytes;
+            buf_dscr.buf_size_bytes = ETH_FRAME_LEN + ETH_FCS_LEN + driver->props.rx_ifh_size_bytes;
             buf_dscr.buf_state      = lp->rx_desc[i].ufdma_bufstate;
-            if((rc = lp->driver->rx_buf_add(lp->driver, &buf_dscr))) {
-                dev_err(&dev->dev, "uFDMA rx_buf_add error: %s\n", lp->driver->error_txt(lp->driver, rc));
+            if((rc = driver->rx_buf_add(driver, &buf_dscr))) {
+                dev_err(&dev->dev, "uFDMA rx_buf_add error: %s\n", driver->error_txt(driver, rc));
                 consume_skb(skb);
             } else {
                 lp->rx_desc[i].skb = skb;
@@ -288,7 +289,7 @@ static int vc3fdma_poll(struct napi_struct *napi, int budget)
     dev_dbg(&dev->dev, "%s - budget %d\n", __FUNCTION__, budget);
     lp->rx_work_done = 0;
 
-    lp->driver->poll(lp->driver);
+    driver->poll(driver);
 
     // Replenish RX buffers
     rx_buffers_refresh(dev);
@@ -324,20 +325,6 @@ static int vc3fdma_ufdma_init(struct net_device *dev)
 
     dev_info(&dev->dev, "Opening device\n");
 
-#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
-    lp->driver = &vtss_ufdma_platform_driver_luton26;
-#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-    lp->driver = &vtss_ufdma_platform_driver_serval;
-#elif defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    lp->driver = &vtss_ufdma_platform_driver_servalt;
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
-    lp->driver = &vtss_ufdma_platform_driver_jaguar2ab;
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C)
-    lp->driver = &vtss_ufdma_platform_driver_jaguar2c;
-#else
-#error "Unsupported platform"
-#endif
-
     // Initialize uFDMA
     memset(&init_conf, 0, sizeof(init_conf));
 
@@ -355,15 +342,15 @@ static int vc3fdma_ufdma_init(struct net_device *dev)
     init_conf.big_endian       = true;
 #endif
 
-    state_len = lp->driver->props.ufdma_state_size_bytes + (RX_BUFFERS * lp->driver->props.buf_state_size_bytes);
-    if ((lp->driver->state = kmalloc(state_len, GFP_KERNEL)) == NULL) {
+    state_len = driver->props.ufdma_state_size_bytes + (RX_BUFFERS * driver->props.buf_state_size_bytes);
+    if ((driver->state = kmalloc(state_len, GFP_KERNEL)) == NULL) {
         printk(KERN_ERR "Out of memory trying to allocate %u bytes\n", state_len);
         return -ENOMEM;
     }
 
     // Initialize uFDMA
-    memset(lp->driver->state, 0, lp->driver->props.ufdma_state_size_bytes);
-    if((rc = lp->driver->init(lp->driver, &init_conf))) {
+    memset(driver->state, 0, driver->props.ufdma_state_size_bytes);
+    if((rc = driver->init(driver, &init_conf))) {
         printk(KERN_ERR "uFDMA Initialization error: %d\n", rc);
         return -EIO;
     }
@@ -371,13 +358,13 @@ static int vc3fdma_ufdma_init(struct net_device *dev)
     // Chop up per-buffer uFDMA state
     for (i = 0; i < RX_BUFFERS; i++) {
         lp->rx_desc[i].ufdma_bufstate = 
-                lp->driver->state + lp->driver->props.ufdma_state_size_bytes +
-                (i * lp->driver->props.buf_state_size_bytes);
+                driver->state + driver->props.ufdma_state_size_bytes +
+                (i * driver->props.buf_state_size_bytes);
     }
 
-    want = ETH_FRAME_LEN + dev->hard_header_len + ETH_FCS_LEN + lp->driver->props.rx_ifh_size_bytes;
-    if ((i = lp->driver->rx_buf_alloc_size_get(lp->driver, want, &alloc_size))) {
-        dev_err(&dev->dev, "uFDMA rx_buf_alloc_size_get error: %s\n", lp->driver->error_txt(lp->driver, i));
+    want = ETH_FRAME_LEN + dev->hard_header_len + ETH_FCS_LEN + driver->props.rx_ifh_size_bytes;
+    if ((i = driver->rx_buf_alloc_size_get(driver, want, &alloc_size))) {
+        dev_err(&dev->dev, "uFDMA rx_buf_alloc_size_get error: %s\n", driver->error_txt(driver, i));
         return -ENOMEM;
     }
     lp->rx_bufsize = alloc_size;   // Add buffer state data
@@ -391,6 +378,7 @@ static int vc3fdma_ufdma_init(struct net_device *dev)
 
 static int vc3fdma_open(struct net_device *dev)
 {
+    struct vc3fdma_private *lp = netdev_priv(dev);
     int ret;
 
     if ((ret = vc3fdma_ufdma_init(dev))) {
@@ -400,7 +388,6 @@ static int vc3fdma_open(struct net_device *dev)
     /* Initialize */
     netif_start_queue(dev);
     if(dev->irq) {
-        struct vc3fdma_private *lp = netdev_priv(dev);
         napi_enable(&lp->napi);
         /* Install the interrupt handler */
         ret = request_irq(dev->irq, vc3fdma_dma_interrupt, 0, DRV_NAME, dev);
@@ -418,10 +405,10 @@ static void vc3fdma_ufdma_uninit(struct net_device *dev)
 
     dev_info(&dev->dev, "Closing device\n");
 
-    lp->driver->uninit(lp->driver);
-    kfree(lp->driver->state);
+    driver->uninit(driver);
+    kfree(driver->state);
 
-    // Double-check RX ring, should be released from lp->driver->uninit
+    // Double-check RX ring, should be released from driver->uninit
     for (i = 0; i < RX_BUFFERS; i++) {
         if (lp->rx_desc[i].skb != NULL) {
             dev_err(&dev->dev, "Uninit: Lost skb at slot %d - %p, freeing\n", i, lp->rx_desc[i].skb);
@@ -431,7 +418,6 @@ static void vc3fdma_ufdma_uninit(struct net_device *dev)
 
     // Reset state
     memset(lp->rx_desc, 0, sizeof(lp->rx_desc));
-    lp->driver = NULL;
 }
 
 static int vc3fdma_close(struct net_device *dev)
@@ -474,11 +460,11 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
     tbd.buf_size_bytes = skb->len + ETH_FCS_LEN;    // Include dummy FCS bytes
     tbd.context = skb;
     spin_lock_irqsave(&lp->lock, flags);
-    if ((tbd.buf_state = kmalloc(lp->driver->props.buf_state_size_bytes, GFP_KERNEL)) != NULL) {
+    if ((tbd.buf_state = kmalloc(driver->props.buf_state_size_bytes, GFP_KERNEL)) != NULL) {
         // Start Tx
         dev->trans_start = jiffies;
-        if ((rc = lp->driver->tx(lp->driver, &tbd))) {
-            dev_err(&dev->dev, "uFDMA transmit error: %s\n", lp->driver->error_txt(lp->driver, rc));
+        if ((rc = driver->tx(driver, &tbd))) {
+            dev_err(&dev->dev, "uFDMA transmit error: %s\n", driver->error_txt(driver, rc));
             dev->stats.tx_dropped++;
             kfree(tbd.buf_state);
             kfree_skb(skb);
@@ -488,7 +474,7 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
         }
     } else {
         dev_err(&dev->dev, "tx: Unable to allocate %u bytes descriptor\n",
-                lp->driver->props.buf_state_size_bytes);
+                driver->props.buf_state_size_bytes);
         dev->stats.tx_dropped++;
         kfree_skb(skb);
     }
@@ -497,11 +483,20 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
     return NETDEV_TX_OK;
 }
 
+static int vc3fdma_change_mtu(struct net_device *dev, int new_mtu)
+{
+    if (new_mtu < (68 + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes) || new_mtu > (ETH_DATA_LEN + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes))
+        return -EINVAL;
+    dev->mtu = new_mtu;
+    return 0;
+}
+
+
 static const struct net_device_ops vc3fdma_netdev_ops = {
     .ndo_open		 = vc3fdma_open,
     .ndo_stop		 = vc3fdma_close,
     .ndo_start_xmit      = vc3fdma_send_packet,
-    .ndo_change_mtu      = eth_change_mtu,
+    .ndo_change_mtu      = vc3fdma_change_mtu,
     .ndo_validate_addr	 = eth_validate_addr,
     .ndo_set_mac_address = eth_mac_addr,
 };
@@ -520,8 +515,7 @@ static int show_ufdma(struct seq_file *m, void *v)
     seq_printf(m, "uFDMA state:\n\n");
 
     if (vc3fdma_dev && vc3fdma_dev->flags & IFF_UP) {
-        struct vc3fdma_private *lp = netdev_priv(vc3fdma_dev);
-        lp->driver->debug_print(lp->driver, &info, (void*)seq_printf);
+        driver->debug_print(driver, &info, (void*)seq_printf);
     } else {
         seq_printf(m, "Driver is inactive (interface down)\n");
     }
@@ -562,6 +556,9 @@ struct net_device *vc3fdma_create(void)
     eth_hw_addr_random(dev);
     memset(&dev->broadcast[0], 0xff, 6);
 
+    // We will accept ETH + TxIFH + FCS by default
+    dev->mtu = ETH_DATA_LEN + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes;
+
     // Debug procfs file
 #if defined(CONFIG_DEBUG_FS)
     lp->dump_file = debugfs_create_file(DRV_NAME, S_IRUGO, NULL, NULL, &ufdma_fops);
@@ -579,12 +576,24 @@ static int vc3fdma_probe(struct platform_device *pdev)
     struct net_device *dev;
     int rc;
 
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
+    driver = &vtss_ufdma_platform_driver_luton26;
+#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
+    driver = &vtss_ufdma_platform_driver_serval;
+#elif defined(CONFIG_VTSS_VCOREIII_SERVALT)
+    driver = &vtss_ufdma_platform_driver_servalt;
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+    driver = &vtss_ufdma_platform_driver_jaguar2ab;
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C)
+    driver = &vtss_ufdma_platform_driver_jaguar2c;
+#else
+#error "Unsupported platform"
+#endif
+
     dev = vc3fdma_create();
     if (!dev) {
         rc = -ENOMEM;
     } else {
-        struct vc3fdma_private *lp;
-
         // We're special aka. "vtss.ifh"
         strcpy(dev->name, "vtss.ifh");
 
@@ -600,7 +609,7 @@ static int vc3fdma_probe(struct platform_device *pdev)
             free_netdev(dev);
         } else {
             // Turn on device handling
-            lp = netdev_priv(dev);
+            struct vc3fdma_private *lp = netdev_priv(dev);
             netif_napi_add(dev, &lp->napi, vc3fdma_poll, 64);
             enable_irq(dev->irq);
 
