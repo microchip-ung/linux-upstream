@@ -462,6 +462,10 @@ config MTD_NAND_SPINAND_MX35
 	help
 	  This enables the driver for the MX35 SPI NAND flash.
 
+config MTD_SPINAND_ONDIEECC
+	bool
+	depends on MTD_NAND_SPINAND_MX35
+
 config MTD_NAND_SH_FLCTL
 	tristate "Support for NAND on Renesas SuperH FLCTL"
 	depends on SUPERH || ARCH_SHMOBILE || COMPILE_TEST
