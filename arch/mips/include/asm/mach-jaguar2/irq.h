@@ -64,6 +64,21 @@
 #define SW0_IRQ           ICPU_IRQ0(11)
 #define SW1_IRQ           ICPU_IRQ0(12)
 #define SGPIO_IRQ         ICPU_IRQ0(13)
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#define GPIO_IRQ          ICPU_IRQ0(14)
+#define MIIM0_INTR_IRQ    ICPU_IRQ0(15)
+#define MIIM1_INTR_IRQ    ICPU_IRQ0(16)
+#define FDMA_IRQ          ICPU_IRQ0(17)
+#define ANA_IRQ           ICPU_IRQ0(18)
+#define PTP_RDY_IRQ       ICPU_IRQ0(19)
+#define PTP_SYNC_IRQ      ICPU_IRQ0(20)
+#define INTEGRITY_IRQ     ICPU_IRQ0(21)
+#define XTR_RDY_IRQ       ICPU_IRQ0(22)
+#define INJ_RDY_IRQ       ICPU_IRQ0(23)
+#define PCIE_IRQ          ICPU_IRQ0(24)
+#define OAM_VOP_IRQ       ICPU_IRQ0(25)
+#define DPLL_IRQ          ICPU_IRQ0(26)
+#else
 #define SGPIO1_IRQ        ICPU_IRQ0(14)
 #define SGPIO2_IRQ        ICPU_IRQ0(15)
 #define GPIO_IRQ          ICPU_IRQ0(16)
@@ -79,6 +94,7 @@
 #define INJ_RDY_IRQ       ICPU_IRQ0(26)
 #define PCIE_IRQ          ICPU_IRQ0(27)
 #define OAM_VOP_IRQ       ICPU_IRQ0(28)
+#endif
 
 #include_next <irq.h>
 
