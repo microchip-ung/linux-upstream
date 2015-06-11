@@ -79,7 +79,7 @@ config I2C_AMD8111
 
 config I2C_VCOREIII_MK1
 	tristate "Vitesse VCore-III I2C driver"
-	depends on (VTSS_VCOREIII_MK1 || VTSS_VCOREIII_SERVAL1 || VTSS_VCOREIII_JAGUAR2 || VTSS_VCOREIII_SERVALT)
+	depends on (VTSS_VCOREIII_MK1 || VTSS_VCOREIII_SERVAL1 || VTSS_VCOREIII_JAGUAR2_FAMILY)
 	help
 	  Support for Vitesse VCore-III I2C controller driver.
 

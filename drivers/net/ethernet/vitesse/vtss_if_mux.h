@@ -35,7 +35,7 @@
 #elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
 #define IFH_ID   0x05
 #define IFH_LEN  16
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
 #define IFH_ID   0x07
 #define IFH_LEN  28
 #else

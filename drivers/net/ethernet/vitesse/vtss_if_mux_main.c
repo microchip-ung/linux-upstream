@@ -100,7 +100,7 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
     vid = (skb->data[16] & 0xf);
     vid <<= 8;
     vid |= skb->data[17];
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
 #define IFH_OFF  2                 // We have IFH ID first (2 bytes)
 #define VLAN_OFF (IFH_OFF + 18)    // Classified VID at byte offset 18(msb)+19(lsb)
     vid = (skb->data[VLAN_OFF] & 0xf);

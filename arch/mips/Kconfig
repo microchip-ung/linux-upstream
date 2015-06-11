@@ -394,36 +394,21 @@ config VTSS_VCOREIII_SERVAL1
 
 config VTSS_VCOREIII_JAGUAR2
 	bool "Vitesse Semiconductor VCore-III Jaguar2 architecture"
-        select BOOT_RAW
-	select CEVT_R4K
-	select CSRC_R4K
-	select IRQ_CPU
-	select VTSS_VCOREIII_ARCH
-	select DMA_NONCOHERENT
-	select SYS_HAS_CPU_MIPS32_R2
-	select SYS_SUPPORTS_32BIT_KERNEL
-	select SYS_SUPPORTS_BIG_ENDIAN
-	select SYS_SUPPORTS_LITTLE_ENDIAN
-	select GENERIC_GPIO
-        select ARCH_REQUIRE_GPIOLIB
+        select VTSS_VCOREIII_JAGUAR2_ARCH
+	help
+	  This enables support for the Vitesse Semiconductor VCore-III evaluation
+	  board(s).
+
+config VTSS_VCOREIII_JAGUAR2C
+	bool "Vitesse Semiconductor VCore-III Jaguar2C architecture"
+        select VTSS_VCOREIII_JAGUAR2_ARCH
 	help
 	  This enables support for the Vitesse Semiconductor VCore-III evaluation
 	  board(s).
 
 config VTSS_VCOREIII_SERVALT
 	bool "Vitesse Semiconductor VCore-III ServalT architecture"
-        select BOOT_RAW
-	select CEVT_R4K
-	select CSRC_R4K
-	select IRQ_CPU
-	select VTSS_VCOREIII_ARCH
-	select DMA_NONCOHERENT
-	select SYS_HAS_CPU_MIPS32_R2
-	select SYS_SUPPORTS_32BIT_KERNEL
-	select SYS_SUPPORTS_BIG_ENDIAN
-	select SYS_SUPPORTS_LITTLE_ENDIAN
-	select GENERIC_GPIO
-        select ARCH_REQUIRE_GPIOLIB
+        select VTSS_VCOREIII_JAGUAR2_FAMILY
 	help
 	  This enables support for the Vitesse Semiconductor VCore-III evaluation
 	  board(s).
@@ -1129,6 +1114,25 @@ config VTSS_VCOREIII_ARCH
 
 config VTSS_VCOREIII_MK1
 	bool
+
+config VTSS_VCOREIII_JAGUAR2_ARCH
+	bool "Vitesse Semiconductor VCore-III Jaguar2 architecture"
+        select VTSS_VCOREIII_JAGUAR2_FAMILY
+
+config VTSS_VCOREIII_JAGUAR2_FAMILY
+	bool "Vitesse Semiconductor VCore-III Jaguar2 family"
+        select BOOT_RAW
+	select CEVT_R4K
+	select CSRC_R4K
+	select IRQ_CPU
+	select VTSS_VCOREIII_ARCH
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R2
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select GENERIC_GPIO
+        select ARCH_REQUIRE_GPIOLIB
 
 config PCI_GT64XXX_PCI0
 	bool

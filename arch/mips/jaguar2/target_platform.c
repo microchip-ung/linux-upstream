@@ -119,7 +119,7 @@ static int __init target_device_init(void)
 {
 #if defined(CONFIG_SERIAL_8250_RUNTIME_UARTS) && (CONFIG_SERIAL_8250_RUNTIME_UARTS > 1)
     // Bootloader *may* not have set this up, be sure...
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
     vcoreiii_gpio_set_alternate(24, 1);
     vcoreiii_gpio_set_alternate(25, 1);
 #elif defined(CONFIG_VTSS_VCOREIII_SERVALT)

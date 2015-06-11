@@ -164,7 +164,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 	},
 #endif
 
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
         // sync
         {
                 .modalias = "spidev",
@@ -185,7 +185,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 
 };
 
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
 
 #define NAND_ADDR_BIT_ALE (1 << 2)
 #define NAND_ADDR_BIT_CLE (1 << 3)
@@ -266,7 +266,7 @@ static int __init vcoreiii_mtd_init(void)
 
 static int __init vcoreiii_mtd_init_nand(void)
 {
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
     platform_device_register(&jaguar2_nand);
 #endif
     return 0;

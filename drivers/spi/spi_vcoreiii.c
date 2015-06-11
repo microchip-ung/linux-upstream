@@ -27,7 +27,7 @@
 #include <asm/mach-vcoreiii/hardware.h>
 #elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
 #include <asm/mach-serval/hardware.h>
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
 #include <asm/mach-jaguar2/hardware.h>
 #else
 #error Invalid architecture type

@@ -47,7 +47,7 @@
 #if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
 #include <asm/mach-serval/hardware.h>
 #define IFH_ID   0x05
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
 #include <asm/mach-jaguar2/hardware.h>
 #define IFH_ID   0x07
 #elif defined(CONFIG_VTSS_VCOREIII_LUTON26)

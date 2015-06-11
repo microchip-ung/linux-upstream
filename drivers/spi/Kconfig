@@ -517,7 +517,7 @@ config SPI_VCOREIII_MK1
 
 config SPI_JAGUAR2
        tristate "Jaguar2 SPI controller"
-       depends on SPI_MASTER && (VTSS_VCOREIII_JAGUAR2 || VTSS_VCOREIII_SERVALT)
+       depends on SPI_MASTER && VTSS_VCOREIII_JAGUAR2_FAMILY
        help
          SPI driver for Jaguar2.
 

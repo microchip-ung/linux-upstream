@@ -153,12 +153,12 @@ static struct gpio_chip jag2_gpio_chip = {
 
 static int jag2_sgpio_get(struct gpio_chip *chip, unsigned int offset)
 {
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
      int ct   = offset / 128;
 #endif
      int bit  = (offset % 128) / 32;
      int port = (offset % 128) % 32;
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
      return !!(readl(VTSS_DEVCPU_GCB_SIO_CTRL_SIO_INPUT_DATA(ct,bit)) & (1 << port));
 #else
      return !!(readl(VTSS_DEVCPU_GCB_SIO_CTRL_SIO_INPUT_DATA(bit)) & (1 << port));
@@ -167,19 +167,19 @@ static int jag2_sgpio_get(struct gpio_chip *chip, unsigned int offset)
 
 static void jag2_sgpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 {
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
     int ct   = offset / 128;
 #endif
     int bit  = (offset % 128) / 32;
     int port = (offset % 128) % 32;
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
     u32 val  = readl(VTSS_DEVCPU_GCB_SIO_CTRL_SIO_PORT_CFG(ct, port));
 #else
     u32 val  = readl(VTSS_DEVCPU_GCB_SIO_CTRL_SIO_PORT_CFG(port));
 #endif
     u32 mask = (0x7 << (bit*3));
     val = (val & ~mask) | (value << (bit*3));
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
     writel(val, VTSS_DEVCPU_GCB_SIO_CTRL_SIO_PORT_CFG(ct, port));
 #else
     writel(val, VTSS_DEVCPU_GCB_SIO_CTRL_SIO_PORT_CFG(port));
@@ -203,7 +203,7 @@ static struct gpio_chip jag2_sgpio_chip = {
     .direction_output = jag2_sgpio_dir_out,
     .label = "sgpio",
     .base = 64,
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
     .ngpio = 3*4*32,    // 3 controllers, 4 bits, 32 ports
 #else
     .ngpio = 1*4*32,    // 1 controller, 4 bits, 32 ports
