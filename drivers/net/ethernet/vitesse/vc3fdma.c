@@ -70,8 +70,9 @@ static u8 ifh_encap [] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 #define DRV_VERSION     "0.33"
 #define DRV_RELDATE     "2015/06/06"
 
-#define IF_BUFSIZE (ETH_FRAME_LEN + ETH_FCS_LEN)
-#define RX_BUFFERS 64
+#define IF_BUFSIZE       (ETH_FRAME_LEN + ETH_FCS_LEN)
+#define IF_BUFSIZE_JUMBO 10400
+#define RX_BUFFERS       64
 
 static struct net_device *vc3fdma_dev;
 
@@ -486,7 +487,7 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
 
 static int vc3fdma_change_mtu(struct net_device *dev, int new_mtu)
 {
-    if (new_mtu < (68 + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes) || new_mtu > (IF_BUFSIZE + driver->props.tx_ifh_size_bytes))
+    if (new_mtu < (68 + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes) || new_mtu > IF_BUFSIZE_JUMBO)
         return -EINVAL;
     dev->mtu = new_mtu;
     return 0;
@@ -568,8 +569,8 @@ struct net_device *vc3fdma_create(void)
     eth_hw_addr_random(dev);
     memset(&dev->broadcast[0], 0xff, 6);
 
-    // We will accept ETH + TxIFH + FCS by default
-    dev->mtu = IF_BUFSIZE + driver->props.tx_ifh_size_bytes;
+    // Set arbitrarily high for direct injection (not rx)
+    dev->mtu = IF_BUFSIZE_JUMBO;
 
     // Debug procfs file
 #if defined(CONFIG_DEBUG_FS)
