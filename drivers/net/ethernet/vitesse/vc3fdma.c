@@ -67,9 +67,10 @@ static u8 ifh_encap [] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 #define PROTO_B1 13
 
 #define DRV_NAME        "vc3fdma"
-#define DRV_VERSION     "0.32"
-#define DRV_RELDATE     "2015/28/05"
+#define DRV_VERSION     "0.33"
+#define DRV_RELDATE     "2015/06/06"
 
+#define IF_BUFSIZE (ETH_FRAME_LEN + ETH_FCS_LEN)
 #define RX_BUFFERS 64
 
 static struct net_device *vc3fdma_dev;
@@ -108,7 +109,7 @@ static void rx_buffers_refresh(struct net_device *dev)
             struct sk_buff *skb = netdev_alloc_skb(dev, lp->rx_bufsize);
             buf_dscr.context        = &lp->rx_desc[i];
             buf_dscr.buf            = skb->data;
-            buf_dscr.buf_size_bytes = ETH_FRAME_LEN + ETH_FCS_LEN + driver->props.rx_ifh_size_bytes;
+            buf_dscr.buf_size_bytes = IF_BUFSIZE + driver->props.rx_ifh_size_bytes;
             buf_dscr.buf_state      = lp->rx_desc[i].ufdma_bufstate;
             if((rc = driver->rx_buf_add(driver, &buf_dscr))) {
                 dev_err(&dev->dev, "uFDMA rx_buf_add error: %s\n", driver->error_txt(driver, rc));
@@ -362,7 +363,7 @@ static int vc3fdma_ufdma_init(struct net_device *dev)
                 (i * driver->props.buf_state_size_bytes);
     }
 
-    want = ETH_FRAME_LEN + dev->hard_header_len + ETH_FCS_LEN + driver->props.rx_ifh_size_bytes;
+    want = IF_BUFSIZE + driver->props.rx_ifh_size_bytes;
     if ((i = driver->rx_buf_alloc_size_get(driver, want, &alloc_size))) {
         dev_err(&dev->dev, "uFDMA rx_buf_alloc_size_get error: %s\n", driver->error_txt(driver, i));
         return -ENOMEM;
@@ -485,7 +486,7 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
 
 static int vc3fdma_change_mtu(struct net_device *dev, int new_mtu)
 {
-    if (new_mtu < (68 + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes) || new_mtu > (ETH_DATA_LEN + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes))
+    if (new_mtu < (68 + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes) || new_mtu > (IF_BUFSIZE + driver->props.tx_ifh_size_bytes))
         return -EINVAL;
     dev->mtu = new_mtu;
     return 0;
@@ -512,8 +513,19 @@ static int show_ufdma(struct seq_file *m, void *v)
     info.ref = m;
 
     seq_printf(m, "Driver: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n\n");
-    seq_printf(m, "uFDMA state:\n\n");
 
+    seq_printf(m, "uFDMA driver:\n=============\n\n");
+    if (driver) {
+        seq_printf(m, "TX IFH size      : %4d bytes\n", driver->props.tx_ifh_size_bytes);
+        seq_printf(m, "RX IFH size      : %4d bytes\n", driver->props.rx_ifh_size_bytes);
+        seq_printf(m, "Buffer state size: %4d bytes\n", driver->props.buf_state_size_bytes);
+        seq_printf(m, "State size       : %4d bytes\n", driver->props.ufdma_state_size_bytes);
+    } else {
+        seq_printf(m, "No uFDMA driver\n\n");
+    }
+    seq_printf(m, "\n");
+
+    seq_printf(m, "uFDMA state:\n============\n\n");
     if (vc3fdma_dev && vc3fdma_dev->flags & IFF_UP) {
         driver->debug_print(driver, &info, (void*)seq_printf);
     } else {
@@ -557,7 +569,7 @@ struct net_device *vc3fdma_create(void)
     memset(&dev->broadcast[0], 0xff, 6);
 
     // We will accept ETH + TxIFH + FCS by default
-    dev->mtu = ETH_DATA_LEN + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes;
+    dev->mtu = IF_BUFSIZE + driver->props.tx_ifh_size_bytes;
 
     // Debug procfs file
 #if defined(CONFIG_DEBUG_FS)
