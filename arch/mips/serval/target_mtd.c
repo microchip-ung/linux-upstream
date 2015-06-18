@@ -61,14 +61,6 @@ static struct flash_platform_data serval_spi_flash_data = {
 
 /* MMC-SPI driver */
 #if defined(CONFIG_MMC_SPI) || defined(CONFIG_MMC_SPI_MODULE)
-static int vcoreiii_mmc_spi_init(struct device *dev, 
-                                 irqreturn_t (*detect_int)(int, void *), 
-                                 void *data)
-{
-    /* Reserve SD/MMC CS pin */
-    vcoreiii_gpio_set_alternate(8, 1); /* SI_nEN1/GPIO_8 */
-    return 0;
-}
 
 #define VTSS_SPI_MMC_CD (32+32+10)    // SGPIO p10.1 = GPIO 74, 0 => NO Card detect
 #define VTSS_SPI_MMC_WP (32+ 0+10)    // SGPIO p10.0 = GPIO 42, 0 => RO is OFF
@@ -81,10 +73,24 @@ static struct mmc_spi_platform_data serval_mmc_spi_pdata = {
     .flags         = MMC_SPI_USE_CD_GPIO | MMC_SPI_USE_RO_GPIO,
     .cd_gpio	   = VTSS_SPI_MMC_CD,
     .ro_gpio       = VTSS_SPI_MMC_WP,
-    .init          = vcoreiii_mmc_spi_init,
 };
 #endif
 
+#if defined(CONFIG_MTD_NAND_PLATFORM)
+static struct mtd_partition vcoreiii_partition_info[] = {
+    [0] = {
+        .name	= "rootfs_data",
+        .offset	= 0,
+        .size	= MTDPART_SIZ_FULL,
+    },
+};
+
+static struct flash_platform_data serval_spinand_flash_data = {
+    .name = "spi_nand",
+    .parts = vcoreiii_partition_info,
+    .nr_parts = ARRAY_SIZE(vcoreiii_partition_info),
+};
+#endif
 
 static struct spi_board_info serval_spi_board_info[] __initdata = {
 	{
@@ -96,7 +102,17 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 		.platform_data = &serval_spi_flash_data,
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
         },
-
+#if defined(CONFIG_MTD_NAND_PLATFORM)
+	{
+		/* the modalias must be the same as spi device driver name */
+		.modalias = "mx35", /* Name of spi_driver for this device */
+		.max_speed_hz = 50000000,     /* max spi clock (SCK) speed in HZ */
+		.bus_num = 0, /* Framework bus number */
+		.chip_select = 1, /* Framework chip select. */
+		.platform_data = &serval_spinand_flash_data,
+		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
+        },
+#endif
 #if defined(CONFIG_MMC_SPI) || defined(CONFIG_MMC_SPI_MODULE)
 	{
 		.modalias = "mmc_spi",
@@ -131,6 +147,10 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 static int __init vcoreiii_mtd_init(void)
 {
 	platform_device_register(&serval_spi);
+
+#if defined(CONFIG_MTD_NAND_PLATFORM) || defined(CONFIG_MMC_SPI) || defined(CONFIG_MMC_SPI_MODULE)
+        vcoreiii_gpio_set_alternate(8, 1); /* SI_nEN1/GPIO_8 */
+#endif
 
 	spi_register_board_info(serval_spi_board_info, ARRAY_SIZE(serval_spi_board_info));
 
