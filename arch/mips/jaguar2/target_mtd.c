@@ -64,8 +64,8 @@ static struct platform_device jaguar2_spi = {
 static struct flash_platform_data jaguar2_spi_flash_data = {
 	.type = "mx25l25635e",
 	.name = "spi_flash",
-        //        .read_mapped = 1,
-        //        .phys_offset = 0x40000000,
+        .read_mapped = 1,
+        .phys_offset = 0x40000000,
         .use_4byte_commands = 1,
 };
 
