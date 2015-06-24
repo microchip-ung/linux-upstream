@@ -34,6 +34,7 @@
 
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
+#include <linux/sizes.h>
 
 /* Flash opcodes. */
 #define	OPCODE_WREN		0x06	/* Write enable */
@@ -109,6 +110,10 @@ struct m25p {
 	u8			program_opcode;
 	u8			*command;
 	enum read_type		flash_read;
+	/* Direct read support */
+	void __iomem		*virt; /* Iff mapped through phys mem */
+	struct resource		*res;
+        uint64_t                read_max;
 };
 
 static inline struct m25p *mtd_to_m25p(struct mtd_info *mtd)
@@ -550,6 +555,40 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	spi_sync(flash->spi, &m);
 
 	*retlen = m.actual_length - m25p_cmdsz(flash) - dummy;
+
+	mutex_unlock(&flash->lock);
+
+	return 0;
+}
+
+static int m25p80_phys_read(struct mtd_info *mtd, loff_t from, size_t len,
+			    size_t *retlen, u_char *buf)
+{
+	struct m25p *flash = mtd_to_m25p(mtd);
+
+        pr_debug("%s: %s from 0x%08x, len %zd\n", dev_name(&flash->spi->dev),
+                 __func__, (u32)from, len);
+
+	/* sanity checks */
+	if (!len)
+		return 0;
+
+	if (from + len > flash->read_max)    // Beyond reach?
+                return m25p80_read(mtd, from, len, retlen, buf);
+
+	mutex_lock(&flash->lock);
+
+	/* Wait till previous write/erase is done. */
+	if (wait_till_ready(flash)) {
+		/* REVISIT status return?? */
+		mutex_unlock(&flash->lock);
+		return 1;
+	}
+
+	/* Just copy out */
+	memcpy_fromio(buf, flash->virt + from, len);
+
+	*retlen = len;
 
 	mutex_unlock(&flash->lock);
 
@@ -1304,6 +1343,27 @@ static int m25p_probe(struct spi_device *spi)
 				flash->mtd.eraseregions[i].numblocks);
 
 
+	/* Support for phys-mapped spi flash */
+	if(data->read_mapped) {
+            flash->read_max = max(flash->mtd.size, (uint64_t)SZ_16M);
+            if((flash->res = request_mem_region(data->phys_offset, flash->mtd.size,
+                                                flash->mtd.name))) {
+                if((flash->virt = ioremap(data->phys_offset, flash->mtd.size))) {
+                    flash->mtd._read = m25p80_phys_read; /* Can read directly */
+                    dev_info(&spi->dev, "Direct read area @0x%08x length %lld Kbytes\n", 
+                             data->phys_offset, (long long)flash->mtd.size >> 10);
+                } else {
+                    dev_err(&flash->spi->dev, 
+                            "Failed to ioremap flash region (@%08x len %lld) - will read using SPI\n",
+                            data->phys_offset, (long long)flash->mtd.size);
+                }
+            } else {
+                dev_err(&flash->spi->dev, 
+                        "Failed to reserve memory region (@%08x len %lld) - will read using SPI\n",
+                        data->phys_offset, (long long)flash->mtd.size);
+            }
+	}
+
 	/* partitions should match sector boundaries; and it may be good to
 	 * use readonly partitions for writeprotected sectors (BP2..BP0).
 	 */
@@ -1316,6 +1376,13 @@ static int m25p_probe(struct spi_device *spi)
 static int m25p_remove(struct spi_device *spi)
 {
 	struct m25p	*flash = spi_get_drvdata(spi);
+
+	if(flash->virt)
+		iounmap(flash->virt);
+	if (flash->res) {
+		release_resource(flash->res);
+		kfree(flash->res);
+	}
 
 	/* Clean up MTD stuff. */
 	return mtd_device_unregister(&flash->mtd);
