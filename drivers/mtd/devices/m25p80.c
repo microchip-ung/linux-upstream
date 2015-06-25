@@ -566,8 +566,8 @@ static int m25p80_phys_read(struct mtd_info *mtd, loff_t from, size_t len,
 {
 	struct m25p *flash = mtd_to_m25p(mtd);
 
-        pr_debug("%s: %s from 0x%08x, len %zd\n", dev_name(&flash->spi->dev),
-                 __func__, (u32)from, len);
+        pr_debug("%s: %s from 0x%08x, len %zd, max 0x%08x\n", dev_name(&flash->spi->dev),
+                 __func__, (u32)from, len, (u32)flash->read_max);
 
 	/* sanity checks */
 	if (!len)
@@ -1345,17 +1345,17 @@ static int m25p_probe(struct spi_device *spi)
 
 	/* Support for phys-mapped spi flash */
 	if(data->read_mapped) {
-            flash->read_max = max(flash->mtd.size, (uint64_t)SZ_16M);
+            flash->read_max = min(flash->mtd.size, (uint64_t)SZ_16M);
             if((flash->res = request_mem_region(data->phys_offset, flash->mtd.size,
                                                 flash->mtd.name))) {
                 if((flash->virt = ioremap(data->phys_offset, flash->mtd.size))) {
                     flash->mtd._read = m25p80_phys_read; /* Can read directly */
                     dev_info(&spi->dev, "Direct read area @0x%08x length %lld Kbytes\n", 
-                             data->phys_offset, (long long)flash->mtd.size >> 10);
+                             data->phys_offset, (long long)flash->read_max >> 10);
                 } else {
                     dev_err(&flash->spi->dev, 
                             "Failed to ioremap flash region (@%08x len %lld) - will read using SPI\n",
-                            data->phys_offset, (long long)flash->mtd.size);
+                            data->phys_offset, (long long)flash->read_max);
                 }
             } else {
                 dev_err(&flash->spi->dev, 
