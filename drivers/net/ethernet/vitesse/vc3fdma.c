@@ -462,7 +462,7 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
     tbd.buf_size_bytes = skb->len + ETH_FCS_LEN;    // Include dummy FCS bytes
     tbd.context = skb;
     spin_lock_irqsave(&lp->lock, flags);
-    if ((tbd.buf_state = kmalloc(driver->props.buf_state_size_bytes, GFP_KERNEL)) != NULL) {
+    if ((tbd.buf_state = kmalloc(driver->props.buf_state_size_bytes, GFP_ATOMIC)) != NULL) {
         // Start Tx
         dev->trans_start = jiffies;
         if ((rc = driver->tx(driver, &tbd))) {
@@ -475,8 +475,8 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
             dev->stats.tx_bytes += skb->len;
         }
     } else {
-        dev_err(&dev->dev, "tx: Unable to allocate %u bytes descriptor\n",
-                driver->props.buf_state_size_bytes);
+        net_err_ratelimited("%s: tx: Unable to allocate %u bytes descriptor\n",
+                            dev->name, driver->props.buf_state_size_bytes);
         dev->stats.tx_dropped++;
         kfree_skb(skb);
     }
