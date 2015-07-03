@@ -14,5 +14,5 @@ vtss_vc3fdma-$(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY) += ufdma/src/jaguar2/ufdma_j
 
 obj-$(CONFIG_VC3MUX)  += vtss_if_mux.o
 
-vtss_if_mux-y := vtss_if_mux_main.o vtss_if_mux_dev.o vtss_if_mux_netlink.o
+vtss_if_mux-y := vtss_if_mux_main.o vtss_if_mux_dev.o vtss_if_mux_netlink.o vtss_if_mux_genetlink.o
 

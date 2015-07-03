@@ -77,6 +77,9 @@ void vtss_if_mux_setup(struct net_device *netdev);
 int vtss_if_mux_netlink_init(void);
 void vtss_if_mux_netlink_uninit(void);
 
+int vtss_if_mux_genetlink_init(void);
+void vtss_if_mux_genetlink_uninit(void);
+
 rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb);
 struct net_device *vtss_if_mux_parent_dev_get(void);
 

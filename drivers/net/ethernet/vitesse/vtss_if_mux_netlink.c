@@ -206,11 +206,11 @@ struct rtnl_link_ops vtss_if_mux_link_ops __read_mostly = {
     //.fill_info    = vtss_if_mux_fill_info,
 };
 
-int __init vtss_if_mux_netlink_init(void) {
+int vtss_if_mux_netlink_init(void) {
     return rtnl_link_register(&vtss_if_mux_link_ops);
 }
 
-void __exit vtss_if_mux_netlink_uninit(void) {
+void vtss_if_mux_netlink_uninit(void) {
     rtnl_link_unregister(&vtss_if_mux_link_ops);
 }
 

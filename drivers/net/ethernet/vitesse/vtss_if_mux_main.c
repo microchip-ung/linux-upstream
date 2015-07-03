@@ -218,7 +218,16 @@ static int __init vtss_if_mux_init_module(void) {
         goto exit_1;
     }
 
+    err = vtss_if_mux_genetlink_init();
+    if (err < 0) {
+        printk(KERN_INFO "Failed: vtss_if_mux_genetlink_init\n");
+        goto exit_2;
+    }
+
     return 0;
+
+exit_2:
+    vtss_if_mux_netlink_uninit();
 
 exit_1:
     unregister_netdevice_notifier(&dev_notifier_block);
@@ -233,6 +242,7 @@ static void __exit vtss_if_mux_exit_module(void) {
     printk(KERN_INFO "Unloading module vtss-if-mux\n");
     unregister_netdevice_notifier(&dev_notifier_block);
     vtss_if_mux_netlink_uninit();
+    vtss_if_mux_genetlink_uninit();
 
     for (i = 0; i < VLAN_N_VID; ++i) {
         if (vtss_if_mux_vlan_net_dev[i]) {
