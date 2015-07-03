@@ -379,19 +379,19 @@ typedef struct {
      * number of bytes. FALSE otherwise.
      * Valid for Rx DCBs.
      */
-    u32 pruned;
+    BOOL pruned;
 
     /**
      * TRUE if this frame was aborted for one or another reason.
      * Valid for Rx DCBs.
      */
-    u32 aborted;
+    BOOL aborted;
 
     /**
      * TRUE when H/W has indeed injected this DCB.
      * Valid for Tx DCBs
      */
-    u32 tx_done;
+    BOOL tx_done;
 
 } ufdma_hw_dcb_status_t;
 

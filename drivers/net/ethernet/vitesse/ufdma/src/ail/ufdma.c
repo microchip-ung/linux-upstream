@@ -139,9 +139,9 @@ static int AIL_buf_dscr_chk(ufdma_state_t *state, vtss_ufdma_buf_dscr_t *buf_dsc
 /**
  * AIL_debug_print_dcb_list()
  */
-static void AIL_debug_print_dcb_list(ufdma_state_t *state, BOOL full, int (*pr)(void *ref, const char *fmt, ...), void *ref, ufdma_dcb_t *dcb, char *name)
+static int AIL_debug_print_dcb_list(ufdma_state_t *state, BOOL full, int (*pr)(void *ref, const char *fmt, ...), void *ref, ufdma_dcb_t *dcb, char *name, BOOL print_dcb_status_of_first_dcb, BOOL is_rx)
 {
-    u32  cnt = 1;
+    u32 cnt = 1;
 
     pr(ref, "%s:%s\n", name, dcb ? "" : " NULL");
     while (dcb) {
@@ -161,11 +161,24 @@ static void AIL_debug_print_dcb_list(ufdma_state_t *state, BOOL full, int (*pr)(
             pr(ref, " ...\n");
         }
 
+        if (cnt == 1 && print_dcb_status_of_first_dcb) {
+            ufdma_hw_dcb_status_t dcb_status;
+
+            UFDMA_CIL_FUNC_RC(state, dcb_status_decode, dcb, &dcb_status, is_rx);
+            if (is_rx) {
+                pr(ref, "      SoF = %u, EoF = %u, fragment_size_bytes = %u, aborted = %u pruned = %u\n", dcb_status.sof, dcb_status.eof, dcb_status.fragment_size_bytes, dcb_status.aborted, dcb_status.pruned);
+            } else {
+                pr(ref, "      SoF = %u, EoF = %u, tx_done = %u\n", dcb_status.sof, dcb_status.eof, dcb_status.tx_done);
+            }
+        }
+
         dcb = dcb->next;
         cnt++;
     }
 
     pr(ref, "\n");
+
+    return UFDMA_RC_OK;
 }
 
 /**
@@ -176,7 +189,7 @@ static int AIL_debug_print_do(ufdma_state_t *state, vtss_ufdma_debug_info_t *inf
     vtss_ufdma_throttle_conf_t *throttle_conf  = &state->throttle_conf;
     ufdma_throttle_state_t     *throttle_state = &state->throttle_state;
     u32                        rx_qu;
-    void                       *ref = info->ref;
+    void                       *ref    = info->ref;
     BOOL                       pr_full = (info->full != 0);
     BOOL                       pr_rx   = (info->group == VTSS_UFDMA_DEBUG_GROUP_ALL || info->group == VTSS_UFDMA_DEBUG_GROUP_RX);
     BOOL                       pr_tx   = (info->group == VTSS_UFDMA_DEBUG_GROUP_ALL || info->group == VTSS_UFDMA_DEBUG_GROUP_TX);
@@ -213,9 +226,8 @@ static int AIL_debug_print_do(ufdma_state_t *state, vtss_ufdma_debug_info_t *inf
 
         pr(ref, "\nRx Pointers\n");
         pr(ref, "-----------\n");
-        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->rx_head_sw, "rx_head_sw");
-        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->rx_head_hw, "rx_head_hw");
-
+        UFDMA_RC(AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->rx_head_sw, "rx_head_sw", FALSE, FALSE));
+        UFDMA_RC(AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->rx_head_hw, "rx_head_hw", TRUE,  TRUE));
     }
 
     if (pr_tx) {
@@ -228,9 +240,9 @@ static int AIL_debug_print_do(ufdma_state_t *state, vtss_ufdma_debug_info_t *inf
 
         pr(ref, "\nTx Pointers\n");
         pr(ref, "-----------\n");
-        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_head_sw, "tx_head_sw");
-        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_tail_sw, "tx_tail_sw");
-        AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_head_hw, "tx_head_hw");
+        UFDMA_RC(AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_head_sw, "tx_head_sw", FALSE, FALSE));
+        UFDMA_RC(AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_tail_sw, "tx_tail_sw", FALSE, FALSE));
+        UFDMA_RC(AIL_debug_print_dcb_list(state, pr_full, pr, ref, state->tx_head_hw, "tx_head_hw", TRUE,  FALSE));
     }
 
     pr(ref, "\nRx/Tx\n");
@@ -645,6 +657,25 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no)
 }
 
 /**
+ * AIL_tx_restart()
+ */
+static int AIL_tx_restart(ufdma_state_t *state, BOOL restart)
+{
+    if (state->tx_head_hw == NULL && state->tx_head_sw != NULL) {
+        UFDMA_IG(TX, "%starting Tx", restart ? "Re-s" : "S");
+        UFDMA_CIL_FUNC_RC(state, tx_start, state->tx_head_sw);
+
+        // Now that we know that the H/W could get started,
+        // move the list from the S/W to the H/W list.
+        state->tx_head_hw = state->tx_head_sw;
+        state->tx_head_sw = NULL;
+        state->tx_tail_sw = NULL;
+    }
+
+    return UFDMA_RC_OK;
+}
+
+/**
  * AIL_tx_done()
  */
 static int AIL_tx_done(ufdma_state_t *state)
@@ -692,10 +723,20 @@ static int AIL_tx_done(ufdma_state_t *state)
         // of it with the call.
         new_head = state->tx_head_hw->next;
 
+        if (new_head) {
+            // When the Tx DCBs are linked S/W-wise, so they must H/W-wise.
+            // If not, Tx may stop.
+            if (state->cil.hw_dcb_next(state, state->tx_head_hw) == NULL) {
+                UFDMA_E("Internal error: List is linked S/W-wise, but not H/W-wise");
+            }
+        }
+
         state->callout.tx_callback(state->self, &buf_dscr);
 
         state->tx_head_hw = new_head;
     }
+
+    UFDMA_RC(AIL_tx_restart(state, TRUE /* only for printing whether it's a start or a restart */));
 
     UFDMA_DG(TX, "Exit");
 
@@ -817,16 +858,7 @@ static int AIL_tx(vtss_ufdma_platform_driver_t *self, vtss_ufdma_buf_dscr_t *tx_
 
     // Start the FDMA if it is not currently busy transmitting frames.
     // If it is, the poll() or tx_poll() function will re-start it.
-    if (state->tx_head_hw == NULL) {
-        UFDMA_IG(TX, "Starting Tx");
-        UFDMA_CIL_FUNC_RC(state, tx_start, state->tx_head_sw);
-
-        // Now that we know that the H/W could get started,
-        // move the list from the S/W to the H/W list.
-        state->tx_head_hw = state->tx_head_sw;
-        state->tx_head_sw = NULL;
-        state->tx_tail_sw = NULL;
-    }
+    UFDMA_RC(AIL_tx_restart(state, FALSE /* only for printing whether it's a start or a restart */));
 
     state->stati.tx_calls++;
     state->stati.tx_bytes += dcb->buf_dscr.buf_size_bytes;

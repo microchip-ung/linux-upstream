@@ -268,7 +268,7 @@ static int CIL_poll_do(ufdma_state_t *state, BOOL rx, BOOL tx)
         REG_WR(VTSS_FDMA_INTR_CLEAR_ERR, VTSS_F_FDMA_INTR_CLEAR_ERR_CLEAR_ERR(intr_err));
     }
 
-    // We first handle block interrupt, which is per-DCB reception interrupts.
+    // We first handle block interrupts, which are per-DCB reception interrupts.
     // We need to clear the interrupts before iterating through the DCBs. If we didn't,
     // we might end up in a situation where a frame arrives after we've looped through
     // the DCBs, but before we clear the interrupts, and the frame would be stuck in RAM
@@ -498,6 +498,10 @@ static int CIL_tx_start(ufdma_state_t *state, ufdma_dcb_t *head)
     // Hand the DCB list to the channel
     REG_WR(VTSS_FDMA_CH_LLP(LU26_TX_CH), (u32)VIRT_TO_PHYS(&head->hw_dcb.v1));
 
+    // Make sure the above lines are executed before enabling
+    // the channel - hence the reorder barrier.
+    UFDMA_AIL_FUNC_RC(state, reorder_barrier);
+
     // And start the channel
     CIL_enable_ch(state, LU26_TX_CH);
 
@@ -566,10 +570,10 @@ static int CIL_dcb_status_decode(ufdma_state_t *state, ufdma_dcb_t *dcb, ufdma_h
             return UFDMA_RC_CIL;
         }
 
-        status->sof                 = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_SOF(dstat);
-        status->eof                 = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_EOF(dstat);
-        status->aborted             = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_ABORT(dstat);
-        status->pruned              = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_PRUNED(dstat);
+        status->sof     = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_SOF(dstat);
+        status->eof     = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_EOF(dstat);
+        status->aborted = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_ABORT(dstat);
+        status->pruned  = VTSS_X_ICPU_CFG_GPDMA_FDMA_XTR_STAT_LAST_DCB_XTR_STAT_PRUNED(dstat);
 
         // The following is the accummulated frame size, so if a frame spans multiple DCBs, the
         // fragment size of previous DCBs must be subtracted from this number before it can be

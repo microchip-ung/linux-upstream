@@ -351,7 +351,7 @@ typedef struct {
     vtss_ufdma_debug_layer_t layer; /**< Layer                  */
     vtss_ufdma_debug_group_t group; /**< Group                  */
     unsigned int             full;  /**< 0 to limit information */
-    void                    *ref;   /**< Print function reference */
+    void                     *ref;  /**< Print function reference */
 } vtss_ufdma_debug_info_t;
 
 /**
