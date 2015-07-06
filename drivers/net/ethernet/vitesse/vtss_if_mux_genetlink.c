@@ -117,6 +117,14 @@ struct vtss_if_mux_filter_rule {
 	struct vtss_if_mux_filter_element elements[0];
 };
 
+static struct genl_family vtss_if_mux_genl_family = {
+	.id = GENL_ID_GENERATE,
+	.hdrsize = 0,
+	.name = "vtss_if_mux",
+	.version = 1,
+	.maxattr = VTSS_IF_MUX_ATTR_MAX,
+};
+
 static DEFINE_MUTEX(vtss_if_mux_genl_sem);
 static struct list_head VTSS_IF_MUX_FILTER_WHITE_LIST;
 static struct list_head VTSS_IF_MUX_FILTER_BLACK_LIST;
@@ -141,6 +149,12 @@ static int get_free_id(void)
 AGAIN:
 	last_id++;
 
+	// Handle wrap around
+	if (last_id <= 0) {
+		last_id = 0;
+		goto AGAIN;
+	}
+
 	list_for_each_entry_rcu (r, &VTSS_IF_MUX_FILTER_BLACK_LIST, list) {
 		if (r->id == last_id)
 			goto AGAIN;
@@ -161,8 +175,8 @@ static int vtss_if_mux_genl_cmd_noop(struct sk_buff *skb, struct genl_info *info
 	return 0;
 }
 
-static int vtss_if_mux_genl_parse_elements(struct vtss_if_mux_filter_element *e,
-					   struct nlattr *rule)
+static int parse_elements(struct vtss_if_mux_filter_element *e,
+			  struct nlattr *rule)
 {
 	int err;
 	struct nlattr *element_attr[VTSS_IF_MUX_ATTR_END];
@@ -285,50 +299,52 @@ static int vtss_if_mux_genl_parse_elements(struct vtss_if_mux_filter_element *e,
 	return 0;
 }
 
-static int vtss_if_mux_genl_cmd_rule_create(struct sk_buff *skb,
-					    struct genl_info *info)
+static struct vtss_if_mux_filter_rule *
+parse_rule(struct sk_buff *skb, struct genl_info *info, int id, int *err)
 {
-	int rem, i;
-	int element_cnt = 0;
-	struct nlattr *rule;
 	struct vtss_if_mux_filter_rule *r = NULL;
-
-	if (!info->attrs[VTSS_IF_MUX_ATTR_RULE] ||
-	    !info->attrs[VTSS_IF_MUX_ATTR_LIST] ||
-	    !info->attrs[VTSS_IF_MUX_ATTR_ACTION])
-		return -EINVAL;
+	struct nlattr *rule;
+	int element_cnt = 0;
+	int rem, i;
 
 	// Not sure if there is a better way to get the number of elements
-	nla_for_each_nested (rule, info->attrs[VTSS_IF_MUX_ATTR_RULE], rem) {
-		element_cnt += 1;
+	if (info->attrs[VTSS_IF_MUX_ATTR_RULE]) {
+		nla_for_each_nested (rule, info->attrs[VTSS_IF_MUX_ATTR_RULE],
+				     rem) {
+			element_cnt += 1;
+		}
 	}
 
 	r = kmalloc(filter_size(element_cnt), GFP_KERNEL | __GFP_ZERO);
-	if (!r)
-		return -ENOMEM;
+	if (!r) {
+		*err = -ENOMEM;
+		return NULL;
+	}
 
-	if (nla_put_u32(skb, VTSS_IF_MUX_ATTR_ID, r->id) < 0)
-		goto FAILED;
+	r->id = id;
 
 	if (info->attrs[VTSS_IF_MUX_ATTR_OWNER]) {
 		r->owner = nla_get_u64(info->attrs[VTSS_IF_MUX_ATTR_OWNER]);
 	}
 
 	// Validate and copy the desiered action.
-	switch (nla_get_u32(info->attrs[VTSS_IF_MUX_ATTR_ACTION])) {
-	case VTSS_IF_MUX_ACTION_DROP:
+	if (info->attrs[VTSS_IF_MUX_ATTR_ACTION]) {
+		switch (nla_get_u32(info->attrs[VTSS_IF_MUX_ATTR_ACTION])) {
+		case VTSS_IF_MUX_ACTION_DROP:
+			r->action = VTSS_IF_MUX_ACTION_DROP;
+			break;
+
+		case VTSS_IF_MUX_ACTION_CHECK_WHITE:
+			r->action = VTSS_IF_MUX_ACTION_CHECK_WHITE;
+			break;
+
+		default:
+			*err = -EINVAL;
+			goto ERR;
+		}
+	} else {
 		r->action = VTSS_IF_MUX_ACTION_DROP;
-		break;
-
-	case VTSS_IF_MUX_ACTION_CHECK_WHITE:
-		r->action = VTSS_IF_MUX_ACTION_CHECK_WHITE;
-		break;
-
-	default:
-		goto FAILED;
 	}
-
-	r->id = get_free_id();
 
 	// Copy all the elements from the netlink message into the allocated
 	// rule
@@ -336,13 +352,56 @@ static int vtss_if_mux_genl_cmd_rule_create(struct sk_buff *skb,
 	nla_for_each_nested (rule, info->attrs[VTSS_IF_MUX_ATTR_RULE], rem) {
 		BUG_ON(i >= element_cnt);
 
-		if (vtss_if_mux_genl_parse_elements(&(r->elements[i]), rule) < 0)
-			goto FAILED;
+		if (parse_elements(&(r->elements[i]), rule) < 0) {
+			*err = -EINVAL;
+			goto ERR;
+		}
 
 		// Rule has been added, increment the count.
 		r->cnt++;
 		i++;
 	}
+
+	return r;
+
+ERR:
+	kfree(r);
+	return 0;
+}
+
+static int vtss_if_mux_genl_cmd_rule_create(struct sk_buff *skb,
+					    struct genl_info *info)
+{
+	int id;
+	void *hdr;
+	int err = -1;
+	struct vtss_if_mux_filter_rule *r = NULL;
+	struct sk_buff *msg;
+
+	if (!info->attrs[VTSS_IF_MUX_ATTR_LIST])
+		return -EINVAL;
+
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
+			  &vtss_if_mux_genl_family, 0,
+			  VTSS_IF_MUX_GENL_RULE_CREATE);
+	if (!hdr) {
+		err = -EMSGSIZE;
+		goto ERROR_MEM_MSG;
+	}
+
+	id = get_free_id();
+	if (nla_put_u32(msg, VTSS_IF_MUX_ATTR_ID, id)) {
+		err = -EMSGSIZE;
+		goto ERROR_GENLMSG;
+	}
+
+	r = parse_rule(skb, info, id, &err);
+	if (!r)
+		goto ERROR_GENLMSG;
 
 	// Install the rule into the configured list
 	switch (nla_get_u32(info->attrs[VTSS_IF_MUX_ATTR_LIST])) {
@@ -359,43 +418,67 @@ static int vtss_if_mux_genl_cmd_rule_create(struct sk_buff *skb,
 		break;
 
 	default:
-		goto FAILED;
+		err = -EINVAL;
+		goto ERROR_MEM_RULE;
 	}
 
-	return 0;
+	genlmsg_end(msg, hdr);
+	return genlmsg_unicast(genl_info_net(info), msg, info->snd_portid);
 
-FAILED:
+ERROR_MEM_RULE:
 	kfree(r);
-	return -EINVAL;
+
+ERROR_GENLMSG:
+	genlmsg_cancel(skb, hdr);
+
+ERROR_MEM_MSG:
+	nlmsg_free(msg);
+
+	return err;
 }
 
-static int vtss_if_mux_genl_rule_del_by_id(u32 id)
+struct vtss_if_mux_filter_rule *
+vtss_if_mux_find_by_id(int id, enum vtss_if_mux_list *list)
 {
-	int cnt = 0;
-	struct vtss_if_mux_filter_rule *r;
+	struct vtss_if_mux_filter_rule *res = NULL, *r;
 
-	mutex_lock(&vtss_if_mux_genl_sem);
+	rcu_read_lock();
 	list_for_each_entry (r, &VTSS_IF_MUX_FILTER_BLACK_LIST, list) {
 		if (r->id == id) {
-			cnt++;
-			list_del_rcu(&r->list);
-			kfree_rcu(r, rcu);
+			BUG_ON(res);
+			res = r;
+			if (list)
+				*list = VTSS_IF_MUX_LIST_BLACK;
 		}
 	}
 
 	list_for_each_entry (r, &VTSS_IF_MUX_FILTER_WHITE_LIST, list) {
 		if (r->id == id) {
-			cnt++;
-			list_del_rcu(&r->list);
-			kfree_rcu(r, rcu);
+			BUG_ON(res);
+			res = r;
+			if (list)
+				*list = VTSS_IF_MUX_LIST_BLACK;
 		}
 	}
+	rcu_read_unlock();
+
+	return res;
+}
+
+static int vtss_if_mux_genl_rule_del_by_id(u32 id)
+{
+	struct vtss_if_mux_filter_rule *r;
+
+	r = vtss_if_mux_find_by_id(id, NULL);
+
+	if (!r)
+		return -ENOENT;
+
+	mutex_lock(&vtss_if_mux_genl_sem);
+	list_del_rcu(&r->list);
 	mutex_unlock(&vtss_if_mux_genl_sem);
 
-	if (cnt > 0)
-		return 0;
-	else
-		return -ENOENT;
+	return 0;
 }
 
 // TODO, should be owner,pid
@@ -474,9 +557,67 @@ static int vtss_if_mux_genl_cmd_rule_delte(struct sk_buff *skb,
 static int vtss_if_mux_genl_cmd_rule_modify(struct sk_buff *skb,
 					    struct genl_info *info)
 {
-	printk(KERN_ERR
-	       "Not implemented yet: vtss_if_mux_genl_cmd_rule_modify\n");
-	return -ENOSYS;
+	int id;
+	int err = -1;
+	enum vtss_if_mux_list list_old;
+	struct vtss_if_mux_filter_rule *r_new = NULL, *r_old = NULL;
+
+	if (!info->attrs[VTSS_IF_MUX_ATTR_ID])
+		return -EINVAL;
+
+	id = nla_get_u32(info->attrs[VTSS_IF_MUX_ATTR_ID]);
+
+	r_new = parse_rule(skb, info, id, &err);
+	if (!r_new)
+		goto ERROR;
+
+	r_old = vtss_if_mux_find_by_id(id, &list_old);
+	if (!r_old) {
+		err = -ENOENT;
+		goto ERROR;
+	}
+
+	if (!info->attrs[VTSS_IF_MUX_ATTR_OWNER])
+		r_new->owner = r_old->owner;
+
+	if (!info->attrs[VTSS_IF_MUX_ATTR_ACTION])
+		r_new->action = r_old->action;
+
+	// If a list is provided, then ensure that it is the same list as the
+	// rule was found in. It is not allowed to move a rule from one list to
+	// another by doing an update.
+	if (info->attrs[VTSS_IF_MUX_ATTR_LIST]) {
+		switch (nla_get_u32(info->attrs[VTSS_IF_MUX_ATTR_LIST])) {
+		case VTSS_IF_MUX_LIST_WHITE:
+			if (list_old != VTSS_IF_MUX_LIST_WHITE) {
+				err = -EINVAL;
+				goto ERROR;
+			}
+			break;
+
+		case VTSS_IF_MUX_LIST_BLACK:
+			if (list_old != VTSS_IF_MUX_LIST_WHITE) {
+				err = -EINVAL;
+				goto ERROR;
+			}
+			break;
+
+		default:
+			err = -EINVAL;
+			goto ERROR;
+		}
+	}
+
+	mutex_lock(&vtss_if_mux_genl_sem);
+	list_replace_rcu(&r_old->list, &r_new->list);
+	kfree_rcu(r_old, rcu);
+	mutex_unlock(&vtss_if_mux_genl_sem);
+
+	return 0;
+
+ERROR:
+	kfree(r_new);
+	return err;
 }
 
 static int vtss_if_mux_genl_cmd_rule_get(struct sk_buff *skb,
@@ -627,14 +768,6 @@ static int debug_dump(struct inode *inode, struct file *f)
 {
 	return single_open(f, debug_dump_, NULL);
 }
-
-static struct genl_family vtss_if_mux_genl_family = {
-	.id = GENL_ID_GENERATE,
-	.hdrsize = 0,
-	.name = "vtss_if_mux",
-	.version = 1,
-	.maxattr = VTSS_IF_MUX_ATTR_MAX,
-};
 
 static struct genl_ops vtss_if_mux_genl_ops[] = {
 	{
