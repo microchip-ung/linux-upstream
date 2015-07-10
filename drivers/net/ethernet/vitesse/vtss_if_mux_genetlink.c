@@ -166,7 +166,7 @@ static inline int vtss_port_check(struct frame_data *d, u64 mask)
 	p = d->skb->data[3];
 	p = (p >> 3);
 	p &= 0x1f;
-	printk(KERN_ERR "CHIP-PORT: %d - delete line when tested!", p);  // TODO
+
 #elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
 	p = d->skb->data[12];
 	p = (p >> 3);
@@ -176,7 +176,7 @@ static inline int vtss_port_check(struct frame_data *d, u64 mask)
 	p = d->skb->data[25] & 1;
 	p <<= 5;
 	p |= (d->skb->data[26] >> 3) & 0x1f;
-	printk(KERN_ERR "CHIP-PORT: %d - delete line when tested!", p);  // TODO
+	printk(KERN_ERR "CHIP-PORT: %llu - delete line when tested!", p);  // TODO
 
 #else
 #error Invalid architecture type

@@ -122,8 +122,11 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
         return RX_HANDLER_PASS;
     }
 
+    printk(KERN_INFO "RX %u bytes on vlan %u\n", skb->len, vid);
+    print_hex_dump(KERN_INFO, "RX: ", DUMP_PREFIX_OFFSET, 16, 1,
+                   skb->data, skb->len, false);
 #if defined(CONFIG_VTSS_VCOREIII_LUTON26)
-    if ((skb->data[13] & 0x1f) <= 27) {
+    if ((skb->data[5] & 0x1f) <= 27) {
         printk(KERN_ERR "SFLOW PACKET - delete line when tested!"); // TODO
         return RX_HANDLER_PASS;
     }
