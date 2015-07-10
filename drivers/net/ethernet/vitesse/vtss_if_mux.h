@@ -85,3 +85,6 @@ struct net_device *vtss_if_mux_parent_dev_get(void);
 
 void vtss_if_mux_rt_notify(struct net_device *dev);
 
+int vtss_if_mux_filter_apply(struct sk_buff *skb, unsigned int vid, unsigned int
+                             ether_type_offset);
+

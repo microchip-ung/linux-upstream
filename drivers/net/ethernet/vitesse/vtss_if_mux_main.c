@@ -70,6 +70,8 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
     struct vtss_if_mux_pcpu_stats *stats;
     struct net_device *dev;
     unsigned int vid = 0;
+    int ether_type_offset = 0;
+    u16 *ether_type;
     int rx_ok = 1;
 
     if (!pskb || !(*pskb))
@@ -77,7 +79,7 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 
     skb = *pskb;
 
-    if (skb->len < ETH_ZLEN) {
+    if (skb->len < (ETH_ZLEN + IFH_ID)) {
         // Where should this be counted??
         dev_err(&dev->dev, "Short frame: %u bytes\n", skb->len);
         return RX_HANDLER_PASS;
@@ -111,16 +113,46 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 #endif
 
     if (vid < 1 || vid >= VLAN_N_VID) {
-        // TODO, Where should this be counted??
-        dev_info(&dev->dev, "Vid out of range: %u\n", vid);
         return RX_HANDLER_PASS;
     }
 
     // Do nothing if we have no dependend device
     dev = vtss_if_mux_vlan_net_dev[vid];
     if (!dev) {
-        // TODO, Where should this be counted??
-        printk(KERN_INFO "Vid not created: %u\n", vid);
+        return RX_HANDLER_PASS;
+    }
+
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
+    if ((skb->data[13] & 0x1f) <= 27) {
+        printk(KERN_ERR "SFLOW PACKET - delete line when tested!"); // TODO
+        return RX_HANDLER_PASS;
+    }
+#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
+    if ((skb->data[13] & 0xf) <= 12) {
+        printk(KERN_ERR "SFLOW PACKET - delete line when tested!"); // TODO
+        return RX_HANDLER_PASS;
+    }
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
+    if ((skb->data[25] >> 5) & 1) {
+        printk(KERN_ERR "SFLOW PACKET - delete line when tested!"); // TODO
+        return RX_HANDLER_PASS;
+    }
+#else
+#error Invalid architecture type
+#endif
+
+    // TODO, needs configuration from user-space to do this correctly
+    // Figure out where the ether type of the next protocol is located. This
+    // must consum the vlan tags on ports that are configured to allow
+    // vlan-tags.
+    ether_type_offset = 2 + IFH_LEN; // skip the id and ifh
+    ether_type_offset += 12; // skip the two mac addresses
+    ether_type = (u16 *)(skb->data + ether_type_offset);
+    if (*ether_type == htons(0x8100)) {  // TODO, multiple ether types are supported
+        ether_type_offset += 4; // skip the mac header
+    }
+
+    if (vtss_if_mux_filter_apply(skb, vid, ether_type_offset)) {
         return RX_HANDLER_PASS;
     }
 
@@ -131,7 +163,8 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
     }
 
     // Front: Discard the VTSS headers (IFH + 2-byte IFH_ID)
-    skb_pull_inline(skb_new, IFH_LEN+2);
+    skb_pull_inline(skb_new, IFH_LEN + 2);
+
     // Back: Discard the FCS
     skb_trim(skb_new, skb_new->len - ETH_FCS_LEN);
 
@@ -141,6 +174,8 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
                    skb_new->data, skb_new->len, false);
 #endif
 
+    // TODO, can not use eth_type_trans as we "some-time" needs to consume the
+    // vlan tag as well.
     // Updates the new posistion of the MAC header according to the new "data"
     // pointer
     skb_new->protocol = eth_type_trans(skb_new, dev);
