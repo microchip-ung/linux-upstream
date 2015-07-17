@@ -79,8 +79,16 @@ const char *get_system_type(void)
 
 static void vcoreiii_machine_restart(char *command)
 {
+    writel(VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_PROTECT(1),
+           VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_RESET);
+
     writel(VTSS_F_DEVCPU_GCB_CHIP_REGS_SOFT_RST_SOFT_CHIP_RST(1),
                VTSS_DEVCPU_GCB_CHIP_REGS_SOFT_RST);
+
+    udelay(500);
+
+    writel(VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_FORCE(1),
+           VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_RESET);
 
         while (1)
                 cpu_wait();
