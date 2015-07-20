@@ -217,7 +217,8 @@ static inline struct iphdr *vtss_ipv4_hdr(struct frame_data *d)
 	    (d->ether_type_offset + ETHERTYPE_LENGTH + sizeof(struct iphdr)))
 		return NULL;
 
-	return (struct iphdr *)(d->ether_type_offset + ETHERTYPE_LENGTH);
+	return (struct iphdr *)(d->skb->data + d->ether_type_offset +
+				ETHERTYPE_LENGTH);
 }
 
 static inline int vtss_ipv4_src_check(struct frame_data *d, char *addr, int p)
@@ -260,7 +261,8 @@ static inline struct ipv6hdr *vtss_ipv6_hdr(struct frame_data *d)
 	    (d->ether_type_offset + ETHERTYPE_LENGTH + sizeof(struct ipv6hdr)))
 		return NULL;
 
-	return (struct ipv6hdr *)(d->ether_type_offset + ETHERTYPE_LENGTH);
+	return (struct ipv6hdr *)(d->skb->data + d->ether_type_offset +
+				  ETHERTYPE_LENGTH);
 }
 
 static inline int vtss_ipv6_src_check(struct frame_data *d, char *addr, int p)
@@ -294,7 +296,7 @@ static inline u8 *vtss_arp_hdr(struct frame_data *d)
 	if (d->skb->len < (d->ether_type_offset + ETHERTYPE_LENGTH + 28))
 		return NULL;
 
-	return (u8 *)d->ether_type_offset + ETHERTYPE_LENGTH;
+	return (u8 *)d->skb->data + d->ether_type_offset + ETHERTYPE_LENGTH;
 }
 
 static inline int vtss_arp_operation_check(struct frame_data *d, int opr)
@@ -975,7 +977,8 @@ ERROR_MEM_MSG:
 	return err;
 }
 
-struct vtss_if_mux_filter_rule *find_rule_by_id(int id, enum vtss_if_mux_list *list)
+struct vtss_if_mux_filter_rule *find_rule_by_id(int id,
+						enum vtss_if_mux_list *list)
 {
 	struct vtss_if_mux_filter_rule *res = NULL, *r;
 
@@ -1163,18 +1166,15 @@ ERROR:
 	return err;
 }
 
-static int genl_cmd_rule_get(struct sk_buff *skb,
-					 struct genl_info *info)
+static int genl_cmd_rule_get(struct sk_buff *skb, struct genl_info *info)
 {
 	printk(KERN_ERR "Not implemented yet: genl_cmd_rule_get\n");
 	return -ENOSYS;
 }
 
-static int genl_cmd_rule_dump(struct sk_buff *skb,
-					  struct netlink_callback *cb)
+static int genl_cmd_rule_dump(struct sk_buff *skb, struct netlink_callback *cb)
 {
-	printk(KERN_ERR
-	       "Not implemented yet: genl_cmd_rule_dump\n");
+	printk(KERN_ERR "Not implemented yet: genl_cmd_rule_dump\n");
 	return -ENOSYS;
 }
 
@@ -1383,4 +1383,3 @@ void vtss_if_mux_genetlink_uninit(void)
 
 	genl_unregister_family(&vtss_if_mux_genl_family);
 }
-
