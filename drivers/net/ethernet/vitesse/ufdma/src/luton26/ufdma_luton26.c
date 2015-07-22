@@ -285,15 +285,17 @@ static int CIL_poll_do(ufdma_state_t *state, BOOL rx, BOOL tx)
 
     combined_intr_cause = intr_block_done | intr_tfr_done;
 
-    if (rx_mask & combined_intr_cause) {
-        // rx_frm() will also check if we need to restart
-        // the channel afterwards.
-        UFDMA_AIL_FUNC_RC(state, rx_frm, 0);
-    }
+    // We appear to have issues with lost irq's...
+    //if (rx_mask & combined_intr_cause) {
+    // rx_frm() will also check if we need to restart
+    // the channel afterwards.
+    UFDMA_AIL_FUNC_RC(state, rx_frm, 0);
+    //}
 
-    if (tx_mask & combined_intr_cause) {
-        UFDMA_AIL_FUNC_RC(state, tx_done);
-    }
+    // We appear to have issues with lost irq's...
+    // if (tx_mask & combined_intr_cause) {
+    UFDMA_AIL_FUNC_RC(state, tx_done);
+    // }
 
     return UFDMA_RC_OK;
 }
