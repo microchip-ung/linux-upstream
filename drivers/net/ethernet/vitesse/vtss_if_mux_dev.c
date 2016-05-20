@@ -48,6 +48,18 @@ static const unsigned char hdr_tmpl[IFH_ENCAP_LEN + 4] = {
     0x00, 0x00, 0x00, 0x00    // Vlan tag placeholder
 };
 
+static int internal_dev_open(struct net_device *netdev) {
+    unsigned int vlan_id = vtss_if_mux_dev_priv(netdev)->vlan_id;;
+
+    printk(KERN_INFO "internal_dev_open, dev: %p, vlan_id: %u\n", netdev, vlan_id);
+    if (vtss_if_mux_vlan_up[vlan_id]) {
+        netif_carrier_on(netdev);
+    } else {
+        netif_carrier_off(netdev);
+    }
+    return 0;
+}
+
 static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
     int tx_ok = 1;
     unsigned char *hdr;
@@ -242,8 +254,8 @@ static int internal_dev_set_mac_address(struct net_device *dev, void *p) {
 static const struct net_device_ops internal_dev_netdev_ops = {
     .ndo_init                  = internal_dev_init,
     .ndo_uninit                = internal_dev_uninit,
-    //.ndo_open: Not used, netif_carrier_on controlled based on VLAN state
-    //.ndo_stop: Not used, netif_carrier_off controlled based on VLAN state
+    .ndo_open                  = internal_dev_open,
+    //.ndo_stop: Not used
     .ndo_start_xmit            = internal_dev_xmit,
     .ndo_change_mtu            = internal_dev_change_mtu,
     .ndo_get_stats64           = internal_dev_get_stats,
