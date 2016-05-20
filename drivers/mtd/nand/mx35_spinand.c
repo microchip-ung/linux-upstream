@@ -891,8 +891,6 @@ static int spinand_probe(struct spi_device *spi_nand)
         chip->options   |= NAND_CACHEPRG;
         chip->select_chip = spinand_select_chip;
 
-        pr_info("%s: Driver loaded\n", __func__);
-
         mtd = devm_kzalloc(&spi_nand->dev, sizeof(struct mtd_info), GFP_KERNEL);
         if (!mtd)
                 return -ENOMEM;

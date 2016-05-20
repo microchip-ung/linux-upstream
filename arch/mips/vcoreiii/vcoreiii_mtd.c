@@ -24,6 +24,7 @@
  *
  */
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -166,5 +167,5 @@ static int __init vcoreiii_mtd_init_nand(void)
         return 0;
 }
 
-module_init(vcoreiii_mtd_init)
+module_init(vcoreiii_mtd_init);
 late_initcall(vcoreiii_mtd_init_nand);
