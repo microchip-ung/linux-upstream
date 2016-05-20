@@ -155,4 +155,10 @@ config UIO_MF624
 
 	  If you compile this as a module, it will be called uio_mf624.
 
+config UIO_VCFW
+       tristate "Microsemi firmware buffer UIO driver"
+        depends on VTSS_VCOREIII_ARCH
+       help
+         UIO interface to bootloader firmware buffer.
+
 endif
