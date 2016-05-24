@@ -203,8 +203,7 @@ static int internal_dev_init(struct net_device *dev) {
     for_each_possible_cpu(i) {
         struct vtss_if_mux_pcpu_stats *s;
         s = per_cpu_ptr(priv->vtss_if_mux_pcpu_stats, i);
-#warning Need to re-visit
-        //u64_stats_init(&stat->syncp);
+        u64_stats_init(&s->syncp);
     }
 
     return 0;
