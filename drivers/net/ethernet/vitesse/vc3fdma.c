@@ -646,7 +646,7 @@ static int rx_buffers_refresh(u32 rx_mtu_new, u32 rx_buf_cnt_new)
     }
 
     // Add Rx buffers
-    rc = rx_buffers_add(RX_MTU_DEFAULT, RX_BUF_CNT_DEFAULT);
+    rc = rx_buffers_add(rx_mtu_new, rx_buf_cnt_new);
 
     U();
 
