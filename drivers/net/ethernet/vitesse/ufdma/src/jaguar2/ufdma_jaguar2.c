@@ -586,6 +586,19 @@ static int CIL_rx_qu_mask_get(ufdma_state_t *state, ufdma_dcb_t *dcb, u32 *rx_qu
     // given by IFH.CPU_MASK. The actual queue is the most significant of these.
     *rx_qu_mask = ((dcb->buf_dscr.buf[25] << 6) | (dcb->buf_dscr.buf[26] >> 2)) & 0xFF;
 
+    // In certain circumstances, the Rx queue mask may be 0. This happens when
+    // the CPU itself transmits a frame that happens to become sFlow-marked.
+    // See Bugzilla#17780, 17788, and 17795, and 20806.
+    if (*rx_qu_mask == 0) {
+        u32 sflow_marked = (dcb->buf_dscr.buf[23] & 0x20) != 0;
+
+        if (sflow_marked) {
+            u32 sflow_queue = VTSS_X_ANA_AC_PS_COMMON_SFLOW_CFG_SFLOW_CPU_QU(REG_RD(VTSS_ANA_AC_PS_COMMON_SFLOW_CFG));
+            *rx_qu_mask = VTSS_BIT(sflow_queue);
+            UFDMA_DG(RX, "Frame has zero Rx queue mask and is sFlow-marked. Adjusting Rx queue mask to 0x%x", *rx_qu_mask);
+        }
+    }
+
     return UFDMA_RC_OK;
 }
 

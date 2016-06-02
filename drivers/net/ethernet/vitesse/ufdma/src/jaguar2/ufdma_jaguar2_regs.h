@@ -38,6 +38,7 @@
 #define VTSS_TO_HSCH                      0x01880000
 #define VTSS_TO_REW                       0x01b00000
 #define VTSS_TO_ANA_CL                    0x01d00000
+#define VTSS_TO_ANA_AC                    0x01f00000
 
 #define VTSS_ICPU_CFG_FDMA_FDMA_DCB_LLP(ri)                             VTSS_IOREG_ICPU_CFG(0x70 + (ri))
 #define VTSS_ICPU_CFG_FDMA_FDMA_DCB_DATAP(ri)                           VTSS_IOREG_ICPU_CFG(0x7a + (ri))
@@ -139,4 +140,8 @@
 #define VTSS_ICPU_CFG_INTR_INTR_ENA                                     VTSS_IOREG(VTSS_TO_CFG, 0x22)
 #define VTSS_ICPU_CFG_INTR_INTR_IDENT                                   VTSS_IOREG(VTSS_TO_CFG, 0x25)
 #define VTSS_ICPU_CFG_INTR_DST_INTR_MAP(ri)                             VTSS_IOREG(VTSS_TO_CFG, 0x26 + (ri))
+#define VTSS_ANA_AC_PS_COMMON_SFLOW_CFG                                 VTSS_IOREG(VTSS_TO_ANA_AC, (state->cil.chip_arch == CHIP_ARCH_SERVAL_T ? 0x5702 : state->cil.chip_arch == CHIP_ARCH_JAGUAR_2C ? 0x2536c : 0x2136c))
+#define VTSS_X_ANA_AC_PS_COMMON_SFLOW_CFG_SFLOW_CPU_QU(x)               VTSS_EXTRACT_BITFIELD(x, 12, 3)
+
 #endif /* _UFDMA_JAGUAR2_REGS_H_ */
+
