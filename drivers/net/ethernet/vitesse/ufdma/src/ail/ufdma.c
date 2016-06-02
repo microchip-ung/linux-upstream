@@ -589,7 +589,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         buf_dscr.rx_qu = rx_qu;
 
         if (rx_qu >= ARRSZ(state->stati.rx_frms)) {
-            UFDMA_E("Invalid Rx queue (%u). Adjusting to %u", rx_qu, ARRSZ(state->stati.rx_frms));
+            UFDMA_E("Invalid Rx queue (%u). Adjusting to %u", rx_qu, ARRSZ(state->stati.rx_frms) - 1);
             rx_qu = ARRSZ(state->stati.rx_frms) - 1;
         }
 
