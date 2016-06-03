@@ -530,15 +530,24 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
             break;
         }
 
+        buf_dscr = state->rx_head_hw->buf_dscr;
+
+        // Invalidate the data area that the FDMA received the frame data into
+        DCACHE_INVALIDATE(buf_dscr.buf, dcb_status.fragment_size_bytes);
+
+        // Print some bytes from it
+        UFDMA_IG(RX, "Rx %u byte fragment (incl. %u byte IFH and 4 byte FCS)", dcb_status.fragment_size_bytes, state->self->props.rx_ifh_size_bytes);
+        UFDMA_IG_HEX(RX, buf_dscr.buf, dcb_status.fragment_size_bytes < 512 ? dcb_status.fragment_size_bytes : 512);
+
         if (dcb_status.aborted) {
-            UFDMA_EG(RX, "Frame was aborted. Recycling DCB");
+            UFDMA_EG(RX, "Frame was aborted. Recycling");
             state->stati.rx_abort_drops++;
             AIL_rx_buf_recycle(state);
             continue;
         }
 
         if (dcb_status.pruned) {
-            UFDMA_EG(RX, "Frame was pruned. Recycling DCB");
+            UFDMA_EG(RX, "Frame was pruned. Recycling");
             state->stati.rx_pruned_drops++;
             AIL_rx_buf_recycle(state);
             continue;
@@ -549,6 +558,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
             if (!dcb_status.eof) {
                 // We received a multi-DCB frame. We don't support this in this driver,
                 // so count it and recycle the DCB.
+                UFDMA_DG(RX, "Got SOF, but not EOF. Recycling");
                 state->stati.rx_multi_dcb_drops++;
                 AIL_rx_buf_recycle(state);
                 continue;
@@ -559,6 +569,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
             // frames that span multiple DCBs. Don't count it
             // because we already did that when we had the sof && !eof
             // condition above.
+            UFDMA_DG(RX, "Got DCB without SOF. Recycling");
             AIL_rx_buf_recycle(state);
             continue;
         }
@@ -568,19 +579,28 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         // higher multiple of the platform's burst size. If so, count it and
         // discard it.
         if (dcb_status.fragment_size_bytes > state->rx_head_hw->buf_dscr.buf_size_bytes) {
+            UFDMA_DG(RX, "Frame larger (%u bytes) than max-user-allowed size (%u bytes). Recycling", dcb_status.fragment_size_bytes, state->rx_head_hw->buf_dscr.buf_size_bytes);
             state->stati.rx_oversize_drops++;
             AIL_rx_buf_recycle(state);
             continue;
         }
 
+        // Ask the CIL layer, whether this really is a frame we should
+        // forward to the application. There may be many different
+        // chip-specific reasons for not forwarding it.
+        UFDMA_CIL_FUNC_RC(state, rx_frm_drop, state->rx_head_hw, &drop);
+        if (drop) {
+            // CIL wants us to drop it. Count it and do as it says.
+            UFDMA_DG(RX, "CIL layer says drop frame. Recycling");
+            state->stati.rx_cil_drops++;
+            AIL_rx_buf_recycle(state);
+            continue;
+        }
+
         // Here, we have one frame in one Rx buffer.
-        buf_dscr                  = state->rx_head_hw->buf_dscr;
         buf_dscr.frm_length_bytes = dcb_status.fragment_size_bytes;
         buf_dscr.result           = UFDMA_RC_OK;
         buf_dscr.timestamp        = TIMESTAMP();
-
-        // Invalidate the data area that the FDMA received the frame data into
-        DCACHE_INVALIDATE(buf_dscr.buf, buf_dscr.frm_length_bytes);
 
         // We also keep per-Rx queue statistics, which requires that we
         // know which Rx queue this frame was received on.
@@ -588,29 +608,19 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         rx_qu = AIL_rx_qu_from_mask(rx_qu_mask);
         buf_dscr.rx_qu = rx_qu;
 
+        UFDMA_DG(RX, "rx_qu_mask = 0x%x, rx_qu = %u", rx_qu_mask, rx_qu);
+
         if (rx_qu >= ARRSZ(state->stati.rx_frms)) {
             UFDMA_E("Invalid Rx queue (%u). Adjusting to %u", rx_qu, ARRSZ(state->stati.rx_frms) - 1);
             rx_qu = ARRSZ(state->stati.rx_frms) - 1;
         }
 
         UFDMA_RC(AIL_rx_throttle_suspend_check(state, rx_qu, buf_dscr.frm_length_bytes, &drop));
-
         if (drop) {
             // We have just entered the suspended state or are already in the suspended state
             // and are just reading out remaining frames from the H/W queue.
+            UFDMA_DG(RX, "Rx queue (%u) suspended. Recycling", rx_qu);
             state->stati.rx_suspended_drops++;
-            AIL_rx_buf_recycle(state);
-            continue;
-        }
-
-        // Now that we have invalidated the cache, we should ask the CIL
-        // layer, whether this really is a frame we should forward to the
-        // application. There may be many different chip-specific reasons
-        // for not forwarding it.
-        UFDMA_CIL_FUNC_RC(state, rx_frm_drop, state->rx_head_hw, &drop);
-        if (drop) {
-            // CIL wants us to drop it. Count it and do as it says.
-            state->stati.rx_cil_drops++;
             AIL_rx_buf_recycle(state);
             continue;
         }
@@ -621,9 +631,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         state->stati.rx_frms[rx_qu]++;
         state->stati.rx_bytes[rx_qu] += buf_dscr.frm_length_bytes;
 
-        // Print some bytes from it
-        UFDMA_IG(RX, "Rx %u byte frame (incl. %u byte IFH and 4 byte FCS) on Rx queue %u", buf_dscr.frm_length_bytes, state->self->props.rx_ifh_size_bytes, rx_qu);
-        UFDMA_IG_HEX(RX, buf_dscr.buf, buf_dscr.frm_length_bytes < 512 ? buf_dscr.frm_length_bytes : 512);
+        UFDMA_DG(RX, "Frame survived checks. Passing to higher layer");
 
         // Call the network driver with his own buffer descriptor.
         // Notice that we must release all our own references to this
