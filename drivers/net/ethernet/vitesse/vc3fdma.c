@@ -76,13 +76,13 @@ static u8 ifh_encap [] = {
 #define PROTO_B1               13
 
 #define DRV_NAME               "vc3fdma"
-#define DRV_VERSION            "01.22"
-#define DRV_RELDATE            "2016/3/2"
+#define DRV_VERSION            "01.23"
+#define DRV_RELDATE            "2016/6/30"
 
 #define ETH_VLAN_TAGSZ         4    // Size of a 802.1Q VLAN tag
 #define RX_MTU_DEFAULT         (ETH_FRAME_LEN + ETH_FCS_LEN + (2 * ETH_VLAN_TAGSZ))
 #define IF_BUFSIZE_JUMBO       10400
-#define RX_BUF_CNT_DEFAULT     256
+#define RX_BUF_CNT_DEFAULT     1024
 #define NAPI_BUDGET            ((RX_BUF_CNT_DEFAULT / 2) > NAPI_POLL_WEIGHT ? NAPI_POLL_WEIGHT : (RX_BUF_CNT_DEFAULT / 2))
 #define DCACHE_LINE_SIZE_BYTES 32 /* Data Cache Line size. Currently, it's the same on all supported platforms */
 #define ZC_CDEV_NAME           "vc3fdma_zc"
@@ -1556,7 +1556,7 @@ static int show_ufdma(struct seq_file *m, void *v)
     memset(&info, 0, sizeof(info));
     info.layer = VTSS_UFDMA_DEBUG_LAYER_ALL;
     info.group = VTSS_UFDMA_DEBUG_GROUP_ALL;
-    info.full = 1;
+    info.full = 0;
     info.ref = m;
 
     seq_printf(m, "Driver: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n\n");
