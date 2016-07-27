@@ -32,5 +32,6 @@
 #include "vtss_servalt_regs_icpu_cfg.h"
 #include "vtss_servalt_regs_twi.h"
 #include "vtss_servalt_regs_simc.h"
+#include "vtss_servalt_regs_hsio.h"
 
 #endif /* _VTSS_SERVALT_CORE_REGS_H_ */

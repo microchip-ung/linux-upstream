@@ -82,6 +82,16 @@ const char *get_system_type(void)
 
 static void vcoreiii_machine_restart(char *command)
 {
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+	// Selected registers of Serval-T's 5G PLL need to have their
+	// values restored to defaults prior to the boot, or the system
+	// will hang (see Bugzilla#20926).
+	writel(0x00106114, VTSS_HSIO_PLL5G_CFG_PLL5G_CFG2(0));
+	writel(0x00224028, VTSS_HSIO_PLL5G_CFG_PLL5G_CFG3(0));
+	writel(0x000014ce, VTSS_HSIO_PLL5G_CFG_PLL5G_CFG6(0));
+	writel(0x00000000, VTSS_HSIO_HW_CFGSTAT_CLK_CFG);
+#endif
+
         // NOTE: make sure VCore is not protected from reset
         writel(VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_PROTECT(0),
                VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_RESET);
