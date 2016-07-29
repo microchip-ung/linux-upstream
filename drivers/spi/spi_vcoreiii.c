@@ -109,7 +109,7 @@ static inline u32 getmiso(struct spi_device *dev)
 	return (readl(VTSS_ICPU_CFG_SPI_MST_SW_MODE) & VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SDI) ? 1 : 0;
 }
 
-#define spidelay(nsecs)	do {} while (0)
+#define spidelay(nsecs)	ndelay(nsecs)
 
 #include "spi-bitbang-txrx.h"
 
