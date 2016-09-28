@@ -596,8 +596,8 @@ static int spinand_erase_block(struct spi_device *spi_nand, u32 block_id)
 }
 
 #ifdef CONFIG_MTD_SPINAND_ONDIEECC
-static int spinand_write_page_hwecc(struct mtd_info *mtd,
-                struct nand_chip *chip, const uint8_t *buf, int oob_required)
+static int spinand_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
+                                    const uint8_t *buf, int oob_required, int page)
 {
         const uint8_t *p = buf;
         int eccsize = chip->ecc.size;
@@ -606,6 +606,15 @@ static int spinand_write_page_hwecc(struct mtd_info *mtd,
         enable_hw_ecc = 1;
         chip->write_buf(mtd, p, eccsize * eccsteps);
         return 0;
+}
+
+// Emulate subpage by writing whole page
+static int spinand_write_subpage_hwecc(struct mtd_info *mtd,
+                                       struct nand_chip *chip, uint32_t offset,
+                                       uint32_t data_len, const uint8_t *buf,
+                                       int oob_required, int page)
+{
+        return spinand_write_page_hwecc(mtd, chip, buf, oob_required, page);
 }
 
 static int spinand_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
@@ -866,6 +875,7 @@ static int spinand_probe(struct spi_device *spi_nand)
                 return -ENOMEM;
 
 #ifdef CONFIG_MTD_SPINAND_ONDIEECC
+        pr_info("mx35: Using hardware ECC\n");
         chip->ecc.mode  = NAND_ECC_HW;
         chip->ecc.size  = 0x200;
         chip->ecc.bytes = 0x0;
@@ -876,7 +886,9 @@ static int spinand_probe(struct spi_device *spi_nand)
         chip->ecc.layout = &spinand_oob_64;
         chip->ecc.read_page = spinand_read_page_hwecc;
         chip->ecc.write_page = spinand_write_page_hwecc;
+        chip->ecc.write_subpage = spinand_write_subpage_hwecc;
 #else
+        pr_info("mx35: Using software ECC\n");
         chip->ecc.mode  = NAND_ECC_SOFT;
         if (spinand_disable_ecc(spi_nand) < 0)
                 pr_info("%s: disable ecc failed!\n", __func__);
