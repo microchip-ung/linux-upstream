@@ -113,10 +113,57 @@ static inline u32 getmiso(struct spi_device *dev)
 
 #include "spi-bitbang-txrx.h"
 
-static u32 spi_vcoreiii_txrx_mode0(struct spi_device *spi,
-			       unsigned nsecs, u32 word, u8 bits)
+static inline u32
+vcoreiii_txrx_be_cpha0(struct spi_vcoreiii *sp, u32 word, u8 bits)
 {
-	return bitbang_txrx_be_cpha0(spi, nsecs, 0, 0, word, bits);
+        u32 cur =  sp->bb_cur | VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SDO_OE;
+	/* clock starts at inactive polarity */
+        u32 mask, ret = 0;
+        wmb();
+        wmb();
+	for (mask = VTSS_BIT(bits-1); likely(mask); mask >>= 1) {
+
+		/* setup MSB (to slave) on trailing edge */
+                /* setmosi(spi, !!(word & mask)); */
+                cur &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SDO;
+                cur |= ((word & mask) ? VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SDO : 0);
+                writel(cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
+
+		//spidelay(nsecs);	/* T(setup) */
+
+		/* setsck(spi, 1); */
+		cur |= VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SCK;
+                writel(cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
+		//spidelay(nsecs);
+
+		/* sample MSB (from slave) on leading edge */
+                cur = readl(VTSS_ICPU_CFG_SPI_MST_SW_MODE);
+                ret |= (cur & VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SDI) ? mask : 0;
+
+		/* setsck(spi, 0); */
+                cur &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SCK;
+                writel(cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
+	}
+        wmb();
+        wmb();
+        wmb();
+        sp->bb_cur = cur;
+	return ret;
+}
+
+#define BASE_OVERHEAD 50 // This is the measured base (minimum) overhead
+static u32 spi_vcoreiii_txrx_mode0(struct spi_device *spi,
+                                   unsigned nsecs, u32 word, u8 bits)
+{
+        u32 ret;
+        unsigned long __flags;
+        local_irq_save(__flags);
+        if (likely(nsecs < BASE_OVERHEAD))
+                ret = vcoreiii_txrx_be_cpha0(spidev_to_sg(spi), word, bits);
+        else
+                ret = bitbang_txrx_be_cpha0(spi, nsecs - BASE_OVERHEAD, 0, 0, word, bits);
+        local_irq_restore(__flags);
+        return ret;
 }
 
 static void spi_vcoreiii_chipselect_set_gpio_cs(struct spi_device *dev, int on, int gpio)
