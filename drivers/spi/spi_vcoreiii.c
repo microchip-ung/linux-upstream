@@ -119,8 +119,6 @@ vcoreiii_txrx_be_cpha0(struct spi_vcoreiii *sp, u32 word, u8 bits)
         u32 cur =  sp->bb_cur | VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SDO_OE;
 	/* clock starts at inactive polarity */
         u32 mask, ret = 0;
-        wmb();
-        wmb();
 	for (mask = VTSS_BIT(bits-1); likely(mask); mask >>= 1) {
 
 		/* setup MSB (to slave) on trailing edge */
@@ -144,9 +142,6 @@ vcoreiii_txrx_be_cpha0(struct spi_vcoreiii *sp, u32 word, u8 bits)
                 cur &= ~VTSS_M_ICPU_CFG_SPI_MST_SW_MODE_SW_SPI_SCK;
                 writel(cur, VTSS_ICPU_CFG_SPI_MST_SW_MODE);
 	}
-        wmb();
-        wmb();
-        wmb();
         sp->bb_cur = cur;
 	return ret;
 }
