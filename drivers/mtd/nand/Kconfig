@@ -486,7 +486,7 @@ config MTD_NAND_SPINAND_MX35
 
 config MTD_SPINAND_ONDIEECC
 	bool
-	default y
+	default n
 	depends on MTD_NAND_SPINAND_MX35
 
 config MTD_NAND_SH_FLCTL

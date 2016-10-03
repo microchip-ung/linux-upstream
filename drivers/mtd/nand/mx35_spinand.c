@@ -466,6 +466,11 @@ static int spinand_program_execute(struct spi_device *spi_nand, u32 page_id)
  *   write execute command.
  *   Poll to wait for the tPROG time to finish the transaction.
  */
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+#define WBUF_FREE(d, b) devm_kfree(d, b)
+#else
+#define WBUF_FREE(d, b) // Go away
+#endif
 static int spinand_program_page(struct spi_device *spi_nand,
                 u32 page_id, u16 offset, u16 len, u8 *buf)
 {
@@ -486,7 +491,7 @@ static int spinand_program_page(struct spi_device *spi_nand,
                 retval = spinand_enable_ecc(spi_nand);
                 if (retval < 0) {
                         dev_err(&spi_nand->dev, "enable ecc failed!!\n");
-                        return retval;
+                        goto err_exit;
                 }
         }
 #else
@@ -495,13 +500,16 @@ static int spinand_program_page(struct spi_device *spi_nand,
         retval = spinand_write_enable(spi_nand);
         if (retval < 0) {
                 dev_err(&spi_nand->dev, "write enable failed!!\n");
-                return retval;
+                goto err_exit;
         }
         if (wait_till_ready(spi_nand))
                 dev_err(&spi_nand->dev, "wait timedout!!!\n");
 
         retval = spinand_program_data_to_cache(spi_nand, page_id,
                         offset, len, wbuf);
+err_exit:
+        // Done with buffer - if allocated
+        WBUF_FREE(&spi_nand->dev, wbuf);
         if (retval < 0)
                 return retval;
         retval = spinand_program_execute(spi_nand, page_id);
@@ -538,6 +546,7 @@ static int spinand_program_page(struct spi_device *spi_nand,
 
         return 0;
 }
+#undef WBUF_FREE
 
 /**
  * spinand_erase_block_erase--to erase a page with:
