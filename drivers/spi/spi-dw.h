@@ -5,6 +5,8 @@
 #include <linux/scatterlist.h>
 #include <linux/gpio.h>
 
+#include <linux/spi/dw.h>
+
 /* Register offsets */
 #define DW_SPI_CTRL0			0x00
 #define DW_SPI_CTRL1			0x04
@@ -237,18 +239,6 @@ static inline void spi_shutdown_chip(struct dw_spi *dws)
 	spi_enable_chip(dws, 0);
 	spi_set_clk(dws, 0);
 }
-
-/*
- * Each SPI slave device to work with dw_api controller should
- * has such a structure claiming its working mode (poll or PIO/DMA),
- * which can be save in the "controller_data" member of the
- * struct spi_device.
- */
-struct dw_spi_chip {
-	u8 poll_mode;	/* 1 for controller polling mode */
-	u8 type;	/* SPI/SSP/MicroWire */
-	void (*cs_control)(u32 command);
-};
 
 extern int dw_spi_add_host(struct device *dev, struct dw_spi *dws);
 extern void dw_spi_remove_host(struct dw_spi *dws);
