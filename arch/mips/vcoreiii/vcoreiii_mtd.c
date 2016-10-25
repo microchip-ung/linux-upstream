@@ -30,22 +30,15 @@
 #include <linux/mtd/partitions.h>
 #include <mtd/mtd-abi.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi_vcoreiii.h>
 #include <linux/spi/flash.h>
 
 #include <asm/mach-vcoreiii/hardware.h>
 #include <asm/vcoreiii-gpio.h>
-
-static struct spi_vcoreiii_platform_data spi_vcoreiii_cfg = {
-	// .no_spi_delay = 1,
-};
+#include <linux/sizes.h>
 
 static struct platform_device vcoreiii_spi = {
         .name             = SPI_VCOREIII_PLATDEV_NAME,
         .id               = 0,
-        .dev = {
-                .platform_data = &spi_vcoreiii_cfg,
-        },
 };
 
 static struct flash_platform_data vcoreiii_spi_flash_data = {
