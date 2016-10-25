@@ -113,6 +113,13 @@ struct dw_spi {
 	u16			bus_num;
 	u16			num_cs;		/* supported slave numbers */
 
+        /* CS hook */
+        void (*cs_hook)(struct dw_spi *dws, struct spi_device *spi, bool enable);
+
+        /* HW state */
+	u16 clk_div;		/* baud rate divider */
+	u32 speed_hz;		/* baud rate */
+
 	/* Current message transfer state info */
 	size_t			len;
 	void			*tx;

@@ -49,10 +49,11 @@ static struct platform_device vcoreiii_spi = {
 };
 
 static struct flash_platform_data vcoreiii_spi_flash_data = {
-	.type = "m25p128",
+	.type = "jedec,spi-nor",
 	.name = "spi_flash",
         .read_mapped = 1,
         .phys_offset = 0x40000000,
+        .phys_length = SZ_16M,
         .use_4byte_commands = 1,
 };
 

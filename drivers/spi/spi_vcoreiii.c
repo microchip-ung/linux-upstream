@@ -255,7 +255,7 @@ static void spi_vcoreiii_chipselect(struct spi_device *dev, int on)
     }
 
     // This is more of a "hook" prior to changing CS
-    if (sp->info->chipselect) {
+    if (sp->info && sp->info->chipselect) {
         sp->info->chipselect(dev, on);
     }
 

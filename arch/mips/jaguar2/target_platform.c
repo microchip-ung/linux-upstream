@@ -120,24 +120,6 @@ static struct platform_device firmware_device = {
     .num_resources  = ARRAY_SIZE(firmware_resources),
 };
 
-#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
-extern struct semaphore platform_gpio8_lock;
-
-// This fixes a ServalT I2C issue (Bugzilla#17656)
-static void platform_xfer_hook(struct i2c_adapter *adapter, int start)
-{
-    if (start) {
-        down(&platform_gpio8_lock);
-        vcoreiii_gpio_set_mode(8, VCOREIII_GPIO_MODE_ALT3);    // ALT 0b'11'
-        writel(VTSS_BIT(8), VTSS_DEVCPU_GCB_GPIO_GPIO_OUT_SET);
-    } else {
-        writel(VTSS_BIT(8), VTSS_DEVCPU_GCB_GPIO_GPIO_OUT_CLR);
-        vcoreiii_gpio_set_mode(8, VCOREIII_GPIO_MODE_NORMAL);    // ALT 0b'00'
-        up(&platform_gpio8_lock);
-    }
-}
-#endif
-
 /* I2C */
 static struct vcoreiii_i2c_platform_data i2c_data = {
     .fast_mode = 0,             /* 100 kbit/s */
@@ -176,14 +158,6 @@ static int __init target_device_init(void)
 #else
 #error Unknown platform
 #endif
-#endif
-
-#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    if (vcoreiii_chid_rev == 0) {
-        // Chip issue wrt I2C MUX
-        printk(KERN_INFO "I2C: VSC%04x rev %c - MUX workaround applied\n", vcoreiii_chip_id, vcoreiii_chid_rev + 'A');
-        i2c_data.xfer_hook = platform_xfer_hook;
-    }
 #endif
 
     i2c_register_board_info(0, i2c_devs, ARRAY_SIZE(i2c_devs));

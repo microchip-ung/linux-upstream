@@ -613,12 +613,6 @@ config SPI_VCOREIII_MK1
 	help
 	  SPI driver for VCore-III.
 
-config SPI_JAGUAR2
-       tristate "Jaguar2 SPI controller"
-       depends on SPI_MASTER && VTSS_VCOREIII_JAGUAR2_FAMILY
-       help
-         SPI driver for Jaguar2.
-
 config SPI_XILINX
 	tristate "Xilinx SPI controller common module"
 	depends on HAS_IOMEM
@@ -686,6 +680,10 @@ config SPI_DW_MID_DMA
 
 config SPI_DW_MMIO
 	tristate "Memory-mapped io interface driver for DW SPI core"
+	depends on SPI_DESIGNWARE
+
+config SPI_DW_VCOREIII
+	tristate "VCoreIII io interface driver for DW SPI core"
 	depends on SPI_DESIGNWARE
 
 #

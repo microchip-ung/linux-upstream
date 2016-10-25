@@ -31,33 +31,32 @@
 #include <linux/mtd/partitions.h>
 #include <mtd/mtd-abi.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi_vcoreiii.h>
+#if defined(CONFIG_SPI_VCOREIII_MK1)
+ #include <linux/spi/spi_vcoreiii.h>
+#endif
 #include <linux/spi/flash.h>
+#include <linux/sizes.h>
 
 #include <asm/mach-serval/hardware.h>
 #include <asm/vcoreiii-gpio.h>
 
-static struct spi_vcoreiii_platform_data spi_serval_cfg = {
-	// .no_spi_delay = 1,
-};
-
 static struct platform_device serval_spi = {
+#if defined(SPI_VCOREIII_PLATDEV_NAME)
         .name             = SPI_VCOREIII_PLATDEV_NAME,
+#else
+        .name             = "dw_spi_vcoreiii",
+#endif
         .id               = 0,
-        .dev = {
-                .platform_data = &spi_serval_cfg,
-        },
 };
 
 static struct flash_platform_data serval_spi_flash_data = {
-#if defined(CONFIG_VTSS_VCOREIII_SERVAL1_CLASSIC)
-        .type = "m25p128",
-#elif defined(CONFIG_VTSS_VCOREIII_OCELOT)
-        .type = "mx25l25635e",
-#endif
+	.type = "jedec,spi-nor",
 	.name = "spi_flash",
+#if !defined(CONFIG_SPI_DW_VCOREIII)
         .read_mapped = 1,
         .phys_offset = 0x40000000,
+        .phys_length = SZ_16M,
+#endif
         .use_4byte_commands = 1,
 };
 
@@ -81,7 +80,7 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
 		.modalias = "m25p80", /* Name of spi_driver for this device */
-		.max_speed_hz = 50000000,     /* max spi clock (SCK) speed in HZ */
+		.max_speed_hz = 18000000,     /* max spi clock (SCK) speed in HZ */
 		.bus_num = 0, /* Framework bus number */
 		.chip_select = 0, /* Framework chip select. */
 		.platform_data = &serval_spi_flash_data,
@@ -91,7 +90,7 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
 		.modalias = "mx35", /* Name of spi_driver for this device */
-		.max_speed_hz = 50000000,     /* max spi clock (SCK) speed in HZ */
+		.max_speed_hz = 15625000,     /* max spi clock (SCK) speed in HZ */
 		.bus_num = 0, /* Framework bus number */
 		.chip_select = 1, /* Framework chip select. */
 		.platform_data = &serval_spinand_flash_data,

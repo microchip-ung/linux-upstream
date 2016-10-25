@@ -36,7 +36,7 @@ struct m25p {
 	/* Direct read support */
 	void __iomem		*virt; /* Iff mapped through phys mem */
 	struct resource		*res;
-	uint64_t                read_max;
+	size_t                  read_max;
 };
 
 static int m25p80_read_reg(struct spi_nor *nor, u8 code, u8 *val, int len)
@@ -267,7 +267,7 @@ static int m25p_probe(struct spi_device *spi)
 
         /* Support for phys-mapped spi flash */
         if(data->read_mapped) {
-            flash->read_max = min(nor->mtd.size, (uint64_t)SZ_16M);
+            flash->read_max = min_t(size_t, nor->mtd.size, data->phys_length);
             if((flash->res = request_mem_region(data->phys_offset, nor->mtd.size,
                                                 nor->mtd.name))) {
                 if((flash->virt = ioremap(data->phys_offset, nor->mtd.size))) {

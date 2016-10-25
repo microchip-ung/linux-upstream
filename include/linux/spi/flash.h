@@ -28,6 +28,7 @@ struct flash_platform_data {
 	/* Added for flashes also readable from phys addr */
 	bool            read_mapped; /* Non-zero if flash can be read directly */
 	resource_size_t phys_offset; /* The address to map, if above is non-zero */
+	size_t          phys_length; /* The extent of the read-area */
 
         /* MX25L25635F 4-byte commands support */
         bool use_4byte_commands;
