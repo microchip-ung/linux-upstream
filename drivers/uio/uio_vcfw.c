@@ -41,7 +41,7 @@ static int vcfw_probe(struct platform_device *dev)
 	struct resource *regs_vcfwio;
 	int ret = -ENODEV, len;
 
-        dev_err(&dev->dev, "UIO driver loading\n");
+        dev_info(&dev->dev, "UIO driver loading\n");
 
 	info = kzalloc(sizeof(struct uio_info), GFP_KERNEL);
 	if (!info)
@@ -49,12 +49,12 @@ static int vcfw_probe(struct platform_device *dev)
 
 	regs_vcfwio = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (!regs_vcfwio) {
-		dev_err(&dev->dev, "No firmware I/O resource specified\n");
+                dev_info(&dev->dev, "No firmware I/O resource specified, not registering\n");
 		goto out_free;
 	}
 
 	if (!regs_vcfwio->start) {
-		dev_err(&dev->dev, "Invalid memory resource\n");
+		dev_info(&dev->dev, "Null memory resource, not registering\n");
 		goto out_free;
 	}
 
