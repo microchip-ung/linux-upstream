@@ -30,6 +30,7 @@
 #include <linux/mtd/partitions.h>
 #include <mtd/mtd-abi.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi_vcoreiii.h>
 #include <linux/spi/flash.h>
 
 #include <asm/mach-vcoreiii/hardware.h>
