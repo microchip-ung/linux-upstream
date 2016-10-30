@@ -68,7 +68,7 @@ static struct flash_platform_data jaguar2_spi_flash_data = {
 #if !defined(CONFIG_SPI_DW_VCOREIII)
         .read_mapped = 1,
         .phys_offset = 0x40000000,
-        .phys_length = SZ_256M,
+        .phys_length = SZ_16M,
 #endif
         .use_4byte_commands = 1,
 };
@@ -174,12 +174,6 @@ static struct platform_device jaguar2_nand = {
 
 static int __init vcoreiii_mtd_init(void)
 {
-#if !defined(CONFIG_SPI_DW_VCOREIII)
-    // Allow fast reading of entire CS0
-    vcoreiii_io_set(VTSS_ICPU_CFG_SPI_MST_SPI_MST_CFG,
-                    VTSS_F_ICPU_CFG_SPI_MST_SPI_MST_CFG_A32B_ENA(1));
-#endif
-
 #if defined(JR2_PI_NAND)
     /* Enable the PI interface */
     vcoreiii_io_set(VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL,
