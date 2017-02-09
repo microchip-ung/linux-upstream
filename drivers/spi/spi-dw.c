@@ -37,8 +37,6 @@ struct chip_data {
 	u8 poll_mode;		/* 1 means use poll mode */
 
 	u8 enable_dma;
-	u16 clk_div;		/* baud rate divider */
-	u32 speed_hz;		/* baud rate */
 	void (*cs_control)(u32 command);
 };
 
@@ -140,6 +138,10 @@ static void dw_spi_set_cs(struct spi_device *spi, bool enable)
 	/* Chip select logic is inverted from spi_set_cs() */
 	if (chip && chip->cs_control)
 		chip->cs_control(!enable);
+
+	/* Chip select logic is inverted from spi_set_cs() */
+        if (dws->cs_hook)
+            dws->cs_hook(dws, spi, !enable);
 
 	if (!enable)
 		dw_writel(dws, DW_SPI_SER, BIT(spi->chip_select));

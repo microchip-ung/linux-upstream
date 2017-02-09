@@ -34,6 +34,9 @@ platforms += sibyte
 platforms += sni
 platforms += txx9
 platforms += vr41xx
+platforms += vcoreiii
+platforms += serval
+platforms += jaguar2
 platforms += xilfpga
 
 # include the platform specific files

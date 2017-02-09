@@ -26,12 +26,17 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
 #include <linux/mtd/spi-nor.h>
+#include <linux/sizes.h>
 
 #define	MAX_CMD_SIZE		6
 struct m25p {
 	struct spi_device	*spi;
 	struct spi_nor		spi_nor;
 	u8			command[MAX_CMD_SIZE];
+	/* Direct read support */
+	void __iomem		*virt; /* Iff mapped through phys mem */
+	struct resource		*res;
+	size_t                  read_max;
 };
 
 static int m25p80_read_reg(struct spi_nor *nor, u8 code, u8 *val, int len)
@@ -185,6 +190,35 @@ static ssize_t m25p80_read(struct spi_nor *nor, loff_t from, size_t len,
 	return ret;
 }
 
+static ssize_t m25p80_phys_read(struct spi_nor *nor, loff_t from, size_t len,
+                                u_char *buf)
+{
+	struct m25p *flash = nor->priv;
+
+        pr_debug("%s: %s from 0x%08x, len %zd\n", dev_name(&flash->spi->dev),
+                 __func__, (u32)from, len);
+
+	/* sanity checks */
+	if (!len)
+		return 0;
+
+	if (from + len > flash->read_max) {   // Beyond reach?
+                return m25p80_read(nor, from, len, buf);
+        } else {
+            struct spi_device *spi = flash->spi;
+            struct spi_master *master = spi->master;
+
+            mutex_lock(&master->bus_lock_mutex);
+
+            /* Just copy out */
+            memcpy_fromio(buf, flash->virt + from, len);
+
+            mutex_unlock(&master->bus_lock_mutex);
+        }
+
+	return len;
+}
+
 /*
  * board specific setup should have ensured the SPI clock used here
  * matches what the READ command supports, at least until this driver
@@ -212,6 +246,26 @@ static int m25p_probe(struct spi_device *spi)
 	nor->write = m25p80_write;
 	nor->write_reg = m25p80_write_reg;
 	nor->read_reg = m25p80_read_reg;
+        /* Support for phys-mapped spi flash */
+        if(data->read_mapped) {
+            flash->read_max = min_t(size_t, nor->mtd.size, data->phys_length);
+            if((flash->res = request_mem_region(data->phys_offset, nor->mtd.size,
+                                                nor->mtd.name))) {
+                if((flash->virt = ioremap(data->phys_offset, nor->mtd.size))) {
+                    nor->read = m25p80_phys_read; /* Can read directly */
+                    dev_info(&spi->dev, "Direct read area @0x%08x length %lld Kbytes\n",
+                             data->phys_offset, (long long)flash->read_max >> 10);
+                } else {
+                    dev_err(&flash->spi->dev,
+                            "Failed to ioremap flash region (@%08x len %lld) - will read using SPI\n",
+                            data->phys_offset, (long long)flash->read_max);
+                }
+            } else {
+                dev_err(&flash->spi->dev,
+                        "Failed to reserve memory region (@%08x len %lld) - will read using SPI\n",
+                        data->phys_offset, (long long)nor->mtd.size);
+            }
+        }
 
 	nor->dev = &spi->dev;
 	spi_nor_set_flash_node(nor, spi->dev.of_node);
