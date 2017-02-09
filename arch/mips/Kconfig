@@ -551,8 +551,7 @@ config VTSS_VCOREIII_JAGUAR
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
-	select GENERIC_GPIO
-        select ARCH_REQUIRE_GPIOLIB
+        select GPIOLIB
 	help
 	  This enables support for the Vitesse Semiconductor VCore-III evaluation
 	  board(s).
@@ -574,8 +573,7 @@ config VTSS_VCOREIII_LUTON26
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
-	select GENERIC_GPIO
-        select ARCH_REQUIRE_GPIOLIB
+        select GPIOLIB
 	help
 	  This enables support for the Vitesse Semiconductor VCore-III evaluation
 	  board(s).
@@ -1333,8 +1331,7 @@ config VTSS_VCOREIII_SERVAL1
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
-	select GENERIC_GPIO
-        select ARCH_REQUIRE_GPIOLIB
+        select GPIOLIB
 	help
 	  This enables support for the Vitesse Semiconductor VCore-III evaluation
 	  board(s).
@@ -1355,8 +1352,7 @@ config VTSS_VCOREIII_JAGUAR2_FAMILY
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
-	select GENERIC_GPIO
-        select ARCH_REQUIRE_GPIOLIB
+        select GPIOLIB
 
 config IRQ_GIC
 	bool
@@ -1383,8 +1379,7 @@ config VTSS_VCOREIII_JAGUAR2_FAMILY
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
-	select GENERIC_GPIO
-        select ARCH_REQUIRE_GPIOLIB
+        select GPIOLIB
 
 config PCI_GT64XXX_PCI0
 	bool

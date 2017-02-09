@@ -29,6 +29,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/gpio.h>
+#include <linux/gpio/driver.h>
 
 #include <asm/mach-vcoreiii/hardware.h>
 #include <asm/vcoreiii-gpio.h>

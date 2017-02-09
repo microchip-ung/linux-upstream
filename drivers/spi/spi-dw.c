@@ -37,6 +37,8 @@ struct chip_data {
 	u8 poll_mode;		/* 1 means use poll mode */
 
 	u8 enable_dma;
+	u16 clk_div;		/* baud rate divider */
+	u32 speed_hz;		/* baud rate */
 	void (*cs_control)(u32 command);
 };
 

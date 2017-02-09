@@ -29,7 +29,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
-#include <linux/errno.h>
+#include <linux/gpio/driver.h>
 #include <linux/io.h>
 
 #include <asm/mach-serval/hardware.h>

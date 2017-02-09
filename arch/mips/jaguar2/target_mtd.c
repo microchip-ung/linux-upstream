@@ -124,7 +124,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 static void jaguar2_nand_cmd_ctl(struct mtd_info *mtd, int cmd,
                                  unsigned int ctrl)
 {
-	struct nand_chip *this = mtd->priv;
+	struct nand_chip *this = mtd_to_nand(mtd);
 	if (ctrl & NAND_CTRL_CHANGE) {
             u32 ioaddr =  (u32) this->IO_ADDR_W;
             ioaddr &= ~(NAND_ADDR_BIT_CLE|NAND_ADDR_BIT_ALE);
@@ -156,7 +156,7 @@ struct platform_nand_data jaguar2_nand_platdata = {
 static struct resource jaguar2_nand_resource[] = {
     [0] = {
         .start = 0x50000000 + (JAGUAR2_NAND_CS*0x4000000), /* CS0 */
-        .end   = 0x50000000 + (JAGUAR2_NAND_CS*0x4000000) + NAND_ADDR_BIT_CLE*2,
+        .end   = 0x50000000 + (JAGUAR2_NAND_CS*0x4000000) + 0xff,
         .flags = IORESOURCE_MEM,
     },
 };

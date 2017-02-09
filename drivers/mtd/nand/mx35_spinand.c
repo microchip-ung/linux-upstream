@@ -855,7 +855,6 @@ static int spinand_probe(struct spi_device *spi_nand)
         struct nand_chip *chip;
         struct spinand_info *info;
         struct spinand_state *state;
-        struct mtd_part_parser_data ppdata;
         struct flash_platform_data *data;
 
         info  = devm_kzalloc(&spi_nand->dev, sizeof(struct spinand_info),
@@ -930,8 +929,7 @@ static int spinand_probe(struct spi_device *spi_nand)
         if (nand_scan(mtd, 1))
                 return -ENXIO;
 
-        ppdata.of_node = spi_nand->dev.of_node;
-        return mtd_device_parse_register(mtd, NULL, &ppdata,
+        return mtd_device_parse_register(mtd, NULL, NULL,
                                          data ? data->parts : NULL,
                                          data ? data->nr_parts : 0);
 }

@@ -25,6 +25,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
+#include <net/switchdev.h>
 
 #include "vtss_if_mux.h"
 
@@ -232,12 +233,12 @@ static int internal_dev_fdb_dump(struct sk_buff *skb,
                                  struct netlink_callback *cb,
                                  struct net_device *dev,
                                  struct net_device *filter_dev,
-                                 int idx) {
+                                 int *idx) {
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(dev);
 
     // Re-arm the notification mechanism
     priv->fdb_dump_pending = false;
-    return ndo_dflt_fdb_dump(skb, cb, dev, filter_dev, idx);
+    return switchdev_port_fdb_dump(skb, cb, dev, filter_dev, idx);
 }
 
 static int internal_dev_set_mac_address(struct net_device *dev, void *p) {

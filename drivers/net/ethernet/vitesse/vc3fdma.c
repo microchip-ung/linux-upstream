@@ -1502,7 +1502,6 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
     L();
     if ((tbd.buf_state = kmalloc(driver->props.buf_state_size_bytes, GFP_ATOMIC)) != NULL) {
         // Start Tx
-        dev->trans_start = jiffies;
         if ((rc = driver->tx(driver, &tbd))) {
             T_E("uFDMA transmit error: %s", driver->error_txt(driver, rc));
             dev->stats.tx_dropped++;

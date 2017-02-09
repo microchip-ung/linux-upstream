@@ -75,7 +75,7 @@ static struct spi_board_info vcoreiii_spi_board_info[] __initdata = {
 static void vcoreiii_nand_cmd_ctl(struct mtd_info *mtd, int cmd,
 				  unsigned int ctrl)
 {
-	struct nand_chip *this = mtd->priv;
+	struct nand_chip *this = mtd_to_nand(mtd);
 	if (ctrl & NAND_CTRL_CHANGE) {
             u32 ioaddr = (u32) this->IO_ADDR_R;
             if(ctrl & NAND_CLE) {
