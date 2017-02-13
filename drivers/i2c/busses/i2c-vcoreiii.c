@@ -465,9 +465,11 @@ static int i2c_vcoreiii_hwinit(const struct vcoreiii_i2c_platform_data *pdata)
     unsigned long clk_freq = VCOREIII_AHB_CLOCK, reg_val;
 
     reg_val = (5 * clk_freq / 1000000) - 8;  // datasheet 6.17.1.5
+    reg_val *= 2;                            // Lower by 50% due to lack of stretching
     VTSS_WR(reg_val, VTSS_TWI_TWI_SS_SCL_HCNT);
 
     reg_val = (5 * clk_freq / 1000000) - 1;  // datasheet 6.17.1.6
+    reg_val *= 2;                            // Lower by 50% due to lack of stretching
     VTSS_WR(reg_val, VTSS_TWI_TWI_SS_SCL_LCNT);
 
     reg_val = VTSS_F_ICPU_CFG_TWI_DELAY_TWI_CONFIG_TWI_CNT_RELOAD((unsigned int)(0.3 * clk_freq / 1000000) - 1) | VTSS_M_ICPU_CFG_TWI_DELAY_TWI_CONFIG_TWI_DELAY_ENABLE;  // datasheet 6.17
