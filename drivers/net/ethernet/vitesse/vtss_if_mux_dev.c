@@ -238,7 +238,7 @@ static int internal_dev_fdb_dump(struct sk_buff *skb,
 
     // Re-arm the notification mechanism
     priv->fdb_dump_pending = false;
-    return switchdev_port_fdb_dump(skb, cb, dev, filter_dev, idx);
+    return ndo_dflt_fdb_dump(skb, cb, dev, filter_dev, idx);
 }
 
 static int internal_dev_set_mac_address(struct net_device *dev, void *p) {
