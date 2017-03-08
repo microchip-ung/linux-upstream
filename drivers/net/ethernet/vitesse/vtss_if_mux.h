@@ -67,6 +67,7 @@ static inline struct vtss_if_mux_dev_priv *vtss_if_mux_dev_priv(
     return netdev_priv(dev);
 }
 
+extern bool vtss_if_mux_nl_notify_pending;
 extern struct net_device *vtss_if_mux_parent_dev;
 extern struct net_device *vtss_if_mux_vlan_net_dev[VLAN_N_VID];
 extern int vtss_if_mux_vlan_up[VLAN_N_VID];
@@ -75,6 +76,7 @@ void vtss_if_mux_setup(struct net_device *netdev);
 
 int vtss_if_mux_netlink_init(void);
 void vtss_if_mux_netlink_uninit(void);
+void vtss_if_mux_dev_uninit(void);
 
 int vtss_if_mux_genetlink_init(void);
 void vtss_if_mux_genetlink_uninit(void);

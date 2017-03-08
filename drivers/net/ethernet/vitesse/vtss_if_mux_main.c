@@ -284,6 +284,7 @@ static void __exit vtss_if_mux_exit_module(void) {
     unregister_netdevice_notifier(&dev_notifier_block);
     vtss_if_mux_netlink_uninit();
     vtss_if_mux_genetlink_uninit();
+    vtss_if_mux_dev_uninit();
 
     for (i = 0; i < VLAN_N_VID; ++i) {
         if (vtss_if_mux_vlan_net_dev[i]) {

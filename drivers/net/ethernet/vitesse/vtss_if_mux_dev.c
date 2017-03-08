@@ -24,6 +24,7 @@
 #include <linux/notifier.h>
 #include <linux/rtnetlink.h>
 #include <linux/netdevice.h>
+#include <linux/workqueue.h>
 #include <linux/etherdevice.h>
 #include <net/switchdev.h>
 
@@ -212,12 +213,37 @@ static int internal_dev_init(struct net_device *dev) {
 
 static void internal_dev_uninit(struct net_device *dev) { }
 
+static void rt_notify_task(struct work_struct *work) {
+    int i;
+    struct net_device *dev = 0;
+
+    rtnl_lock();
+
+    for (i = 0; i < VLAN_N_VID; ++i) {
+        dev = vtss_if_mux_vlan_net_dev[i];
+        if (!dev) {
+            continue;
+        }
+
+        vtss_if_mux_rt_notify(dev);
+    }
+
+    rtnl_unlock();
+}
+
+static DECLARE_WORK(rt_notify_work, rt_notify_task);
+
+void vtss_if_mux_dev_uninit() {
+    cancel_work_sync(&rt_notify_work);
+}
+
+
 static void internal_dev_set_rx_mode(struct net_device *dev) {
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(dev);
 
     if (!priv->fdb_dump_pending) {
-        vtss_if_mux_rt_notify(dev);
         priv->fdb_dump_pending = true;
+        schedule_work(&rt_notify_work);
     }
 }
 
