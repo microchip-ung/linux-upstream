@@ -898,6 +898,7 @@ static int spinand_probe(struct spi_device *spi_nand)
 #else
         pr_info("mx35: Using software ECC\n");
         chip->ecc.mode  = NAND_ECC_SOFT;
+        chip->ecc.algo	= NAND_ECC_HAMMING;
         if (spinand_disable_ecc(spi_nand) < 0)
                 pr_info("%s: disable ecc failed!\n", __func__);
 #endif
