@@ -128,17 +128,17 @@ static struct platform_device *target_devices[] __initdata = {
     &switch_device,
     &vc3fdma_device,
     &i2c_device,
-    &firmware_device,
 };
 
 static int __init target_device_init(void)
 {
-    if (vcoreiii_memmap_start && vcoreiii_memmap_size) {
+    int res = platform_add_devices(target_devices, ARRAY_SIZE(target_devices));
+    if (res == 0 && vcoreiii_memmap_start && vcoreiii_memmap_size) {
         firmware_resources[0].start = vcoreiii_memmap_start;
         firmware_resources[0].end = vcoreiii_memmap_start + vcoreiii_memmap_size - 1;
+        res = platform_device_register(&firmware_device);
     }
-
-    return platform_add_devices(target_devices, ARRAY_SIZE(target_devices));
+    return res;
 }
 module_init(target_device_init);
 

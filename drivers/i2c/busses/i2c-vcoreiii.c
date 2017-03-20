@@ -564,6 +564,7 @@ static int i2c_vcoreiii_probe(struct platform_device *pdev)
     iface->dev = get_device(&pdev->dev);
     iface->irq = TWI_IRQ;
     iface->xfer_hook = pdata->xfer_hook;    // Optional platform hook
+    iface->xfer.cmd_res = I2C_CMPLT_DONE;   // Inactive state
     spin_lock_init(&iface->lock);
     platform_set_drvdata(pdev, iface);
 

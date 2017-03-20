@@ -147,6 +147,7 @@ static struct i2c_board_info i2c_devs[] __initdata = {
 
 static int __init target_device_init(void)
 {
+    int res;
 #if defined(CONFIG_SERIAL_8250_RUNTIME_UARTS) && (CONFIG_SERIAL_8250_RUNTIME_UARTS > 1)
     // Bootloader *may* not have set this up, be sure...
 #if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH)
@@ -162,12 +163,13 @@ static int __init target_device_init(void)
 
     i2c_register_board_info(0, i2c_devs, ARRAY_SIZE(i2c_devs));
 
-    if (vcoreiii_memmap_start && vcoreiii_memmap_size) {
+    res = platform_add_devices(target_devices, ARRAY_SIZE(target_devices));
+    if (res == 0 && vcoreiii_memmap_start && vcoreiii_memmap_size) {
         firmware_resources[0].start = vcoreiii_memmap_start;
         firmware_resources[0].end = vcoreiii_memmap_start + vcoreiii_memmap_size - 1;
+        res = platform_device_register(&firmware_device);
     }
-
-    return platform_add_devices(target_devices, ARRAY_SIZE(target_devices));
+    return res;
 }
 module_init(target_device_init);
 
