@@ -138,7 +138,6 @@ static struct platform_device *target_devices[] __initdata = {
     &switch_device,
     &vc3fdma_device,
     &i2c_device,
-    &firmware_device,
 };
 
 static struct i2c_board_info i2c_devs[] __initdata = {
