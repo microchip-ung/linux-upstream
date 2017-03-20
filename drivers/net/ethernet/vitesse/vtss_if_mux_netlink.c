@@ -95,13 +95,13 @@ static int vtss_if_mux_newlink(struct net *src_net, struct net_device *dev,
     }
 
     //printk(KERN_INFO "reg new device\n");
-    vtss_if_mux_dev_priv(dev)->vlan_id = vlan_id;
-    vtss_if_mux_vlan_net_dev[vlan_id] = dev;
-    err = register_netdevice(vtss_if_mux_vlan_net_dev[vlan_id]);
+    err = register_netdevice(dev);
     if (err != 0) {
         printk(KERN_INFO "Failed to register device\n");
         goto exit_rx_unreg;
     }
+    vtss_if_mux_dev_priv(dev)->vlan_id = vlan_id;
+    vtss_if_mux_vlan_net_dev[vlan_id] = dev;
 
     //netif_stacked_transfer_operstate(parent_dev, dev);
     if (vtss_if_mux_vlan_up[vlan_id]) {
@@ -185,14 +185,14 @@ errout:
 void vtss_if_mux_dellink(struct net_device *dev, struct list_head *head) {
     int i;
 
-    printk(KERN_INFO "unregister_vlan_dev\n");
-    unregister_netdevice_queue(dev, head);
-
     for (i = 0; i < VLAN_N_VID; ++i) {
         if (vtss_if_mux_vlan_net_dev[i] == dev) {
             vtss_if_mux_vlan_net_dev[i] = 0;
         }
     }
+
+    printk(KERN_INFO "unregister_vlan_dev\n");
+    unregister_netdevice_queue(dev, head);
 }
 
 struct rtnl_link_ops vtss_if_mux_link_ops __read_mostly = {
