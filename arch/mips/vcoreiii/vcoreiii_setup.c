@@ -27,14 +27,15 @@
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/ioport.h>	/* for struct resource */
+#include <linux/delay.h>
+#include <linux/export.h>
+#include <linux/reboot.h>
 
 #include <asm/time.h>
 #include <asm/idle.h>
 #include <asm/reboot.h>
 
 #include <asm/mach-vcoreiii/hardware.h>
-#include <linux/delay.h>
-#include <linux/export.h>
 
 /* No other usable initialization hook than this ...  */
 extern void (*late_time_init)(void);
@@ -90,11 +91,8 @@ const char *get_system_type(void)
 
 static void vcoreiii_machine_restart(char *command)
 {
-#if 0
-	/* This is a *CPU*-only reset */
-	writel(VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_FORCE,
-	       VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_RESET);
-#endif
+        do_kernel_restart(command);
+
         writel(VTSS_F_DEVCPU_GCB_DEVCPU_RST_REGS_SOFT_CHIP_RST_SOFT_CHIP_RST,
                VTSS_DEVCPU_GCB_DEVCPU_RST_REGS_SOFT_CHIP_RST);
 

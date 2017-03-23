@@ -29,14 +29,15 @@
 #include <linux/irq.h>
 #include <linux/ioport.h>	/* for struct resource */
 #include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/export.h>
+#include <linux/reboot.h>
 
 #include <asm/time.h>
 #include <asm/idle.h>
 #include <asm/reboot.h>
 
 #include <asm/mach-jaguar2/hardware.h>
-#include <linux/delay.h>
-#include <linux/export.h>
 
 /* No other usable initialization hook than this ...  */
 extern void (*late_time_init)(void);
@@ -82,6 +83,8 @@ const char *get_system_type(void)
 
 static void vcoreiii_machine_restart(char *command)
 {
+        do_kernel_restart(command);
+
 #if defined(CONFIG_VTSS_VCOREIII_SERVALT)
 	// Selected registers of Serval-T's 5G PLL need to have their
 	// values restored to defaults prior to the boot, or the system
