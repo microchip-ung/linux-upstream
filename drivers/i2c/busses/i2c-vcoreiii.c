@@ -464,6 +464,11 @@ static int i2c_vcoreiii_hwinit(const struct vcoreiii_i2c_platform_data *pdata)
 {
     unsigned long clk_freq = VCOREIII_AHB_CLOCK, reg_val;
 
+    // Enable spike filter on applicable platforms
+#if defined(VTSS_ICPU_CFG_TWI_SPIKE_FILTER_TWI_SPIKE_FILTER_CFG)
+    VTSS_WRS(5, VTSS_ICPU_CFG_TWI_SPIKE_FILTER_TWI_SPIKE_FILTER_CFG);
+#endif
+
     reg_val = (5 * clk_freq / 1000000) - 8;  // datasheet 6.17.1.5
     reg_val *= 2;                            // Lower by 50% due to lack of stretching
     VTSS_WR(reg_val, VTSS_TWI_TWI_SS_SCL_HCNT);
