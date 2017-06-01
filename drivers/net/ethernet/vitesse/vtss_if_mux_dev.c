@@ -50,14 +50,42 @@ static const unsigned char hdr_tmpl[IFH_ENCAP_LEN + 4] = {
     0x00, 0x00, 0x00, 0x00    // Vlan tag placeholder
 };
 
-static int internal_dev_open(struct net_device *netdev) {
-    unsigned int vlan_id = vtss_if_mux_dev_priv(netdev)->vlan_id;;
+static const unsigned char hdr_tmpl_port[IFH_ENCAP_LEN] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff,    // Ethernet encapslation
+    0xfe, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0x88, 0x80, 0x00, IFH_ID,
+#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
+    0x80, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, // BYPASS=1, POP_CNT=3
+#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
+    0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // BYPASS=1
+    0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, // POP_CNT=3
+#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x80, // VS.MUST_BE_1=1, VS.INGR_DROP_MODE=1
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,       // UPDATE_FCS=1
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+    0xc0, 0x5c,                                     // DST_MODE=3, SRC_PORT=11 (CPU), DO_NOT_REW=1
+#else
+    0xc1, 0xac,                                     // DST_MODE=3, SRC_PORT=53 (CPU), DO_NOT_REW=1
+#endif
+    0x00, 0x00, 0x00,
+#else
+#error Architecture not supported
+#endif
+};
 
-    printk(KERN_INFO "internal_dev_open, dev: %p, vlan_id: %u\n", netdev, vlan_id);
-    if (vtss_if_mux_vlan_up[vlan_id]) {
-        netif_carrier_on(netdev);
+static int internal_dev_open(struct net_device *netdev) {
+    struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(netdev);
+
+    if (priv->port_if) {
+        //printk(KERN_INFO "internal_dev_open, dev: %p, port: %u\n", netdev, priv->port);
     } else {
-        netif_carrier_off(netdev);
+        //printk(KERN_INFO "internal_dev_open, dev: %p, vlan_id: %u\n", netdev, priv->vlan_id);
+        if (vtss_if_mux_vlan_up[priv->vlan_id]) {
+            netif_carrier_on(netdev);
+        } else {
+            netif_carrier_off(netdev);
+        }
     }
     return 0;
 }
@@ -65,7 +93,7 @@ static int internal_dev_open(struct net_device *netdev) {
 static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
     int tx_ok = 1;
     unsigned char *hdr;
-    unsigned int i, ret, len, vlan_id;
+    unsigned int i, ret, len, vlan_id, offset;
     struct vtss_if_mux_pcpu_stats *stats;
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(netdev);
 
@@ -82,27 +110,39 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
         goto DO_CNT;
     }
 
-    vlan_id = vtss_if_mux_dev_priv(netdev)->vlan_id;
+    if (priv->port_if) {
+        // Make room for the VTSS-IFH
+        hdr = skb_push(skb, sizeof(hdr_tmpl_port));
 
-    // Make room for the VTSS-IFH
-    hdr = skb_push(skb, sizeof(hdr_tmpl));
+        // Write the template header
+        memcpy(hdr, hdr_tmpl_port, sizeof(hdr_tmpl_port));
 
-    // Write the template header
-    memcpy(hdr, hdr_tmpl, sizeof(hdr_tmpl));
+        // Set the destination port bit
+        offset = (IFH_OFFS_PORT_MASK + priv->port);
+        hdr[IFH_ENCAP_LEN - 1 - (offset / 8)] |= (1 << (offset % 8));
+    } else {
+        vlan_id = priv->vlan_id;
 
-    // move the da/sa to make room for vlan tag (dummy tag is last in temoplate)
-    for (i = 0; i < 12; ++i) {
-        skb->data[i + IFH_ENCAP_LEN] = skb->data[i + IFH_ENCAP_LEN + 4];
+        // Make room for the VTSS-IFH
+        hdr = skb_push(skb, sizeof(hdr_tmpl));
+
+        // Write the template header
+        memcpy(hdr, hdr_tmpl, sizeof(hdr_tmpl));
+
+        // move the da/sa to make room for vlan tag (dummy tag is last in temoplate)
+        for (i = 0; i < 12; ++i) {
+            skb->data[i + IFH_ENCAP_LEN] = skb->data[i + IFH_ENCAP_LEN + 4];
+        }
+
+        // Write the vlan tag
+        skb->data[IFH_ENCAP_LEN + 12 + 0] = 0x81;
+        skb->data[IFH_ENCAP_LEN + 12 + 1] = 0x00;
+        skb->data[IFH_ENCAP_LEN + 12 + 2] = (vlan_id >> 8) & 0x0f;
+        skb->data[IFH_ENCAP_LEN + 12 + 3] = vlan_id & 0xff;
+
+        // update the placement of the mac-header
+        skb->mac_header = IFH_ENCAP_LEN;
     }
-
-    // Write the vlan tag
-    skb->data[IFH_ENCAP_LEN + 12 + 0] = 0x81;
-    skb->data[IFH_ENCAP_LEN + 12 + 1] = 0x00;
-    skb->data[IFH_ENCAP_LEN + 12 + 2] = (vlan_id >> 8) & 0x0f;
-    skb->data[IFH_ENCAP_LEN + 12 + 3] = vlan_id & 0xff;
-
-    // update the placement of the mac-header
-    skb->mac_header = IFH_ENCAP_LEN;
 
     len = skb->len;
     skb->dev = vtss_if_mux_parent_dev;
@@ -219,13 +259,18 @@ static void rt_notify_task(struct work_struct *work) {
 
     rtnl_lock();
 
+    for (i = 0; i < VTSS_IF_MUX_PORT_CNT; ++i) {
+        dev = vtss_if_mux_vlan_net_dev[i];
+        if (dev) {
+            vtss_if_mux_rt_notify(dev);
+        }
+    }
+
     for (i = 0; i < VLAN_N_VID; ++i) {
         dev = vtss_if_mux_vlan_net_dev[i];
-        if (!dev) {
-            continue;
+        if (dev) {
+            vtss_if_mux_rt_notify(dev);
         }
-
-        vtss_if_mux_rt_notify(dev);
     }
 
     rtnl_unlock();

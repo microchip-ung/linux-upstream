@@ -35,6 +35,7 @@
 
 struct net_device *vtss_if_mux_parent_dev;
 struct net_device *vtss_if_mux_vlan_net_dev[VLAN_N_VID];
+struct net_device *vtss_if_mux_port_net_dev[VTSS_IF_MUX_PORT_CNT];
 int vtss_if_mux_vlan_up[VLAN_N_VID];
 
 struct net_device *vtss_if_mux_parent_dev_get(void) {
@@ -135,10 +136,15 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
         return RX_HANDLER_PASS;
     }
 
-    // Do nothing if we have no dependend device
-    dev = vtss_if_mux_vlan_net_dev[vid];
+    // Port device takes precedence
+    dev = vtss_if_mux_port_net_dev[chip_port];
+
     if (!dev) {
-        return RX_HANDLER_PASS;
+        // Do nothing if we have no dependend device
+        dev = vtss_if_mux_vlan_net_dev[vid];
+        if (!dev) {
+            return RX_HANDLER_PASS;
+        }
     }
 
     // VLAN filtering and tag popping
@@ -244,6 +250,9 @@ static int __init vtss_if_mux_init_module(void) {
 
     printk(KERN_INFO "Loading module vtss-if-mux\n");
 
+    for (i = 0; i < VTSS_IF_MUX_PORT_CNT; ++i)
+        vtss_if_mux_port_net_dev[i] = 0;
+
     for (i = 0; i < VLAN_N_VID; ++i)
         vtss_if_mux_vlan_net_dev[i] = 0;
 
@@ -279,6 +288,7 @@ exit:
 
 static void __exit vtss_if_mux_exit_module(void) {
     int i;
+    struct net_device *dev;
 
     printk(KERN_INFO "Unloading module vtss-if-mux\n");
     unregister_netdevice_notifier(&dev_notifier_block);
@@ -286,12 +296,22 @@ static void __exit vtss_if_mux_exit_module(void) {
     vtss_if_mux_genetlink_uninit();
     vtss_if_mux_dev_uninit();
 
+    for (i = 0; i < VTSS_IF_MUX_PORT_CNT; ++i) {
+        dev = vtss_if_mux_port_net_dev[i];
+        if (dev) {
+            printk(KERN_INFO "unreg net device port=%d %p\n", i, dev);
+            unregister_netdev(dev);
+            free_netdev(dev);
+            vtss_if_mux_port_net_dev[i] = 0;
+        }
+    }
+
     for (i = 0; i < VLAN_N_VID; ++i) {
-        if (vtss_if_mux_vlan_net_dev[i]) {
-            printk(KERN_INFO "unreg net device vlan=%d %p\n", i,
-                   vtss_if_mux_vlan_net_dev[i]);
-            unregister_netdev(vtss_if_mux_vlan_net_dev[i]);
-            free_netdev(vtss_if_mux_vlan_net_dev[i]);
+        dev = vtss_if_mux_vlan_net_dev[i];
+        if (dev) {
+            printk(KERN_INFO "unreg net device vlan=%d %p\n", i, dev);
+            unregister_netdev(dev);
+            free_netdev(dev);
             vtss_if_mux_vlan_net_dev[i] = 0;
         }
     }

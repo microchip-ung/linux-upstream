@@ -27,15 +27,19 @@
 #if defined(CONFIG_VTSS_VCOREIII_LUTON26)
 #define IFH_ID   0x01  /* No IFH_ID in Luton26, madeup 0x01 */
 #define IFH_LEN  8
+#define IFH_OFFS_PORT_MASK 32
 #elif defined(CONFIG_VTSS_VCOREIII_SERVAL1_CLASSIC)
 #define IFH_ID   0x05
 #define IFH_LEN  16
+#define IFH_OFFS_PORT_MASK 57
 #elif defined(CONFIG_VTSS_VCOREIII_OCELOT)
 #define IFH_ID   0x0a
 #define IFH_LEN  16
+#define IFH_OFFS_PORT_MASK 56
 #elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
 #define IFH_ID   0x07
 #define IFH_LEN  28
+#define IFH_OFFS_PORT_MASK 128
 #else
 #error Invalid architecture type
 #endif
@@ -57,6 +61,8 @@ struct vtss_if_mux_pcpu_stats {
 };
 
 struct vtss_if_mux_dev_priv {
+    bool                                    port_if;
+    u16                                     port;
     u16                                     vlan_id;
     struct vtss_if_mux_pcpu_stats __percpu *vtss_if_mux_pcpu_stats;
     bool                                    fdb_dump_pending;
@@ -67,9 +73,13 @@ static inline struct vtss_if_mux_dev_priv *vtss_if_mux_dev_priv(
     return netdev_priv(dev);
 }
 
+// Number of chip ports
+#define VTSS_IF_MUX_PORT_CNT 64
+
 extern bool vtss_if_mux_nl_notify_pending;
 extern struct net_device *vtss_if_mux_parent_dev;
 extern struct net_device *vtss_if_mux_vlan_net_dev[VLAN_N_VID];
+extern struct net_device *vtss_if_mux_port_net_dev[VTSS_IF_MUX_PORT_CNT];
 extern int vtss_if_mux_vlan_up[VLAN_N_VID];
 
 void vtss_if_mux_setup(struct net_device *netdev);
