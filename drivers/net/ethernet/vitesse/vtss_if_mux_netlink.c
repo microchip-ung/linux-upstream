@@ -102,7 +102,7 @@ static int vtss_if_mux_newlink(struct net *src_net, struct net_device *dev,
     port = port_from_ifname(tb);
     vlan_id = vlan_id_from_ifname(tb);
 
-    if (port) {
+    if (port >= 0) {
         //printk(KERN_INFO "port = %d\n", port);
         if (vtss_if_mux_port_net_dev[port]) {
             printk(KERN_INFO "port exists already: %d\n", port);
@@ -110,7 +110,7 @@ static int vtss_if_mux_newlink(struct net *src_net, struct net_device *dev,
         }
         priv->port_if = 1;
 
-    } else if (vlan_id) {
+    } else if (vlan_id >= 0) {
         if (vtss_if_mux_vlan_net_dev[vlan_id]) {
             printk(KERN_INFO "vlan exists already: %d\n", vlan_id);
             return -EEXIST;
