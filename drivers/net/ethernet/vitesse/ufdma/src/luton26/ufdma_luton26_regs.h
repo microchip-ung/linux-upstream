@@ -154,6 +154,7 @@
 #define VTSS_F_REW_PORT_PORT_CFG_AGE_DIS                                 VTSS_BIT(1)
 #define VTSS_M_REW_PORT_PORT_CFG_AGE_DIS                                 VTSS_BIT(1)
 #define VTSS_SYS_SYSTEM_EGR_NO_SHARING                                   VTSS_IOREG(VTSS_TO_SYS, 0x20de)
+#define VTSS_SYS_PAUSE_CFG_EGR_DROP_FORCE                                VTSS_IOREG(VTSS_TO_SYS, 0x21a1)
 #define VTSS_SYS_SYSTEM_PORT_MODE(ri)                                    VTSS_IOREG(VTSS_TO_SYS, 0x206f + (ri))
 #define VTSS_F_SYS_SYSTEM_PORT_MODE_DEQUEUE_DIS                          VTSS_BIT(1)
 #define VTSS_M_SYS_SYSTEM_PORT_MODE_DEQUEUE_DIS                          VTSS_BIT(1)

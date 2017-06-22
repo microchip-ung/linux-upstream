@@ -786,6 +786,10 @@ static int CIL_init(vtss_ufdma_platform_driver_t *self, vtss_ufdma_init_conf_t *
     // Disallow the CPU Rx queues to use shared memory.
     REG_WRM(VTSS_SYS_SYSTEM_EGR_NO_SHARING, VTSS_BIT(LU26_CHIP_PORT_CPU), VTSS_BIT(LU26_CHIP_PORT_CPU));
 
+    // Don't make head-of-line-blocking of frames going to the CPU, as this may
+    // cause pause-frames to be sent out on flow-control-enabled front ports.
+    REG_WRM(VTSS_SYS_PAUSE_CFG_EGR_DROP_FORCE, VTSS_BIT(LU26_CHIP_PORT_CPU), VTSS_BIT(LU26_CHIP_PORT_CPU));
+
     /*
      * Tx initialization
      */
