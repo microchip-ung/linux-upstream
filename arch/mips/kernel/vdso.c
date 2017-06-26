@@ -129,7 +129,12 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 	vvar_size = gic_size + PAGE_SIZE;
 	size = vvar_size + image->size;
 
-	base = get_unmapped_area(NULL, 0, size, 0, 0);
+	/*
+	 * Hack to get the user mapping of the VDSO data page matching the cache
+	 * colour of its kseg0 address.
+	 */
+	base = get_unmapped_area(NULL, 0, size,
+			(virt_to_phys(&vdso_data) - gic_size) >> PAGE_SHIFT, 0);
 	if (IS_ERR_VALUE(base)) {
 		ret = base;
 		goto out;
