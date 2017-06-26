@@ -1,0 +1,14 @@
+This log keeps track of changes made to non-MSCC files in the Linux kernel.
+One could choose to add them using build-system (e.g. buildroot) patches, but
+that turns out to be a bad idea when the linux kernel source is built locally
+along with the application.
+
+2017-06-26  Rene Nielsen <rene.nielsen@microsemi.com>
+
+	* arch/mips/kernel/vdso.c:
+	* arch/mips/mm/mmap.c: [git changeset: bb234dc] Applied MIPS kernel
+	patch that ensures that userland pages use the same dcache lines as
+	kernel pages for the VDSO. This overcomes issues with VDSO functions
+	like clock_gettime(), which may otherwise return timestamps out of
+	order. See also Bugzilla#22868.
+
