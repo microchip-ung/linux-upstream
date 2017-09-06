@@ -89,7 +89,7 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 #if defined(CONFIG_MTD_NAND_PLATFORM)
 	{
 		/* the modalias must be the same as spi device driver name */
-		.modalias = "mx35", /* Name of spi_driver for this device */
+		.modalias = "mt29f", /* Name of spi_driver for this device */
 		.max_speed_hz = 15625000,     /* max spi clock (SCK) speed in HZ */
 		.bus_num = 0, /* Framework bus number */
 		.chip_select = 1, /* Framework chip select. */
