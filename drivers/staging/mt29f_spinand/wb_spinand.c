@@ -62,9 +62,43 @@ static int wb25_verify_ecc(u8 status)
 	return SPINAND_ECC_OK;
 }
 
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+static int wb_spinand_ooblayout_64_ecc(struct mtd_info *mtd, int section,
+				       struct mtd_oob_region *oobregion)
+{
+	if (section > 3)
+		return -ERANGE;
+
+	oobregion->offset = (section * 16) + 8;
+	oobregion->length = 8;
+
+	return 0;
+}
+
+static int wb_spinand_ooblayout_64_free(struct mtd_info *mtd, int section,
+					struct mtd_oob_region *oobregion)
+{
+	if (section > 3)
+		return -ERANGE;
+
+	oobregion->offset = (section * 16) + 2;
+	oobregion->length = 6;
+
+	return 0;
+}
+
+static const struct mtd_ooblayout_ops wb_spinand_oob_64_ops = {
+	.ecc = wb_spinand_ooblayout_64_ecc,
+	.free = wb_spinand_ooblayout_64_free,
+};
+#endif
+
 const struct spinand_ops wb25_ops = {
 	wb25_set_addr,
 	wb25_verify_ecc,
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+	&wb_spinand_oob_64_ops,
+#endif
 };
 
 static void mx35_set_addr(struct spi_device *spi_nand, struct spinand_cmd *cmd, u32 page_id, u16 offset)

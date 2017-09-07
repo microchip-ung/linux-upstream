@@ -39,7 +39,23 @@ static inline struct spinand_state *mtd_to_state(struct mtd_info *mtd)
 	return state;
 }
 
+static inline const struct spinand_ops *get_dev_ops(struct spi_device *spi_nand)
+{
+	struct mtd_info *mtd = (struct mtd_info *) dev_get_drvdata(&spi_nand->dev);
+	struct nand_chip *chip = mtd_to_nand(mtd);
+	struct spinand_info *info = nand_get_controller_data(chip);
+	return info->dev_ops;
+}
+
+static inline const struct spinand_ops *get_dev_ops_mtd(struct mtd_info *mtd)
+{
+	struct nand_chip *chip = mtd_to_nand(mtd);
+	struct spinand_info *info = nand_get_controller_data(chip);
+	return info->dev_ops;
+}
+
 #ifdef CONFIG_MTD_SPINAND_ONDIEECC
+
 static int enable_hw_ecc;
 static int enable_read_hw_ecc;
 
@@ -166,6 +182,12 @@ static int spinand_read_id(struct spinand_info *info, struct spi_device *spi_nan
 			    (var->chipid == 0 || var->chipid == id[1])) {
 				dev_dbg(&spi_nand->dev, "Found SPI NAND device %s", var->model);
 				info->dev_ops = var->ops;
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+				{
+					struct mtd_info *mtd = (struct mtd_info *) dev_get_drvdata(&spi_nand->dev);
+					mtd_set_ooblayout(mtd, var->ops->ooblayout);
+				}
+#endif
 				retval = 0;
 				break;
 			}
@@ -444,8 +466,6 @@ static int spinand_read_page(struct spi_device *spi_nand, u32 page_id,
 			if (ecc_ret == SPINAND_ECC_ERROR) {
 				dev_err(&spi_nand->dev, "ecc error, page=%d\n", page_id);
 				return 0;
-			} else if (ecc_ret == SPINAND_ECC_CORRECTED) {
-				dev_info(&spi_nand->dev, "ecc correction, page=%d\n", page_id);
 			}
 			break;
 		}
@@ -529,6 +549,11 @@ static int spinand_program_execute(struct spi_device *spi_nand, u32 page_id)
  *   write execute command.
  *   Poll to wait for the tPROG time to finish the transaction.
  */
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+#define WBUF_FREE(d, b) devm_kfree(d, b)
+#else
+#define WBUF_FREE(d, b) // Go away
+#endif
 static int spinand_program_page(struct spi_device *spi_nand,
 				u32 page_id, u16 offset, u16 len, u8 *buf)
 {
@@ -552,7 +577,7 @@ static int spinand_program_page(struct spi_device *spi_nand,
 		retval = spinand_enable_ecc(spi_nand);
 		if (retval < 0) {
 			dev_err(&spi_nand->dev, "enable ecc failed!!\n");
-			return retval;
+			goto err_exit;
 		}
 	}
 #else
@@ -561,13 +586,18 @@ static int spinand_program_page(struct spi_device *spi_nand,
 	retval = spinand_write_enable(spi_nand);
 	if (retval < 0) {
 		dev_err(&spi_nand->dev, "write enable failed!!\n");
-		return retval;
+		goto err_exit;
 	}
 	if (wait_till_ready(spi_nand))
 		dev_err(&spi_nand->dev, "wait timedout!!!\n");
 
 	retval = spinand_program_data_to_cache(spi_nand, page_id,
 					       offset, len, wbuf);
+err_exit:
+        // Done with buffer - if allocated
+        WBUF_FREE(&spi_nand->dev, wbuf);
+        if (retval < 0)
+                return retval;
 	if (retval < 0)
 		return retval;
 	retval = spinand_program_execute(spi_nand, page_id);
@@ -705,14 +735,14 @@ static int spinand_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 		}
 
 		if ((status & STATUS_OIP_MASK) == STATUS_READY) {
-			const struct spinand_ops *dev_ops = get_dev_ops(spi_nand);
-			struct mtd_info *mtd = (struct mtd_info *) dev_get_drvdata(&spi_nand->dev);
+			struct spinand_info *info = nand_get_controller_data(chip);
+			const struct spinand_ops *dev_ops = info->dev_ops;
                         int ret = dev_ops->verify_ecc(status);
 			if (ret == SPINAND_ECC_ERROR) {
-				dev_err(&spi_nand->dev, "ecc error, page=%d\n", page_id);
+				dev_err(&mtd->dev, "ecc error, page=%d\n", page);
 				mtd->ecc_stats.failed++;
 			} else if (ret == SPINAND_ECC_CORRECTED) {
-				dev_info(&spi_nand->dev, "ecc correction, page=%d\n", page_id);
+				dev_info(&mtd->dev, "ecc correction, page=%d\n", page);
 				mtd->ecc_stats.corrected++;
 			}
 			break;
@@ -910,6 +940,9 @@ static int mt29f_verify_ecc(u8 status)
 const struct spinand_ops mt29_ops = {
 	mt29f_set_addr,
 	mt29f_verify_ecc,
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+	&spinand_oob_64_ops,
+#endif
 };
 
 /**
@@ -990,10 +1023,7 @@ static int spinand_probe(struct spi_device *spi_nand)
 	else
 		mtd->name = dev_name(&spi_nand->dev);
 	mtd->dev.parent = &spi_nand->dev;
-	mtd->oobsize = 64;
-#ifdef CONFIG_MTD_SPINAND_ONDIEECC
-	mtd_set_ooblayout(mtd, &spinand_oob_64_ops);
-#endif
+	//mtd->oobsize = 64;
 
 	if (nand_scan(mtd, 1))
 		return -ENXIO;

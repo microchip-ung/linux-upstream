@@ -83,6 +83,9 @@ struct spinand_cmd;
 struct spinand_ops {
 	void (*set_addr)(struct spi_device *spi_nand, struct spinand_cmd *cmd, u32 page_id, u16 offset);
 	int (*verify_ecc)(u8 status);
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+	const struct mtd_ooblayout_ops *ooblayout;
+#endif
 };
 
 extern const struct spinand_ops wb25_ops;
@@ -124,13 +127,5 @@ struct spinand_cmd {
 
 int spinand_mtd(struct mtd_info *mtd);
 void spinand_mtd_release(struct mtd_info *mtd);
-
-static inline const struct spinand_ops *get_dev_ops(struct spi_device *spi_nand)
-{
-	struct mtd_info *mtd = (struct mtd_info *) dev_get_drvdata(&spi_nand->dev);
-	struct nand_chip *chip = mtd_to_nand(mtd);
-	struct spinand_info *info = nand_get_controller_data(chip);
-	return info->dev_ops;
-}
 
 #endif /* __LINUX_MTD_SPI_NAND_H */
