@@ -133,4 +133,7 @@ static void mx35_set_addr(struct spi_device *spi_nand, struct spinand_cmd *cmd, 
 const struct spinand_ops mx35_ops = {
 	mx35_set_addr,
 	wb25_verify_ecc,
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+	&wb_spinand_oob_64_ops,
+#endif
 };
