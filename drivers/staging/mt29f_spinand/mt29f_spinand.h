@@ -77,8 +77,33 @@
 #define BL_1_64_LOCKED     0x08
 #define BL_ALL_UNLOCKED    0
 
+enum {SPINAND_ECC_OK, SPINAND_ECC_ERROR, SPINAND_ECC_CORRECTED};
+
+struct spinand_cmd;
+struct spinand_ops {
+	void (*set_addr)(struct spi_device *spi_nand, struct spinand_cmd *cmd, u32 page_id, u16 offset);
+	int (*verify_ecc)(u8 status);
+#ifdef CONFIG_MTD_SPINAND_ONDIEECC
+	const struct mtd_ooblayout_ops *ooblayout;
+#endif
+};
+
+extern const struct spinand_ops wb25_ops;
+extern const struct spinand_ops mx35_ops;
+extern const struct spinand_ops mt29_ops;
+
+struct spinand_variants {
+	/* Identification */
+	u8 manuf;
+	u8 chipid;
+	const char *model;
+	/* Device operations */
+	const struct spinand_ops *ops;
+};
+
 struct spinand_info {
 	struct spi_device *spi;
+	const struct spinand_ops *dev_ops;
 	void *priv;
 };
 

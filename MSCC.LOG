@@ -3,6 +3,19 @@ One could choose to add them using build-system (e.g. buildroot) patches, but
 that turns out to be a bad idea when the linux kernel source is built locally
 along with the application.
 
+2017-09-06  Lars Povlsen  <lars.povlsen@microsemi.com>
+
+	* drivers/mtd/nand/nand_ids.c:
+	* drivers/staging/mt29f_spinand/Makefile:
+	* drivers/staging/mt29f_spinand/mt29f_spinand.c:
+	* drivers/staging/mt29f_spinand/mt29f_spinand.h:
+	* drivers/staging/mt29f_spinand/wb_spinand.c:
+	* include/linux/mtd/nand.h: Added support for Winbond SPI NAND
+	devices in the mt29f driver, alongside MX35 support. The mt29f
+	driver this support 3 types of SPI NAND devices with autodetect
+	between them. The MX35 driver is obsoleted. Caveat: This has not
+	been tested with HW ECC, not with (native) mt29f NAND.
+
 2017-06-26  Rene Nielsen <rene.nielsen@microsemi.com>
 
 	* arch/mips/kernel/vdso.c:
