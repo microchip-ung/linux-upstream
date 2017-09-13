@@ -41,7 +41,7 @@
 #include <asm/mach-jaguar2/hardware.h>
 #include <asm/vcoreiii-gpio.h>
 
-#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH) && !defined(CONFIG_MTD_NAND_PLATFORM)
+#if defined(CONFIG_VTSS_VCOREIII_JAGUAR2_ARCH) && !defined(CONFIG_MTD_SPINAND_MT29F)
 #define JR2_PI_NAND 1
 #endif
 
@@ -73,7 +73,7 @@ static struct flash_platform_data jaguar2_spi_flash_data = {
         .use_4byte_commands = 1,
 };
 
-#if defined(CONFIG_MTD_NAND_PLATFORM)
+#if defined(CONFIG_MTD_SPINAND_MT29F)
 
 static struct flash_platform_data jaguar2_spinand_flash_data = {
     .name = "spi_nand",
@@ -101,7 +101,7 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
                 /* .controller_data = &jaguar2_spi_flash_cs,  /\* chip select control  *\/ */
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
         },
-#if defined(CONFIG_MTD_NAND_PLATFORM)
+#if defined(CONFIG_MTD_SPINAND_MT29F)
 	{
 		/* the modalias must be the same as spi device driver name */
 		.modalias = "mt29f", /* Name of spi_driver for this device */
