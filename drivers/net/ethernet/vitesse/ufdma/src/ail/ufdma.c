@@ -183,16 +183,18 @@ static int AIL_debug_print_do(ufdma_state_t *state, vtss_ufdma_debug_info_t *inf
     if (pr_rx) {
         pr(ref, "Rx\n");
         pr(ref, "--\n");
-        pr(ref, "Poll calls:      %12u\n",    state->stati.rx_poll_calls);
-        pr(ref, "Buf Add calls:   %12u\n",    state->stati.rx_buf_add_calls);
-        pr(ref, "Callback calls:  %12u\n",    state->stati.rx_callback_calls);
-        pr(ref, "Callback bytes:  %12llu\n",  state->stati.rx_callback_bytes);
-        pr(ref, "Multi-DCB drops: %12u\n",    state->stati.rx_multi_dcb_drops);
-        pr(ref, "Oversize drops:  %12u\n",    state->stati.rx_oversize_drops);
-        pr(ref, "Abort drops:     %12u\n",    state->stati.rx_abort_drops);
-        pr(ref, "Pruned drops:    %12u\n",    state->stati.rx_pruned_drops);
-        pr(ref, "Suspended drops: %12u\n",    state->stati.rx_suspended_drops);
-        pr(ref, "CIL drops:       %12u\n\n",  state->stati.rx_cil_drops);
+        pr(ref, "Multi-DCB Support: %12s\n",   state->callout.rx_multi_dcb_support ? "Yes" : "No");
+        pr(ref, "Poll calls:        %12u\n",   state->stati.rx_poll_calls);
+        pr(ref, "Buf Add calls:     %12u\n",   state->stati.rx_buf_add_calls);
+        pr(ref, "Callback calls:    %12u\n",   state->stati.rx_callback_calls);
+        pr(ref, "Callback bytes:    %12llu\n", state->stati.rx_callback_bytes);
+        pr(ref, "Oversize drops:    %12u\n",   state->stati.rx_oversize_drops);
+        pr(ref, "Abort drops:       %12u\n",   state->stati.rx_abort_drops);
+        pr(ref, "Pruned drops:      %12u\n",   state->stati.rx_pruned_drops);
+        pr(ref, "Suspended drops:   %12u\n",   state->stati.rx_suspended_drops);
+        pr(ref, "CIL drops:         %12u\n",   state->stati.rx_cil_drops);
+        pr(ref, "Multi-DCB drops:   %12u\n",   state->stati.rx_multi_dcb_drops);
+        pr(ref, "Multi-DCB Rx:      %12u\n\n", state->stati.rx_multi_dcb_frms);
 
         pr(ref, "Qu Frames       Bytes\n");
         pr(ref, "-- ------------ ------------\n");
@@ -411,6 +413,8 @@ static int AIL_rx_buf_add_do(ufdma_state_t *state, ufdma_dcb_t *dcb)
  * AIL_rx_buf_recycle()
  * Move head of Rx buffer in H/W to head of
  * Rx buffer of S/W, while initializing it.
+ * Also move any pending frames in S/W to the
+ * head of Rx buffer of S/W.
  */
 static int AIL_rx_buf_recycle(ufdma_state_t *state)
 {
@@ -422,6 +426,13 @@ static int AIL_rx_buf_recycle(ufdma_state_t *state)
 
     // And remove it from the head of the H/W list
     state->rx_head_hw = dcb_next;
+
+    // Also move any half-way received frames from the pending list
+    // to the S/W list.
+    while (state->rx_head_sw_pending) {
+        UFDMA_RC(AIL_rx_buf_add_do(state, state->rx_head_sw_pending));
+        state->rx_head_sw_pending = state->rx_head_sw_pending->next;
+    }
 
     return UFDMA_RC_OK;
 }
@@ -509,6 +520,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
 {
     vtss_ufdma_buf_dscr_t buf_dscr;
     ufdma_hw_dcb_status_t dcb_status;
+    ufdma_dcb_t           *dcb_iter, *this_dcb;
     u32                   rx_qu_mask, rx_qu;
     BOOL                  drop;
     unsigned int          rx_cnt = 0;
@@ -530,14 +542,17 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
             break;
         }
 
-        buf_dscr = state->rx_head_hw->buf_dscr;
-
         // Invalidate the data area that the FDMA received the frame data into
-        DCACHE_INVALIDATE(buf_dscr.buf, dcb_status.fragment_size_bytes);
+        DCACHE_INVALIDATE(state->rx_head_hw->buf_dscr.buf, dcb_status.fragment_size_bytes);
 
         // Print some bytes from it
-        UFDMA_IG(RX, "Rx %u byte fragment (incl. %u byte IFH and 4 byte FCS)", dcb_status.fragment_size_bytes, state->self->props.rx_ifh_size_bytes);
-        UFDMA_IG_HEX(RX, buf_dscr.buf, dcb_status.fragment_size_bytes < 512 ? dcb_status.fragment_size_bytes : 512);
+        if (dcb_status.sof) {
+            UFDMA_IG(RX, "Rx %u byte %s (incl. %u byte IFH and 4 byte FCS)", dcb_status.fragment_size_bytes, dcb_status.eof ? "frame" : "fragment", state->self->props.rx_ifh_size_bytes);
+        } else {
+            UFDMA_IG(RX, "Rx %u byte fragment", dcb_status.fragment_size_bytes);
+        }
+
+        UFDMA_IG_HEX(RX, state->rx_head_hw->buf_dscr.buf, dcb_status.fragment_size_bytes < 512 ? dcb_status.fragment_size_bytes : 512);
 
         if (dcb_status.aborted) {
             UFDMA_EG(RX, "Frame was aborted. Recycling");
@@ -556,39 +571,96 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         if (dcb_status.sof) {
             // This is a start-of-frame DCB.
             if (!dcb_status.eof) {
-                // We received a multi-DCB frame. We don't support this in this driver,
-                // so count it and recycle the DCB.
-                UFDMA_DG(RX, "Got SOF, but not EOF. Recycling");
-                state->stati.rx_multi_dcb_drops++;
+                if (state->callout.rx_multi_dcb_support) {
+                    if (state->rx_head_sw_pending) {
+                        UFDMA_EG(RX, "Got SOF, but a previous fragmented frame was not finished. Recycling.");
+                        AIL_rx_buf_recycle(state);
+                        continue;
+                    }
+                } else {
+                    // We received a multi-DCB frame, but the user has not
+                    // claimed to want these frames.
+                    UFDMA_DG(RX, "Got SOF, but not EOF. Recycling");
+                    state->stati.rx_multi_dcb_drops++;
+                    AIL_rx_buf_recycle(state);
+                    continue;
+                }
+            }
+        } else {
+            if (state->callout.rx_multi_dcb_support) {
+                if (state->rx_head_sw_pending == NULL) {
+                    UFDMA_EG(RX, "Got DCB without SOF, but no previous fragment with only SOF seen. Recycling.");
+                    AIL_rx_buf_recycle(state);
+                    continue;
+                }
+            } else {
+                // This is not a start-of-frame DCB.
+                // No matter what, recycle it, because we don't support
+                // frames that span multiple DCBs. Don't count it
+                // because we already did that when we had the sof && !eof
+                // condition above.
+                UFDMA_DG(RX, "Got DCB without SOF. Recycling");
                 AIL_rx_buf_recycle(state);
                 continue;
             }
-        } else {
-            // This is not a start-of-frame DCB.
-            // No matter what, recycle it, because we don't support
-            // frames that span multiple DCBs. Don't count it
-            // because we already did that when we had the sof && !eof
-            // condition above.
-            UFDMA_DG(RX, "Got DCB without SOF. Recycling");
-            AIL_rx_buf_recycle(state);
-            continue;
         }
 
         // It might be that the frame is larger than the users's maximum requested size,
         // because we have told H/W that the buffer length is the closest,
         // higher multiple of the platform's burst size. If so, count it and
         // discard it.
-        if (dcb_status.fragment_size_bytes > state->rx_head_hw->buf_dscr.buf_size_bytes) {
+        if (!state->callout.rx_multi_dcb_support && dcb_status.fragment_size_bytes > state->rx_head_hw->buf_dscr.buf_size_bytes) {
             UFDMA_DG(RX, "Frame larger (%u bytes) than max-user-allowed size (%u bytes). Recycling", dcb_status.fragment_size_bytes, state->rx_head_hw->buf_dscr.buf_size_bytes);
             state->stati.rx_oversize_drops++;
             AIL_rx_buf_recycle(state);
             continue;
         }
 
+
+        // Remove it from list of DCBs given to H/W, but keep a reference to it.
+        this_dcb = state->rx_head_hw;
+        state->rx_head_hw = state->rx_head_hw->next;
+
+        // Update length of this fragment (or frame).
+        this_dcb->next = NULL;
+        this_dcb->buf_dscr.fragment_size_bytes = dcb_status.fragment_size_bytes;
+        this_dcb->buf_dscr.next = NULL;
+
+        // Move it to the pending list
+        if (state->rx_head_sw_pending == NULL) {
+            // The whole frame length is counted in the first buf_dscr.
+            this_dcb->buf_dscr.frm_length_bytes = dcb_status.fragment_size_bytes;
+            state->rx_head_sw_pending = this_dcb;
+        } else {
+            // Multi-DCB frame.
+            this_dcb->buf_dscr.frm_length_bytes = 0;
+
+            // Find the end.
+            dcb_iter = state->rx_head_sw_pending;
+
+            // The whole frame length is counted in the first buf_dscr.
+            dcb_iter->buf_dscr.frm_length_bytes += dcb_status.fragment_size_bytes;
+            while (dcb_iter->next != NULL) {
+                dcb_iter = dcb_iter->next;
+            }
+
+            // Connect DCBs
+            dcb_iter->next = this_dcb;
+
+            // and user-data
+            dcb_iter->buf_dscr.next = &this_dcb->buf_dscr;
+        }
+
+        if (!dcb_status.eof) {
+            // Nothing more to do in this iteration, since we haven't received
+            // the end-of-frame indicator.
+            continue;
+        }
+
         // Ask the CIL layer, whether this really is a frame we should
         // forward to the application. There may be many different
         // chip-specific reasons for not forwarding it.
-        UFDMA_CIL_FUNC_RC(state, rx_frm_drop, state->rx_head_hw, &drop);
+        UFDMA_CIL_FUNC_RC(state, rx_frm_drop, state->rx_head_sw_pending, &drop);
         if (drop) {
             // CIL wants us to drop it. Count it and do as it says.
             UFDMA_DG(RX, "CIL layer says drop frame. Recycling");
@@ -597,14 +669,14 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
             continue;
         }
 
-        // Here, we have one frame in one Rx buffer.
-        buf_dscr.frm_length_bytes = dcb_status.fragment_size_bytes;
-        buf_dscr.result           = UFDMA_RC_OK;
-        buf_dscr.timestamp        = TIMESTAMP();
+        // Here, we have one frame in one or more Rx buffers.
+        buf_dscr = state->rx_head_sw_pending->buf_dscr;
+        buf_dscr.result    = UFDMA_RC_OK;
+        buf_dscr.timestamp = TIMESTAMP();
 
         // We also keep per-Rx queue statistics, which requires that we
         // know which Rx queue this frame was received on.
-        UFDMA_CIL_FUNC_RC(state, rx_qu_mask_get, state->rx_head_hw, &rx_qu_mask);
+        UFDMA_CIL_FUNC_RC(state, rx_qu_mask_get, state->rx_head_sw_pending, &rx_qu_mask);
         rx_qu = AIL_rx_qu_from_mask(rx_qu_mask);
         buf_dscr.rx_qu = rx_qu;
 
@@ -630,6 +702,10 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         state->stati.rx_callback_bytes += buf_dscr.frm_length_bytes;
         state->stati.rx_frms[rx_qu]++;
         state->stati.rx_bytes[rx_qu] += buf_dscr.frm_length_bytes;
+        if (buf_dscr.next) {
+            state->stati.rx_multi_dcb_frms++;
+        }
+
 
         UFDMA_DG(RX, "Frame survived checks. Passing to higher layer");
 
@@ -637,7 +713,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         // Notice that we must release all our own references to this
         // buffer prior to the callback call, because we hand over ownership
         // of it with the call.
-        state->rx_head_hw = state->rx_head_hw->next;
+        state->rx_head_sw_pending = NULL;
 
         state->callout.rx_callback(state->self, &buf_dscr);
 

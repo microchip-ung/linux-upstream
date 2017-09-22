@@ -269,12 +269,13 @@ typedef struct {
     u32 rx_buf_add_calls;       /**< Number of calls to vtss_ufdma_platform_driver_t::rx_buf_add() (tells how many buffers are added to the FDMA in total) */
     u32 rx_callback_calls;      /**< Number of received frames                                                                   */
     u64 rx_callback_bytes;      /**< Number of received bytes (incl. IFH and FCS)                                                */
-    u32 rx_multi_dcb_drops;     /**< Number of rx-dropped frames because they span multiple Rx buffers                           */
     u32 rx_oversize_drops;      /**< Number of rx-dropped frames because they are larger than the buffer size.                   */
     u32 rx_abort_drops;         /**< Number of rx-dropped DCBs because the abort bit was set                                     */
     u32 rx_pruned_drops;        /**< Number of rx-dropped DCBs because the pruned bit was set                                    */
     u32 rx_suspended_drops;     /**< Number of rx-dropped frames because the Rx queue was suspended (tail of H/W being read out) */
     u32 rx_cil_drops;           /**< Number of rx-dropped frames because the CIL layer thinks so.                                */
+    u32 rx_multi_dcb_drops;     /**< Number of rx-dropped frames because they span multiple Rx buffers                           */
+    u32 rx_multi_dcb_frms;      /**< Number of multi-DCB-frames forwarded through rx_callback()                                  */
     u32 rx_frms[8];             /**< Per-Rx queue frame count                                                                    */
     u64 rx_bytes[8];            /**< Per-Rx queue byte count                                                                     */
 
@@ -552,6 +553,13 @@ typedef struct ufdma_state_s {
      * TRUE if initialized, FALSE if not.
      */
     BOOL initialized;
+
+    /**
+     * List of Rx fragments of a multi-DCB frame. First in list points to start
+     * of frame. If non-NULL, end-of-frame not yet reached.
+     * Only used if rx_multi_dcb_support is TRUE.
+     */
+    ufdma_dcb_t *rx_head_sw_pending;
 
     /**
      * List of Rx buffers not added to H/W.

@@ -64,7 +64,7 @@ typedef struct {
 /**
  * Structure describing one frame buffer.
  */
-typedef struct {
+typedef struct vtss_ufdma_buf_dscr_s {
     /**
      * [IN]
      * Frame buffer. Must be 32-bit aligned for Rx-buffers and any-aligned for Tx-buffers.
@@ -130,10 +130,30 @@ typedef struct {
     /**
      * [OUT]
      * Only used in Rx buffers.
-     * On rx_callback(), it will contain the actual length of the frame including
-     * Rx-IFH and FCS. It will always be <= #buf_size_bytes.
+     *
+     * If rx_multi_dcb_support is FALSE:
+     *   On rx_callback(), it will contain the actual length of the frame
+     *   including Rx-IFH and FCS. It will always be <= #buf_size_bytes.
+     *
+     * If rx_multi_dcb_support is TRUE:
+     *   On rx_callback(), the first Rx buffer will contain the total length
+     *   of the frame including Rx-IFH and FCS.
+     *   It is undefined for subsequent Rx buffers belonging to the same frame.
+     *   See also #fragment_size_bytes
      */
     unsigned int frm_length_bytes;
+
+    /**
+     * [OUT]
+     * Only used in Rx buffers.
+     *
+     * If rx_multi_dcb_support is FALSE, this will always equal
+     * #frm_length_bytes.
+     * If rx_multi_dcb_support is TRUE, this will equal #frm_length_bytes if
+     * there's only one fragment. Otherwise it will contain the number of bytes
+     * valid in this Rx buffer.
+     */
+    unsigned int fragment_size_bytes;
 
     /**
      * [OUT]
@@ -174,6 +194,18 @@ typedef struct {
      * will be 0.
      */
     unsigned long long timestamp;
+
+    /**
+     * [OUT]
+     * Only used in Rx buffers.
+     * If a frame cannot be contained in one single buffer, this one indicates
+     * that there are more fragments to come. It's NULL when the end of frame is
+     * reached.
+     *
+     * It can only be non-NULL if vtss_ufdma_init_conf_t::rx_multi_dcb_support is
+     * TRUE.
+     */
+    struct vtss_ufdma_buf_dscr_s *next;
 
 } vtss_ufdma_buf_dscr_t;
 
@@ -318,6 +350,14 @@ typedef struct {
      * Set this variable to 1 to enable the code for big-endian.
      */
     unsigned char big_endian;
+
+    /**
+     * Multi-DCB-Rx-support.
+     * If the user of this driver supports receiving multiple Rx buffers forming
+     * a single frame, then it may want to set this to TRUE. This allows for
+     * receiving frames larger than MTU.
+     */
+    unsigned char rx_multi_dcb_support;
 
     /**
      * User-defined property. The uFDMA will not use this one.

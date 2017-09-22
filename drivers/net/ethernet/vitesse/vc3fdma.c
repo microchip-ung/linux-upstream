@@ -76,17 +76,19 @@ static u8 ifh_encap [] = {
 #define PROTO_B1               13
 
 #define DRV_NAME               "vc3fdma"
-#define DRV_VERSION            "01.23"
-#define DRV_RELDATE            "2016/6/30"
+#define DRV_VERSION            "01.24"
+#define DRV_RELDATE            "2017/9/22"
 
 #define ETH_VLAN_TAGSZ         4    // Size of a 802.1Q VLAN tag
 #define RX_MTU_DEFAULT         (ETH_FRAME_LEN + ETH_FCS_LEN + (2 * ETH_VLAN_TAGSZ))
+#define RX_MTU_MIN                64
+#define RX_MTU_MAX             16384
 #define IF_BUFSIZE_JUMBO       10400
 #define RX_BUF_CNT_DEFAULT     1024
 #define NAPI_BUDGET            ((RX_BUF_CNT_DEFAULT / 2) > NAPI_POLL_WEIGHT ? NAPI_POLL_WEIGHT : (RX_BUF_CNT_DEFAULT / 2))
 #define DCACHE_LINE_SIZE_BYTES 32 /* Data Cache Line size. Currently, it's the same on all supported platforms */
 #define ZC_CDEV_NAME           "vc3fdma_zc"
-
+#define RX_MULTI_DCB_SUPPORT   1 /* 0 or 1 */
 static int do_debug;
 
 #define T_D(_fmt_, ...)        do { if(do_debug) printk(KERN_DEBUG "%s#%d. " _fmt_ "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
@@ -129,6 +131,26 @@ struct zc_circ_buf {
     u32                capacity; // Total number of possible items
 };
 
+/****************************************************************************/
+// rx_cfg
+// Changeable by application through netlink.
+/****************************************************************************/
+struct rx_cfg {
+    // Current Rx MTU including FCS, but excluding Rx IFH.
+    // Notice that the size of each Rx buffer does not change when this member
+    // is changed (through a netlink call).
+    // If requested MTU is greater than the current buffer size - given by
+    // RX_MTU_DEFAULT - then RX_MULTI_DCB_SUPPORT must be set to 1 during
+    // compilationof this module. If a frame spans multiple DCBs, it will be
+    // copied to a fresh SKB during RX_callback().
+    // Also notice that the MTU set here does not affect the MTU of Linux'
+    // IP stack. Frames are forwarded to the IP stack according to the MTU set
+    // here, but the IP stack may or may not drop it due to its own MTU.
+    // Range of valid values is [RX_MTU_MIN; RX_MTU_MAX] bytes.
+    // See vc3fdma_change_mtu() for Tx MTU.
+    u32 mtu;
+};
+
 /* Information that need to be kept for each board. */
 struct vc3fdma_private {
     spinlock_t            lock;          // uFDMA lock
@@ -140,6 +162,9 @@ struct vc3fdma_private {
 #if defined(CONFIG_PROC_FS)
     struct proc_dir_entry *proc_fs_dump_file;
 #endif
+
+    // Rx config
+    struct rx_cfg      rx_cfg;
 
     // Rx state
     int                rx_work_done;
@@ -332,7 +357,8 @@ static int rx_buffer_add_to_ufdma(u8 *data, gfp_t flags)
 
     if ((rc = driver->rx_buf_add(driver, &buf_dscr)) != 0) {
         T_E("uFDMA error: %s", driver->error_txt(driver, rc));
-        skb_shinfo(skb)->free = rx_no_recycle;
+        atomic_set(&shinfo->dataref, 1);
+        shinfo->free = rx_no_recycle;
         consume_skb(skb);
         return -EIO;
     }
@@ -698,6 +724,7 @@ enum {
     VTSS_PACKET_ATTR_TRACE_LAYER,                     /**< AIL (0) or CIL (1)                                                        */
     VTSS_PACKET_ATTR_TRACE_GROUP,                     /**< Default (0), Rx (1), Tx (2)                                               */
     VTSS_PACKET_ATTR_TRACE_LEVEL,                     /**< None (0), Error (1), Info (2), Debug (3)                                  */
+    VTSS_PACKET_ATTR_RX_CFG_MTU,                      /**< Rx MTU [RX_MTU_MIN; RX_MTU_MAX]                                           */
     VTSS_PACKET_ATTR_END,                             /**< Must come last                                                            */
 };
 
@@ -796,6 +823,8 @@ enum {
     VTSS_PACKET_GENL_RX_THROTTLE_CFG_GET, /**< Get current throttle configuration from the kernel */
     VTSS_PACKET_GENL_RX_THROTTLE_CFG_SET, /**< Change throttle configuration in the kernel        */
     VTSS_PACKET_GENL_TRACE_CFG_SET,       /**< Set uFDMA trace level settings                     */
+    VTSS_PACKET_GENL_RX_CFG_GET,          /**< Get Rx config                                      */
+    VTSS_PACKET_GENL_RX_CFG_SET,          /**< Set Rx config                                      */
     // Add new operations here
 };
 
@@ -813,6 +842,7 @@ static const struct nla_policy packet_policy[VTSS_PACKET_ATTR_END] = {
     [VTSS_PACKET_ATTR_TRACE_LAYER]                     = {.type = NLA_U32},
     [VTSS_PACKET_ATTR_TRACE_GROUP]                     = {.type = NLA_U32},
     [VTSS_PACKET_ATTR_TRACE_LEVEL]                     = {.type = NLA_U32},
+    [VTSS_PACKET_ATTR_RX_CFG_MTU]                      = {.type = NLA_U32},
 };
 
 /****************************************************************************/
@@ -846,6 +876,8 @@ static int rx_throttle_cmd_cfg_get(struct sk_buff *skb, struct genl_info *info)
     int                        rc, qu;
     struct sk_buff             *msg;
     void                       *hdr;
+
+    T_I("Getting throttle");
 
     if (!driver) {
         T_E("No uFDMA driver");
@@ -910,6 +942,8 @@ static int rx_throttle_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
     // config. Therefore, we use info->genlhdr to traverse the raw data.
     // It must be possible for the user to only set part of the configuration,
     // so we don't check that everything is configured.
+
+    T_I("Setting throttle");
 
     if (!driver) {
         T_E("No uFDMA driver");
@@ -995,6 +1029,8 @@ static int trace_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
     vtss_ufdma_trace_level_t level;
     int                      rc;
 
+    T_I("Setting trace");
+
     if (!driver) {
         T_E("No uFDMA driver");
         return -EIO;
@@ -1020,12 +1056,90 @@ static int trace_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
     VC3FDMA_NLA_U32_GET(info->attrs[VTSS_PACKET_ATTR_TRACE_GROUP], group);
     VC3FDMA_NLA_U32_GET(info->attrs[VTSS_PACKET_ATTR_TRACE_LEVEL], level);
 
-    T_D("Setting trace: %u:%u:%u", layer, group, level);
+    T_I("Setting trace: %u:%u:%u", layer, group, level);
 
     if ((rc = driver->trace_level_set(driver, layer, group, level)) != 0) {
          T_E("ufdma::trace_level_set() failed: %s", driver->error_txt(driver, rc));
          return -EINVAL;
     }
+
+    return 0;
+}
+
+/****************************************************************************/
+// rx_cmd_cfg_get()
+// Change trace configuration based on what we got from user-space.
+/****************************************************************************/
+static int rx_cmd_cfg_get(struct sk_buff *skb, struct genl_info *info)
+{
+    struct vc3fdma_private *priv;
+    struct sk_buff         *msg;
+    void                   *hdr;
+    int                    rc;
+
+    T_I("Getting Rx cfg");
+
+    if (!vc3fdma_dev) {
+        T_E("No vc3fdma device");
+        return -EIO;
+    }
+
+    priv = netdev_priv(vc3fdma_dev);
+
+    if ((msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL)) == NULL) {
+        return -ENOMEM;
+    }
+
+    if ((hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq, &packet_generic_netlink_family, 0, VTSS_PACKET_GENL_RX_CFG_GET)) == NULL) {
+        T_E("genlmsg_put() failed");
+        rc = -EMSGSIZE;
+        goto do_exit;
+    }
+
+    VC3FDMA_NLA_U32_PUT(VTSS_PACKET_ATTR_RX_CFG_MTU, priv->rx_cfg.mtu);
+    T_I("Exited with mtu = %u", priv->rx_cfg.mtu);
+
+    genlmsg_end(msg, hdr);
+    return genlmsg_unicast(genl_info_net(info), msg, info->snd_portid);
+
+do_exit:
+    nlmsg_free(msg);
+    return rc;
+}
+
+/****************************************************************************/
+// rx_cmd_cfg_set()
+// Change trace configuration based on what we got from user-space.
+/****************************************************************************/
+static int rx_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
+{
+    struct vc3fdma_private *priv;
+    u32                    new_mtu;
+
+    T_I("Setting Rx cfg");
+
+    if (!vc3fdma_dev) {
+        T_E("No vc3fdma device");
+        return -EIO;
+    }
+
+    priv = netdev_priv(vc3fdma_dev);
+
+    if (info->attrs[VTSS_PACKET_ATTR_RX_CFG_MTU]) {
+        VC3FDMA_NLA_U32_GET(info->attrs[VTSS_PACKET_ATTR_RX_CFG_MTU], new_mtu);
+    }
+
+    if (new_mtu < RX_MTU_MIN || new_mtu > RX_MTU_MAX) {
+        return -EINVAL;
+    }
+
+    if (!RX_MULTI_DCB_SUPPORT && new_mtu > RX_MTU_MAX) {
+        T_E("vc3fdma not compiled with multi-Rx-DCB support, so can't set MTU to %u (max is %u)", new_mtu, RX_MTU_DEFAULT);
+        return -EINVAL;
+    }
+
+    // The following takes effect immediately
+    priv->rx_cfg.mtu = new_mtu;
 
     return 0;
 }
@@ -1058,6 +1172,18 @@ static const struct genl_ops packet_generic_netlink_operations[] = {
         .policy = packet_policy,
         .flags  = GENL_ADMIN_PERM
     },
+    {
+        .cmd    = VTSS_PACKET_GENL_RX_CFG_GET,
+        .doit   = rx_cmd_cfg_get,
+        .policy = packet_policy,
+        .flags  = GENL_ADMIN_PERM
+    },
+    {
+        .cmd    = VTSS_PACKET_GENL_RX_CFG_SET,
+        .doit   = rx_cmd_cfg_set,
+        .policy = packet_policy,
+        .flags  = GENL_ADMIN_PERM
+    },
 };
 
 /****************************************************************************/
@@ -1087,6 +1213,39 @@ static void packet_generic_netlink_uninit(void)
 }
 
 /****************************************************************************/
+// RX_buf_dscr_free()
+/****************************************************************************/
+static void RX_buf_dscr_free(struct vc3fdma_private *priv, vtss_ufdma_buf_dscr_t *buf_dscr, bool recycle)
+{
+    while (buf_dscr) {
+        struct sk_buff         *skb    = buf_dscr->context;
+        struct skb_shared_info *shinfo = skb_shinfo(skb);
+        vtss_ufdma_buf_dscr_t  *buf_dscr_next = buf_dscr->next;
+
+        atomic_set(&shinfo->dataref, 1);
+        shinfo->free = recycle ? rx_recycle : rx_no_recycle;
+
+        // Regarding ref-counting:
+        // If we recycle, rx_recycle() will be called back. This function will
+        // decrease appl and increase FDMA ref count, so in order to balance it
+        // out, we need to do the opposite operation here.
+        // If we don't recycle, rx_no_recycle() will be called back. This
+        // function will not touch any of the ref counters. However, we have one
+        // less frame owned by the FDMA.
+        // Hence, always decrease FDMA ref count, but increase appl ref count
+        // only when recycling.
+        priv->rx_bufs_owned_by_fdma--;
+
+        if (recycle) {
+            priv->rx_bufs_owned_by_appl++;
+        }
+
+        kfree_skb(skb);
+        buf_dscr = buf_dscr_next;
+    }
+}
+
+/****************************************************************************/
 //
 // uFDMA support functions
 //
@@ -1101,27 +1260,83 @@ static void RX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
     struct sk_buff         *skb  = buf_dscr->context;
     struct net_device      *dev  = skb->dev;
     struct vc3fdma_private *priv = netdev_priv(dev);
-    struct skb_shared_info *shinfo = skb_shinfo(skb);
+    bool                   jumbo = buf_dscr->next != NULL;
+    u32                    frm_len;
 
     if (buf_dscr->result) {
         // This happens during driver->uninit() or driver->rx_free()
         // Prevent the rx_recycle() function from being invoked, because
         // we just want to free it, where the rx_recycle() function would
         // re-add it to the uFDMA.
-        shinfo->free = rx_no_recycle;
-        kfree_skb(skb);
+        RX_buf_dscr_free(priv, buf_dscr, false /* free for good */);
         return;
+    }
+
+    // Compute frame length including FCS, but excluding IFH
+    frm_len = buf_dscr->frm_length_bytes - driver->props.rx_ifh_size_bytes;
+    if (priv->rx_cfg.mtu < frm_len) {
+        T_D("Dropping frame of %u bytes (incl. FCS, excl. IFH). Max MTU = %u bytes", frm_len, priv->rx_cfg.mtu);
+        RX_buf_dscr_free(priv, buf_dscr, true /* Back to uFDMA */);
+        dev->stats.rx_dropped++;
+        return;
+    }
+
+    if (jumbo) {
+        // Multi-DCB frame received. We need to allocate a new buffer and copy
+        // the fragments into it, because because shinfo->frag_list is not
+        // used/supported by raw socket recvmsg() (af_packet.c/datagram.c) on
+        // received frames.
+        unsigned char *ptr;
+
+        // Allocate buffer with room for both IFH encapsulation and total frame
+        // length. This one sets shinfo->dataref to 1.
+        skb = alloc_skb(NET_SKB_PAD + sizeof(ifh_encap) + buf_dscr->frm_length_bytes, GFP_ATOMIC);
+
+        if (skb) {
+            vtss_ufdma_buf_dscr_t *buf_dscr_iter;
+
+            // Reserve room for NET_SKB_PAD and IFH encapsulation.
+            skb_reserve(skb, NET_SKB_PAD + sizeof(ifh_encap));
+
+            // Adjust the SKB to the size of the actual frame data
+            skb_put(skb, buf_dscr->frm_length_bytes);
+
+            // Copy frame data to the SKB
+            ptr = skb->data;
+
+            buf_dscr_iter = buf_dscr;
+            while (buf_dscr_iter) {
+                memcpy(ptr, buf_dscr_iter->buf, buf_dscr_iter->fragment_size_bytes);
+                ptr += buf_dscr_iter->fragment_size_bytes;
+                buf_dscr_iter = buf_dscr_iter->next;
+            }
+        } else {
+            dev->stats.rx_dropped++;
+        }
+
+        // Send the now copied buf_dscr back to the uFDMA
+        RX_buf_dscr_free(priv, buf_dscr, true /* back to uFDMA */);
+
+        if (!skb) {
+            return;
+        }
+    } else {
+        atomic_set(&skb_shinfo(skb)->dataref, 1);
+        skb_put(skb, buf_dscr->frm_length_bytes);
     }
 
     if (unlikely(skb_headroom(skb) < sizeof(ifh_encap))) {
         T_E("Not enough headroom in SKB (need %u, only have %u)", sizeof(ifh_encap), skb_headroom(skb));
-        shinfo->free = rx_no_recycle;
-        kfree_skb(skb);
+        RX_buf_dscr_free(priv, buf_dscr, true /* back to uFDMA */);
+
+        if (jumbo) {
+            // This is the Jumbo SKB allocated in this function.
+            kfree_skb(skb);
+        }
+
+        dev->stats.rx_errors++;
         return;
     }
-
-    // First add the frame as received by uFDMA (includes IFH *and* FCS)
-    skb_put(skb, buf_dscr->frm_length_bytes);
 
     // Add IFH ethernet encapsulation header
     memcpy(skb_push(skb, sizeof(ifh_encap)), ifh_encap, sizeof(ifh_encap));
@@ -1130,36 +1345,36 @@ static void RX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
     print_hex_dump(KERN_DEBUG, "Rx ", DUMP_PREFIX_ADDRESS, 16, 1, skb->data, skb->len, true);
 #endif
 
-    priv->rx_bufs_owned_by_fdma--;
-    priv->rx_bufs_owned_by_appl++;
-
-    // Before removing the ifh_encap, save a pointer in the list of
-    // frames to be given to the application if zero-copy is enabled.
     if (priv->zc.mmapped) {
-        struct zc_frm_dscr item;
+        if (jumbo) {
+            T_E("Zero-copy doesn't currently support multi-DCB frames");
+        } else {
+            struct zc_frm_dscr item;
+            item.frm_ptr   = skb->data;
+            item.len       = skb->len;
+            item.timestamp = buf_dscr->timestamp;
+            item.head_ptr  = skb->head;
 
-        item.frm_ptr   = skb->data;
-        item.len       = skb->len;
-        item.timestamp = buf_dscr->timestamp;
-        item.head_ptr  = skb->head;
+            zc_circ_buf_add(&priv->zc.rx_krnl_frms, &item);
 
-        zc_circ_buf_add(&priv->zc.rx_krnl_frms, &item);
+            atomic_inc(&skb_shinfo(skb)->dataref);
 
-        // Also increase the data ref-count
-        atomic_inc(&shinfo->dataref);
-
-        // Wake-up poll() sleepers.
-        wake_up(&priv->zc.rx_wait_queue);
+            // Wake-up poll() sleepers.
+            wake_up(&priv->zc.rx_wait_queue);
+        }
     }
 
     skb->protocol = eth_type_trans(skb, dev);
-
     dev->stats.rx_packets++;
     dev->stats.rx_bytes += skb->len;
 
-    atomic_inc(&shinfo->dataref);
-    netif_receive_skb(skb);
+    if (!jumbo) {
+        // SKB we pass to application comes from uFDMA pool, so ref-cnt it.
+        priv->rx_bufs_owned_by_fdma--;
+        priv->rx_bufs_owned_by_appl++;
+    }
 
+    netif_receive_skb(skb);
     priv->rx_work_done++;
 }
 
@@ -1378,18 +1593,19 @@ static int vc3fdma_ufdma_init(struct net_device *dev)
     // Initialize uFDMA
     memset(&init_conf, 0, sizeof(init_conf));
 
-    init_conf.rx_callback      = RX_callback;
-    init_conf.tx_callback      = TX_callback;
-    init_conf.cache_flush      = CX_cache_flush;
-    init_conf.cache_invalidate = CX_cache_invalidate;
-    init_conf.virt_to_phys     = CX_virt_to_phys;
-    init_conf.trace_printf     = CX_trace_printf;
-    init_conf.trace_hex_dump   = CX_trace_hex_dump;
-    init_conf.timestamp        = CX_timestamp;
-    init_conf.reg_read         = CX_reg_read;
-    init_conf.reg_write        = CX_reg_write;
+    init_conf.rx_callback          = RX_callback;
+    init_conf.tx_callback          = TX_callback;
+    init_conf.cache_flush          = CX_cache_flush;
+    init_conf.cache_invalidate     = CX_cache_invalidate;
+    init_conf.virt_to_phys         = CX_virt_to_phys;
+    init_conf.trace_printf         = CX_trace_printf;
+    init_conf.trace_hex_dump       = CX_trace_hex_dump;
+    init_conf.timestamp            = CX_timestamp;
+    init_conf.reg_read             = CX_reg_read;
+    init_conf.reg_write            = CX_reg_write;
+    init_conf.rx_multi_dcb_support = RX_MULTI_DCB_SUPPORT;
 #if defined(CONFIG_CPU_BIG_ENDIAN)
-    init_conf.big_endian       = true;
+    init_conf.big_endian           = true;
 #endif
 
     if ((driver->state = kmalloc(driver->props.ufdma_state_size_bytes, GFP_KERNEL)) == NULL) {
@@ -1499,6 +1715,7 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
     tbd.buf = skb->data;
     tbd.buf_size_bytes = skb->len + ETH_FCS_LEN;    // Include dummy FCS bytes
     tbd.context = skb;
+
     L();
     if ((tbd.buf_state = kmalloc(driver->props.buf_state_size_bytes, GFP_ATOMIC)) != NULL) {
         // Start Tx
@@ -1524,7 +1741,7 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
 
 /****************************************************************************/
 // vc3fdma_change_mtu()
-// Only affects Tx
+// Only affects Tx. See rx_cfg for Rx MTU.
 /****************************************************************************/
 static int vc3fdma_change_mtu(struct net_device *dev, int new_mtu)
 {
@@ -1632,6 +1849,7 @@ static struct net_device *vc3fdma_create(void)
 
     // Set arbitrarily high for direct injection (not rx)
     dev->mtu = IF_BUFSIZE_JUMBO;
+    priv->rx_cfg.mtu = RX_MTU_DEFAULT;
 
     // Debug procfs file
 #if defined(CONFIG_DEBUG_FS)
@@ -1658,22 +1876,27 @@ static int zc_open(struct inode *inode, struct file *filp)
         return -EINVAL;
     }
 
-   priv = netdev_priv(vc3fdma_dev);
+    if (RX_MULTI_DCB_SUPPORT) {
+        T_E("Zero-copy with Rx multi-DCB support is not working");
+        return -EINVAL;
+    }
 
-   if (priv->zc.dev_open) {
-       return -EBUSY;
-   }
+    priv = netdev_priv(vc3fdma_dev);
 
-   // Default members.
-   priv->zc.dev_open   = true;
-   priv->zc.mmapped    = false;
+    if (priv->zc.dev_open) {
+        return -EBUSY;
+    }
 
-   // Until told otherwise (with a IOCTL), inherit the buffer count and size
-   // from the normal non-zerocopy driver.
-   priv->zc.rx_mtu     = priv->rx_mtu_cur;
-   priv->zc.rx_buf_cnt = priv->rx_buf_cnt_cur;
+    // Default members.
+    priv->zc.dev_open   = true;
+    priv->zc.mmapped    = false;
 
-   return 0;
+    // Until told otherwise (with a IOCTL), inherit the buffer count and size
+    // from the normal non-zerocopy driver.
+    priv->zc.rx_mtu     = priv->rx_mtu_cur;
+    priv->zc.rx_buf_cnt = priv->rx_buf_cnt_cur;
+
+    return 0;
 }
 
 /****************************************************************************/
