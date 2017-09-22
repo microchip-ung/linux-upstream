@@ -1800,6 +1800,7 @@ static int show_ufdma(struct seq_file *m, void *v)
         seq_printf(m, "Zero-copy chardev memory-mapped: %s\n", priv->zc.mmapped ? "Yes" : "No");
         seq_printf(m, "Zero-copy list in kernel-space: %p\n", priv->rx_user_frm_list);
         seq_printf(m, "Zero-copy list in user-space:   %p\n", priv->zc.user_space_data_start);
+        seq_printf(m, "Rx MTU: %u\n", priv->rx_cfg.mtu);
         seq_printf(m, "Rx buffers owned by FDMA: %u\n", priv->rx_bufs_owned_by_fdma);
         seq_printf(m, "Rx buffers owned by appl: %u\n", priv->rx_bufs_owned_by_appl);
     } else {
