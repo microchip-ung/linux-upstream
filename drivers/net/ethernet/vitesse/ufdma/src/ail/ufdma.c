@@ -416,22 +416,27 @@ static int AIL_rx_buf_add_do(ufdma_state_t *state, ufdma_dcb_t *dcb)
  * Also move any pending frames in S/W to the
  * head of Rx buffer of S/W.
  */
-static int AIL_rx_buf_recycle(ufdma_state_t *state)
+static int AIL_rx_buf_recycle(ufdma_state_t *state, BOOL move_hw_head)
 {
-    ufdma_dcb_t *dcb_next = state->rx_head_hw->next;
+    ufdma_dcb_t *dcb_next;
 
-    // Link the DCB into the start of the current S/W list
-    // and ask CIL to initialize the H/W area and link it to the current head.
-    UFDMA_RC(AIL_rx_buf_add_do(state, state->rx_head_hw));
+    if (move_hw_head) {
+        dcb_next = state->rx_head_hw->next;
 
-    // And remove it from the head of the H/W list
-    state->rx_head_hw = dcb_next;
+        // Link the DCB into the start of the current S/W list
+        // and ask CIL to initialize the H/W area and link it to the current head.
+        UFDMA_RC(AIL_rx_buf_add_do(state, state->rx_head_hw));
+
+        // And remove it from the head of the H/W list
+        state->rx_head_hw = dcb_next;
+    }
 
     // Also move any half-way received frames from the pending list
     // to the S/W list.
     while (state->rx_head_sw_pending) {
+        dcb_next = state->rx_head_sw_pending->next;
         UFDMA_RC(AIL_rx_buf_add_do(state, state->rx_head_sw_pending));
-        state->rx_head_sw_pending = state->rx_head_sw_pending->next;
+        state->rx_head_sw_pending = dcb_next;
     }
 
     return UFDMA_RC_OK;
@@ -446,7 +451,7 @@ static int AIL_rx_buf_recycle(ufdma_state_t *state)
 static int AIL_rx_buf_recycle_all(ufdma_state_t *state)
 {
     while (state->rx_head_hw) {
-        UFDMA_RC(AIL_rx_buf_recycle(state));
+        UFDMA_RC(AIL_rx_buf_recycle(state, TRUE));
     }
 
     // Check if we need to restart the channel.
@@ -557,14 +562,14 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         if (dcb_status.aborted) {
             UFDMA_EG(RX, "Frame was aborted. Recycling");
             state->stati.rx_abort_drops++;
-            AIL_rx_buf_recycle(state);
+            AIL_rx_buf_recycle(state, TRUE);
             continue;
         }
 
         if (dcb_status.pruned) {
             UFDMA_EG(RX, "Frame was pruned. Recycling");
             state->stati.rx_pruned_drops++;
-            AIL_rx_buf_recycle(state);
+            AIL_rx_buf_recycle(state, TRUE);
             continue;
         }
 
@@ -574,7 +579,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
                 if (state->callout.rx_multi_dcb_support) {
                     if (state->rx_head_sw_pending) {
                         UFDMA_EG(RX, "Got SOF, but a previous fragmented frame was not finished. Recycling.");
-                        AIL_rx_buf_recycle(state);
+                        AIL_rx_buf_recycle(state, TRUE);
                         continue;
                     }
                 } else {
@@ -582,7 +587,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
                     // claimed to want these frames.
                     UFDMA_DG(RX, "Got SOF, but not EOF. Recycling");
                     state->stati.rx_multi_dcb_drops++;
-                    AIL_rx_buf_recycle(state);
+                    AIL_rx_buf_recycle(state, TRUE);
                     continue;
                 }
             }
@@ -590,7 +595,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
             if (state->callout.rx_multi_dcb_support) {
                 if (state->rx_head_sw_pending == NULL) {
                     UFDMA_EG(RX, "Got DCB without SOF, but no previous fragment with only SOF seen. Recycling.");
-                    AIL_rx_buf_recycle(state);
+                    AIL_rx_buf_recycle(state, TRUE);
                     continue;
                 }
             } else {
@@ -600,7 +605,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
                 // because we already did that when we had the sof && !eof
                 // condition above.
                 UFDMA_DG(RX, "Got DCB without SOF. Recycling");
-                AIL_rx_buf_recycle(state);
+                AIL_rx_buf_recycle(state, TRUE);
                 continue;
             }
         }
@@ -612,7 +617,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
         if (!state->callout.rx_multi_dcb_support && dcb_status.fragment_size_bytes > state->rx_head_hw->buf_dscr.buf_size_bytes) {
             UFDMA_DG(RX, "Frame larger (%u bytes) than max-user-allowed size (%u bytes). Recycling", dcb_status.fragment_size_bytes, state->rx_head_hw->buf_dscr.buf_size_bytes);
             state->stati.rx_oversize_drops++;
-            AIL_rx_buf_recycle(state);
+            AIL_rx_buf_recycle(state, TRUE);
             continue;
         }
 
@@ -665,7 +670,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
             // CIL wants us to drop it. Count it and do as it says.
             UFDMA_DG(RX, "CIL layer says drop frame. Recycling");
             state->stati.rx_cil_drops++;
-            AIL_rx_buf_recycle(state);
+            AIL_rx_buf_recycle(state, FALSE);
             continue;
         }
 
@@ -693,7 +698,7 @@ static int AIL_rx_frm(ufdma_state_t *state, u32 chip_no, unsigned int rx_cnt_max
             // and are just reading out remaining frames from the H/W queue.
             UFDMA_DG(RX, "Rx queue (%u) suspended. Recycling", rx_qu);
             state->stati.rx_suspended_drops++;
-            AIL_rx_buf_recycle(state);
+            AIL_rx_buf_recycle(state, FALSE);
             continue;
         }
 
