@@ -81,6 +81,85 @@ const char *get_system_type(void)
 	return "Vitesse VCore-III Jaguar2";
 }
 
+
+#define MIPS32_CACHE_OP(which, op)             (which | (op << 2))
+
+#define MIPS32_WHICH_ICACHE                    0x0
+#define MIPS32_WHICH_DCACHE                    0x1
+
+#define MIPS32_INDEX_INVALIDATE                0x0
+#define MIPS32_INDEX_LOAD_TAG                  0x1
+#define MIPS32_INDEX_STORE_TAG                 0x2
+#define MIPS32_HIT_INVALIDATE                  0x4
+#define MIPS32_ICACHE_FILL                     0x5
+#define MIPS32_DCACHE_HIT_INVALIDATE           0x5
+#define MIPS32_DCACHE_HIT_WRITEBACK            0x6
+#define MIPS32_FETCH_AND_LOCK                  0x7
+
+#define ICACHE_LOAD_LOCK (MIPS32_CACHE_OP(MIPS32_WHICH_ICACHE, MIPS32_FETCH_AND_LOCK))
+
+#define CACHE_LINE_LEN 32
+
+/* Prefetch and lock instructions into cache */
+static void icache_lock(void *func, size_t len)
+{
+	int i, lines = ((len - 1) / CACHE_LINE_LEN) + 1;
+	for (i = 0; i < lines; i++) {
+		asm volatile (" cache %0, %1(%2)"
+			      : /* No Output */
+			      : "I" ICACHE_LOAD_LOCK,
+				"n" (i*CACHE_LINE_LEN),
+				"r" (func)
+			      : /* No Clobbers */);
+	}
+}
+
+noinline static void _cpu_reset_doit(u32 reg_ctl, u32 reg_rst)
+{
+	__raw_writel(0, VTSS_ICPU_CFG_SPI_MST_SW_MODE); /* Reset SW_PIN_CTRL_MODE */
+	__raw_writel(reg_ctl, VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL);
+	/* Read back to make setting effective */
+	reg_ctl = __raw_readl(VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL);
+	/* Now, do the reset */
+	__raw_writel(reg_rst, VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_RESET);
+}
+
+static void cpu_reset(void)
+{
+	u32 reg_ctl, reg_rst;
+	local_irq_disable();
+
+	/*
+	 * Note: Reset is done by resetting only the CPU core to avoid
+	 * resetting DDR controller. This is due to the lack of DDR
+	 * RAM reset out, which means we can't reset the DDR RAM
+	 * during controller reset. This again can cause a potential
+	 * DDR RAM lockup if the DDR controller is reset at a "bad"
+	 * time. Thus, we avoid the DDR controller reset - by only
+	 * resetting the CPU core. While doing this we must ensure the
+	 * "boot mode" bit points at ROM.
+	 *
+	 * As we are changing the translation "ind mid air", we must
+	 * ensure the instructions until the cpu reset are in the CPU
+	 * cache.
+	 */
+
+	/* Enable NOR boot, owner SPI Boot Master */
+	reg_ctl = readl(VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL);
+	reg_ctl &= ~VTSS_M_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL_BOOT_MODE_ENA;
+	reg_ctl |= VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL_BOOT_MODE_ENA(1);
+	reg_ctl &= ~VTSS_M_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL_IF_SI_OWNER;
+	reg_ctl |= VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL_IF_SI_OWNER(1);
+
+	reg_rst = VTSS_M_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_CPU_ONLY |
+		VTSS_M_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_FORCE;
+
+	/* Reset CPU core */
+	icache_lock(_cpu_reset_doit, 128);
+	_cpu_reset_doit(reg_ctl, reg_rst);
+	printk(KERN_ERR "WTF\n");	/* Not reached */
+}
+
 static void vcoreiii_machine_restart(char *command)
 {
         do_kernel_restart(command);
@@ -95,12 +174,7 @@ static void vcoreiii_machine_restart(char *command)
 	writel(0x00000000, VTSS_HSIO_HW_CFGSTAT_CLK_CFG);
 #endif
 
-        // NOTE: make sure VCore is not protected from reset
-        writel(VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_PROTECT(0),
-               VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_RESET);
-
-        writel(VTSS_F_DEVCPU_GCB_CHIP_REGS_SOFT_RST_SOFT_CHIP_RST(1),
-               VTSS_DEVCPU_GCB_CHIP_REGS_SOFT_RST);
+	cpu_reset();
 
         while (1)
                 cpu_wait();
