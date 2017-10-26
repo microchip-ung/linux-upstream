@@ -150,8 +150,8 @@ static int __init target_device_init(void)
     vcoreiii_gpio_set_mode(13, VCOREIII_GPIO_MODE_ALT2);
     vcoreiii_gpio_set_mode(14, VCOREIII_GPIO_MODE_ALT2);
 #elif defined(CONFIG_VTSS_VCOREIII_OCELOT)
-    vcoreiii_gpio_set_mode(13, VCOREIII_GPIO_MODE_ALT2);
-    vcoreiii_gpio_set_mode(14, VCOREIII_GPIO_MODE_ALT2);
+    vcoreiii_gpio_set_mode(12, VCOREIII_GPIO_MODE_ALT1);
+    vcoreiii_gpio_set_mode(13, VCOREIII_GPIO_MODE_ALT1);
 #else
 #error Unknown platform
 #endif
