@@ -147,11 +147,11 @@ static int __init target_device_init(void)
 #if defined(CONFIG_SERIAL_8250_RUNTIME_UARTS) && (CONFIG_SERIAL_8250_RUNTIME_UARTS > 1)
     // Bootloader *may* not have set this up, be sure...
 #if defined(CONFIG_VTSS_VCOREIII_SERVAL1_CLASSIC)
-    vcoreiii_gpio_set_alternate(13, 1);
-    vcoreiii_gpio_set_alternate(14, 1);
+    vcoreiii_gpio_set_mode(13, VCOREIII_GPIO_MODE_ALT2);
+    vcoreiii_gpio_set_mode(14, VCOREIII_GPIO_MODE_ALT2);
 #elif defined(CONFIG_VTSS_VCOREIII_OCELOT)
-    vcoreiii_gpio_set_alternate(26, 1);
-    vcoreiii_gpio_set_alternate(27, 1);
+    vcoreiii_gpio_set_mode(13, VCOREIII_GPIO_MODE_ALT2);
+    vcoreiii_gpio_set_mode(14, VCOREIII_GPIO_MODE_ALT2);
 #else
 #error Unknown platform
 #endif
