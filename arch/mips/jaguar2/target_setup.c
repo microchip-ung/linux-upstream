@@ -130,19 +130,28 @@ static void cpu_reset(void)
 	local_irq_disable();
 
 	/*
-	 * Note: Reset is done by resetting only the CPU core to avoid
-	 * resetting DDR controller. This is due to the lack of DDR
-	 * RAM reset out, which means we can't reset the DDR RAM
-	 * during controller reset. This again can cause a potential
-	 * DDR RAM lockup if the DDR controller is reset at a "bad"
-	 * time. Thus, we avoid the DDR controller reset - by only
-	 * resetting the CPU core. While doing this we must ensure the
+	 * Note: Reset is done by first resetting switch-core only, and
+	 * then the CPU core only to avoid resetting DDR controlller.
+	 * This is due to the lack of DDR RAM reset out, which means we
+	 * can't reset the DDR RAM during controller reset. This again
+	 * can cause a potential DDR RAM lockup if the DDR controller is
+	 * reset at a "bad" time. Thus, we avoid the DDR controller reset
+	 * by resetting only the switchcore and then the CPU core, and
+	 * not the entire CPU system. While doing this we must ensure the
 	 * "boot mode" bit points at ROM.
 	 *
-	 * As we are changing the translation "ind mid air", we must
+	 * As we are changing the translation "in mid air", we must
 	 * ensure the instructions until the cpu reset are in the CPU
 	 * cache.
 	 */
+
+	/* Reset switch core. This is done by preventing the entire CPU
+	 * system - including DDR controller - from being reset.
+	 */
+	__raw_writel(VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_PROTECT(1),
+	             VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_RESET);
+	__raw_writel(VTSS_F_DEVCPU_GCB_CHIP_REGS_SOFT_RST_SOFT_SWC_RST(1),
+	             VTSS_DEVCPU_GCB_CHIP_REGS_SOFT_RST);
 
 	/* Enable NOR boot, owner SPI Boot Master */
 	reg_ctl = readl(VTSS_ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL);
