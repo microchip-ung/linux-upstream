@@ -76,14 +76,10 @@ void __init prom_init(void)
 			strcat(arcs_cmdline, " mem=128M");
 		}
 	}
+	if ((strstr(arcs_cmdline, "console=")) == NULL)
+		strcat(arcs_cmdline, " console=ttyS0,115200");
 }
 
 void __init prom_free_prom_memory(void)
 {
 }
-
-#ifdef CONFIG_EARLY_PRINTK
-void prom_putchar(char c)
-{
-}
-#endif
