@@ -68,7 +68,7 @@ static const unsigned char hdr_tmpl_port[IFH_ENCAP_LEN] = {
 #else
     0xc1, 0xac,                                     // DST_MODE=3, SRC_PORT=53 (CPU), DO_NOT_REW=1
 #endif
-    0x00, 0x00, 0x00,
+    0xc0, 0x00, 0x00,                               // PL_ACT=1 (INJ), PL_PT=16 (ANA_DONE)
 #else
 #error Architecture not supported
 #endif
