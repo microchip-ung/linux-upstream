@@ -430,7 +430,10 @@ static int dw_spi_setup(struct spi_device *spi)
 		chip->poll_mode = chip_info->poll_mode;
 		chip->type = chip_info->type;
 	}
-
+#if defined(CONFIG_SPI_DW_VCOREIII)
+	/* Always use polled mode for performance reasons */
+	chip->poll_mode = 1;
+#endif
 	chip->tmode = SPI_TMOD_TR;
 
 	if (gpio_is_valid(spi->cs_gpio)) {

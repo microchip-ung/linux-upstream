@@ -80,7 +80,11 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
 		.modalias = "m25p80", /* Name of spi_driver for this device */
+#if defined(CONFIG_VTSS_VCOREIII_OCELOT)
+		.max_speed_hz = 31000000,     /* max spi clock (SCK) speed in HZ */
+#else
 		.max_speed_hz = 18000000,     /* max spi clock (SCK) speed in HZ */
+#endif
 		.bus_num = 0, /* Framework bus number */
 		.chip_select = 0, /* Framework chip select. */
 		.platform_data = &serval_spi_flash_data,
@@ -90,7 +94,11 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
 		.modalias = "mt29f", /* Name of spi_driver for this device */
+#if defined(CONFIG_VTSS_VCOREIII_OCELOT)
+		.max_speed_hz = 31000000,     /* max spi clock (SCK) speed in HZ */
+#else
 		.max_speed_hz = 15625000,     /* max spi clock (SCK) speed in HZ */
+#endif
 		.bus_num = 0, /* Framework bus number */
 		.chip_select = 1, /* Framework chip select. */
 		.platform_data = &serval_spinand_flash_data,
