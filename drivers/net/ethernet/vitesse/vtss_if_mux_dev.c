@@ -28,6 +28,10 @@
 #include <linux/etherdevice.h>
 #include <net/switchdev.h>
 
+#if defined(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
+
 #include "vtss_if_mux.h"
 
 static const unsigned char hdr_tmpl[IFH_ENCAP_LEN + 4] = {
@@ -73,6 +77,50 @@ static const unsigned char hdr_tmpl_port[IFH_ENCAP_LEN] = {
 #error Architecture not supported
 #endif
 };
+
+#if defined(CONFIG_PROC_FS)
+static struct proc_dir_entry *proc_dump_ifh = 0;
+#endif
+
+#if defined(CONFIG_PROC_FS)
+static int debug_dump_ifh_(struct seq_file *s, void *v)
+{
+    int i;
+
+    seq_printf(s, "IFH (port): ");
+
+    for (i = 0; i < sizeof(hdr_tmpl_port); i++) {
+        seq_printf(s, "%02x", hdr_tmpl_port[i]);
+    }
+
+    seq_printf(s, "\nIFH (vlan): ");
+
+    // Exclude VLAN tag placeholder
+    for (i = 0; i < sizeof(hdr_tmpl) - 4; i++) {
+        seq_printf(s, "%02x", hdr_tmpl[i]);
+    }
+
+    seq_printf(s, "\nPort-Mask-Offset: %u\n", IFH_OFFS_PORT_MASK);
+
+    return 0;
+}
+#endif
+
+#if defined(CONFIG_PROC_FS)
+static int debug_dump_ifh(struct inode *inode, struct file *f)
+{
+	return single_open(f, debug_dump_ifh_, NULL);
+}
+#endif
+
+#if defined(CONFIG_PROC_FS)
+static const struct file_operations dump_ifh_fops = {
+    .open    = debug_dump_ifh,
+    .read    = seq_read,
+    .llseek  = seq_lseek,
+    .release = single_release,
+};
+#endif
 
 static int internal_dev_open(struct net_device *netdev) {
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(netdev);
@@ -248,10 +296,19 @@ static int internal_dev_init(struct net_device *dev) {
         u64_stats_init(&s->syncp);
     }
 
+#if defined(CONFIG_PROC_FS)
+    proc_dump_ifh = proc_create("vtss_if_mux_ifh", S_IRUGO, NULL, &dump_ifh_fops);
+#endif
+
     return 0;
 }
 
-static void internal_dev_uninit(struct net_device *dev) { }
+static void internal_dev_uninit(struct net_device *dev) {
+#if defined(CONFIG_PROC_FS)
+    if (proc_dump_ifh)
+        proc_remove(proc_dump_ifh);
+#endif
+}
 
 static void rt_notify_task(struct work_struct *work) {
     int i;

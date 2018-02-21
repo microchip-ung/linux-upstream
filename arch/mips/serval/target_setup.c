@@ -75,7 +75,11 @@ void __init plat_time_init(void)
 
 const char *get_system_type(void)
 {
+#if defined(CONFIG_VTSS_VCOREIII_SERVAL1_CLASSIC)
 	return "Vitesse VCore-III Serval";
+#else
+	return "Vitesse VCore-III Ocelot";
+#endif
 }
 
 static void vcoreiii_machine_restart(char *command)
@@ -88,7 +92,7 @@ static void vcoreiii_machine_restart(char *command)
 #define CORE_RST_PROTECT VTSS_F_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_PROTECT
 #define SOFT_CHIP_RST    VTSS_F_DEVCPU_GCB_CHIP_REGS_SOFT_RST_SOFT_CHIP_RST
 #else
-// Never variants of Serval-1 have another register macro layout
+// Newer variants of Serval-1 have another register macro layout
 #define CORE_RST_PROTECT VTSS_M_ICPU_CFG_CPU_SYSTEM_CTRL_RESET_CORE_RST_PROTECT
 #define SOFT_CHIP_RST    VTSS_M_DEVCPU_GCB_CHIP_REGS_SOFT_RST_SOFT_CHIP_RST
 #endif
