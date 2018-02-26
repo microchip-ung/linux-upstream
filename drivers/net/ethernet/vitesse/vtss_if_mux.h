@@ -99,3 +99,5 @@ void vtss_if_mux_rt_notify(struct net_device *dev);
 int vtss_if_mux_filter_apply(struct sk_buff *skb, unsigned int vid, unsigned int
                              ether_type_offset);
 int vtss_if_mux_filter_vlan_pop(u32 vid, u32 chip_port, u32 etype_outer, u32 etype_inner);
+
+u16 vtss_if_mux_vsi2vid(u16 vsi);

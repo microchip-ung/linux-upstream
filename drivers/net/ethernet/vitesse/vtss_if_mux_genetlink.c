@@ -61,6 +61,7 @@ enum vtss_if_mux_attr {
 	VTSS_IF_MUX_ATTR_PORT_CONF_RX_FILTER,
 	VTSS_IF_MUX_ATTR_PORT_CONF_RX_FORWARD,
 	VTSS_IF_MUX_ATTR_PORT_CONF_TX_FORWARD,
+        VTSS_IF_MUX_ATTR_VLAN_VSI_MAP,
 
 	// Add new entries here, and remember to update user-space applications
 	VTSS_IF_MUX_ATTR_END,
@@ -74,6 +75,7 @@ enum vtss_if_mux_genl {
 	VTSS_IF_MUX_GENL_RULE_MODIFY,
 	VTSS_IF_MUX_GENL_RULE_GET,
 	VTSS_IF_MUX_GENL_PORT_CONF_SET,
+	VTSS_IF_MUX_GENL_VLAN_VSI_MAP_SET,
 
 	// Add new entries here, and remember to update user-space applications
 };
@@ -211,6 +213,7 @@ static struct proc_dir_entry *proc_dump_port_conf = 0;
 #endif
 static u64 OWNER_BIT_MASK_POOL = 0;
 static struct list_head OWNER_BIT_MASK_ASSOCIATION;
+static u16 vsi2vid[VLAN_N_VID];
 
 #define VTSS_HDR (IFH_LEN + 2)
 #define ETHERTYPE_LENGTH 2
@@ -1447,6 +1450,44 @@ static int genl_cmd_port_conf_set(struct sk_buff *skb, struct genl_info *info)
     return 0;
 }
 
+u16 vtss_if_mux_vsi2vid(u16 vsi)
+{
+    return (vsi < VLAN_N_VID ? vsi2vid[vsi] : 0);
+}
+
+typedef struct {
+    u16 vsi[VLAN_N_VID]; /**< Virtual Switching Instance number */
+} vlan_vsi_map_t;
+
+static int genl_cmd_vlan_vsi_map_set(struct sk_buff *skb, struct genl_info *info)
+{
+    int            vsi, vid;
+    struct nlattr  *attr = info->attrs[VTSS_IF_MUX_ATTR_VLAN_VSI_MAP];
+    vlan_vsi_map_t *map;
+
+    if (!attr) {
+        printk(KERN_ERR "no VLAN/NSI map\n");
+        return -EINVAL;
+    }
+    if (nla_len(attr) != sizeof(*map)) {
+        printk(KERN_ERR "unexpected length: %u\n", nla_len(attr));
+        return -EINVAL;
+    }
+    //printk(KERN_ERR "VLAN/VSI map set\n");
+    map = nla_data(attr);
+    for (vsi = 1; vsi < VLAN_N_VID; vsi++) {
+        vsi2vid[vsi] = 0;
+    }
+    for (vid = 1; vid < VLAN_N_VID; vid++) {
+        vsi = map->vsi[vid];
+        if (vsi) {
+            vsi2vid[vsi] = vid;
+            //printk(KERN_ERR "vid %u, vsi %u\n", vid, vsi);
+        }
+    }
+    return 0;
+}
+
 static int genl_cmd_rule_dump(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	printk(KERN_ERR "Not implemented yet: genl_cmd_rule_dump\n");
@@ -1633,6 +1674,7 @@ static int debug_dump(struct inode *inode, struct file *f)
 static int debug_dump_port_conf_(struct seq_file *s, void *v)
 {
     u32              chip_port, i, n;
+    u16              vid, vsi;
     struct port_conf *p;
 
     for (chip_port = 0; chip_port < PORT_CNT; chip_port++) {
@@ -1655,6 +1697,13 @@ static int debug_dump_port_conf_(struct seq_file *s, void *v)
             }
         }
         rcu_read_unlock();
+    }
+    seq_printf(s, "\n");
+    for (vsi = 1; vsi < VLAN_N_VID; vsi++) {
+        vid = vsi2vid[vsi];
+        if (vid) {
+            seq_printf(s, "VSI: %u, VID: %u\n", vsi, vid);
+        }
     }
     return 0;
 }
@@ -1699,6 +1748,12 @@ static struct genl_ops vtss_if_mux_genl_ops[] = {
 	{
 	 .cmd = VTSS_IF_MUX_GENL_PORT_CONF_SET,
 	 .doit = genl_cmd_port_conf_set,
+	 .policy = genel_policy,
+	 .flags = GENL_ADMIN_PERM,
+	},
+	{
+	 .cmd = VTSS_IF_MUX_GENL_VLAN_VSI_MAP_SET,
+	 .doit = genl_cmd_vlan_vsi_map_set,
 	 .policy = genel_policy,
 	 .flags = GENL_ADMIN_PERM,
 	},

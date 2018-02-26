@@ -125,7 +125,13 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
         /* ACL discard (CL_RSLT, bit 1) */
         return RX_HANDLER_PASS;
     }
-    vid = (((skb->data[IFH_OFF + 18] << 8) | skb->data[IFH_OFF + 19]) & 0xfff);
+    if (skb->data[IFH_OFF + 6] & 0x20) {
+        /* GEN_IDX_MODE is VSI, translate to VID */
+        vid = vtss_if_mux_vsi2vid(((skb->data[IFH_OFF + 5] << 8) | skb->data[IFH_OFF + 6]) >> 6);
+    }
+    if (vid == 0) {
+        vid = (((skb->data[IFH_OFF + 18] << 8) | skb->data[IFH_OFF + 19]) & 0xfff);
+    }
     chip_port = ((skb->data[IFH_OFF + 23] << 8) | skb->data[IFH_OFF + 24]);
     chip_port = ((chip_port >> 3) & 0x3f);
 #else
