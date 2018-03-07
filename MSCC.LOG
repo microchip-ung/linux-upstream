@@ -3,6 +3,16 @@ One could choose to add them using build-system (e.g. buildroot) patches, but
 that turns out to be a bad idea when the linux kernel source is built locally
 along with the application.
 
+Author: Allan W. Nielsen <allan.nielsen@microsemi.com>
+Date:   Wed Mar 7 15:59:57 2018 +0100
+
+    MSCC: Fix bug in AF_BRIDGE/RTM_GETNEIGH dumper
+
+ net/core/rtnetlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+ NOTE: This is already fixed upstream
+
+
 2017-09-06  Lars Povlsen  <lars.povlsen@microsemi.com>
 
 	* drivers/mtd/nand/nand_ids.c:
