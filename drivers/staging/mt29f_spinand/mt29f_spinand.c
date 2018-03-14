@@ -368,7 +368,7 @@ static void mt29f_set_addr(struct spi_device *spi_nand, struct spinand_cmd *cmd,
 	case CMD_PROG_PAGE_EXC:
 	case CMD_ERASE_BLK:
 		cmd->n_addr = 3;
-		cmd->addr[0] = 0;	/* ! */
+		cmd->addr[0] = (u8)((page_id & 0xff0000) >> 16);
 		cmd->addr[1] = (u8)((page_id & 0xff00) >> 8);
 		cmd->addr[2] = (u8)(page_id & 0x00ff);
 		break;
