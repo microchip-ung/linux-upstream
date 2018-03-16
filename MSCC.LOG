@@ -13,6 +13,13 @@ Date:   Wed Mar 7 15:59:57 2018 +0100
  NOTE: This is already fixed upstream
 
 
+2018-03-16  Palle Christensen <palle.christensen@microsemi.com>
+
+	* drivers/staging/mt29f_spinand/mt29f_spinand.c:
+	* drivers/mtd/nand/nand_ids.c:
+	Added MT29F2G01ABAGD to nand_id.c and fixed general addressing problem
+	in mt29f_spinand.c relating to nands bigger than 1Gbit.
+
 2017-09-06  Lars Povlsen  <lars.povlsen@microsemi.com>
 
 	* drivers/mtd/nand/nand_ids.c:
