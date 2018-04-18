@@ -280,7 +280,16 @@ static int __init vtss_if_mux_init_module(void) {
         goto exit_2;
     }
 
+    err = vtss_if_mux_dev_init();
+    if (err < 0) {
+        printk(KERN_INFO "Failed: vtss_if_mux_dev_init\n");
+        goto exit_3;
+    }
+
     return 0;
+
+exit_3:
+    vtss_if_mux_genetlink_uninit();
 
 exit_2:
     vtss_if_mux_netlink_uninit();

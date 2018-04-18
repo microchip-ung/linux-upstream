@@ -86,6 +86,7 @@ void vtss_if_mux_setup(struct net_device *netdev);
 
 int vtss_if_mux_netlink_init(void);
 void vtss_if_mux_netlink_uninit(void);
+int vtss_if_mux_dev_init(void);
 void vtss_if_mux_dev_uninit(void);
 
 int vtss_if_mux_genetlink_init(void);

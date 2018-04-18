@@ -296,18 +296,11 @@ static int internal_dev_init(struct net_device *dev) {
         u64_stats_init(&s->syncp);
     }
 
-#if defined(CONFIG_PROC_FS)
-    proc_dump_ifh = proc_create("vtss_if_mux_ifh", S_IRUGO, NULL, &dump_ifh_fops);
-#endif
-
     return 0;
 }
 
-static void internal_dev_uninit(struct net_device *dev) {
-#if defined(CONFIG_PROC_FS)
-    if (proc_dump_ifh)
-        proc_remove(proc_dump_ifh);
-#endif
+static void internal_dev_uninit(struct net_device *dev)
+{
 }
 
 static void rt_notify_task(struct work_struct *work) {
@@ -335,10 +328,22 @@ static void rt_notify_task(struct work_struct *work) {
 
 static DECLARE_WORK(rt_notify_work, rt_notify_task);
 
-void vtss_if_mux_dev_uninit() {
-    cancel_work_sync(&rt_notify_work);
+int vtss_if_mux_dev_init(void) {
+#if defined(CONFIG_PROC_FS)
+    proc_dump_ifh = proc_create("vtss_if_mux_ifh", S_IRUGO, NULL, &dump_ifh_fops);
+#endif
+
+    return 0;
 }
 
+void vtss_if_mux_dev_uninit() {
+    cancel_work_sync(&rt_notify_work);
+
+#if defined(CONFIG_PROC_FS)
+    if (proc_dump_ifh)
+        proc_remove(proc_dump_ifh);
+#endif
+}
 
 static void internal_dev_set_rx_mode(struct net_device *dev) {
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(dev);
