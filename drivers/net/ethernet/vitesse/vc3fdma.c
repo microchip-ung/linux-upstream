@@ -1843,6 +1843,8 @@ static struct net_device *vc3fdma_create(void)
     priv = netdev_priv(dev);
     memset(priv, 0, sizeof(*priv));
     vc3fdma_dev = dev;
+    /* This particular device adds no MAC header - must be part of data */
+    dev->hard_header_len = dev->min_header_len = 0;
 
     // Set initial, bogus MAC address
     eth_hw_addr_random(dev);
