@@ -60,7 +60,7 @@ static struct flash_platform_data serval_spi_flash_data = {
         .use_4byte_commands = 1,
 };
 
-#if defined(CONFIG_MTD_NAND_PLATFORM)
+#if defined(CONFIG_MTD_SPINAND_MT29F)
 static struct mtd_partition vcoreiii_partition_info[] = {
     [0] = {
         .name	= "rootfs_data",
@@ -90,7 +90,10 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 		.platform_data = &serval_spi_flash_data,
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
         },
-#if defined(CONFIG_MTD_NAND_PLATFORM)
+};
+
+#if defined(CONFIG_MTD_SPINAND_MT29F)
+static struct spi_board_info serval_spinand_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
 		.modalias = "mt29f", /* Name of spi_driver for this device */
@@ -104,16 +107,12 @@ static struct spi_board_info serval_spi_board_info[] __initdata = {
 		.platform_data = &serval_spinand_flash_data,
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
         },
-#endif
 };
+#endif
 
 static int __init vcoreiii_mtd_init(void)
 {
 	platform_device_register(&serval_spi);
-
-#if defined(CONFIG_MTD_NAND_PLATFORM)
-        vcoreiii_gpio_set_alternate(8, 1); /* SI_nEN1/GPIO_8 */
-#endif
 
 	spi_register_board_info(serval_spi_board_info, ARRAY_SIZE(serval_spi_board_info));
 
@@ -121,3 +120,19 @@ static int __init vcoreiii_mtd_init(void)
 }
 
 module_init(vcoreiii_mtd_init);
+
+static int __init vcoreiii_mtd_init_nand(void)
+{
+#if defined(CONFIG_MTD_SPINAND_MT29F)
+    vcoreiii_gpio_set_alternate(8, 1); /* SI_nEN1/GPIO_8 */
+    if (get_mtd_device_nm("rootfs_data")) {
+	    pr_warn("mtd('rootfs_data') seen, disabling SPI NAND\n");
+    } else {
+	    spi_register_board_info(serval_spinand_board_info, ARRAY_SIZE(serval_spinand_board_info));
+    }
+#endif
+    return 0;
+}
+
+late_initcall(vcoreiii_mtd_init_nand);
+

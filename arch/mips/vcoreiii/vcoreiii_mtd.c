@@ -157,9 +157,12 @@ static int __init vcoreiii_mtd_init(void)
 
 static int __init vcoreiii_mtd_init_nand(void)
 {
-        platform_device_register(&vcoreiii_nand);
-
-        return 0;
+	if (get_mtd_device_nm("rootfs_data")) {
+		pr_warn("mtd('rootfs_data') seen, disabling NAND\n");
+	} else {
+		platform_device_register(&vcoreiii_nand);
+	}
+	return 0;
 }
 
 module_init(vcoreiii_mtd_init);

@@ -73,23 +73,6 @@ static struct flash_platform_data jaguar2_spi_flash_data = {
         .use_4byte_commands = 1,
 };
 
-#if defined(CONFIG_MTD_SPINAND_MT29F)
-
-static struct flash_platform_data jaguar2_spinand_flash_data = {
-    .name = "spi_nand",
-    .parts = vcoreiii_partition_info,
-    .nr_parts = ARRAY_SIZE(vcoreiii_partition_info),
-};
-#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
-#define SPINAND_CS   1
-#define SPINAND_GPIO 8
-#else    // Serval2
-#define SPINAND_CS   3
-#define SPINAND_GPIO 18
-#endif
-#endif
-
-
 static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
@@ -101,7 +84,26 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
                 /* .controller_data = &jaguar2_spi_flash_cs,  /\* chip select control  *\/ */
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
         },
+
+};
+
 #if defined(CONFIG_MTD_SPINAND_MT29F)
+
+static struct flash_platform_data jaguar2_spinand_flash_data = {
+    .name = "spi_nand",
+    .parts = vcoreiii_partition_info,
+    .nr_parts = ARRAY_SIZE(vcoreiii_partition_info),
+};
+
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+#define SPINAND_CS   1
+#define SPINAND_GPIO 8
+#else    // Serval2
+#define SPINAND_CS   3
+#define SPINAND_GPIO 18
+#endif
+
+static struct spi_board_info jaguar2_spinand_board_info[] __initdata = {
 	{
 		/* the modalias must be the same as spi device driver name */
 		.modalias = "mt29f", /* Name of spi_driver for this device */
@@ -111,9 +113,8 @@ static struct spi_board_info jaguar2_spi_board_info[] __initdata = {
 		.platform_data = &jaguar2_spinand_flash_data,
 		.mode = SPI_MODE_0, /* CPOL=0, CPHA=0 */
         },
-#endif
-
 };
+#endif
 
 #if defined(JR2_PI_NAND)
 
@@ -187,22 +188,26 @@ static int __init vcoreiii_mtd_init(void)
 
     platform_device_register(&jaguar2_spi);
 
-#if defined(SPINAND_GPIO)
-    vcoreiii_gpio_set_alternate(SPINAND_GPIO, 1); /* SI_nCSX */
-#endif
-
     spi_register_board_info(jaguar2_spi_board_info, ARRAY_SIZE(jaguar2_spi_board_info));
 
     return 0;
 }
 module_init(vcoreiii_mtd_init);
 
-#if defined(JR2_PI_NAND)
 static int __init vcoreiii_mtd_init_nand(void)
 {
-    platform_device_register(&jaguar2_nand);
+    if (get_mtd_device_nm("rootfs_data")) {
+	    pr_warn("mtd('rootfs_data') seen, disabling NAND\n");
+    } else {
+#if defined(JR2_PI_NAND)
+	    platform_device_register(&jaguar2_nand);
+#endif
+#if defined(CONFIG_MTD_SPINAND_MT29F)
+	    vcoreiii_gpio_set_alternate(SPINAND_GPIO, 1); /* SI_nCSX */
+	    spi_register_board_info(jaguar2_spinand_board_info, ARRAY_SIZE(jaguar2_spinand_board_info));
+#endif
+    }
     return 0;
 }
 
 late_initcall(vcoreiii_mtd_init_nand);
-#endif
