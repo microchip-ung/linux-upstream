@@ -196,7 +196,7 @@ module_init(vcoreiii_mtd_init);
 
 static int __init vcoreiii_mtd_init_nand(void)
 {
-    if (get_mtd_device_nm("rootfs_data")) {
+    if (!IS_ERR(get_mtd_device_nm("rootfs_data"))) {
 	    pr_warn("mtd('rootfs_data') seen, disabling NAND\n");
     } else {
 #if defined(JR2_PI_NAND)
