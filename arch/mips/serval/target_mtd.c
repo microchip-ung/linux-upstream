@@ -125,7 +125,7 @@ static int __init vcoreiii_mtd_init_nand(void)
 {
 #if defined(CONFIG_MTD_SPINAND_MT29F)
     vcoreiii_gpio_set_alternate(8, 1); /* SI_nEN1/GPIO_8 */
-    if (!ERR(get_mtd_device_nm("rootfs_data"))) {
+    if (!IS_ERR(get_mtd_device_nm("rootfs_data"))) {
 	    pr_warn("mtd('rootfs_data') seen, disabling SPI NAND\n");
     } else {
 	    spi_register_board_info(serval_spinand_board_info, ARRAY_SIZE(serval_spinand_board_info));
