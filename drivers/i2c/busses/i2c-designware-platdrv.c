@@ -85,6 +85,9 @@ static int dw_i2c_acpi_configure(struct platform_device *pdev)
 	struct dw_i2c_dev *dev = platform_get_drvdata(pdev);
 	struct i2c_timings *t = &dev->timings;
 	u32 ss_ht = 0, fp_ht = 0, hs_ht = 0, fs_ht = 0;
+	acpi_handle handle = ACPI_HANDLE(&pdev->dev);
+	struct acpi_device *adev;
+	const char *uid;
 
 	dev->tx_fifo_depth = 32;
 	dev->rx_fifo_depth = 32;
@@ -113,6 +116,18 @@ static int dw_i2c_acpi_configure(struct platform_device *pdev)
 		dev->sda_hold_time = fs_ht;
 		break;
 	}
+
+	if (acpi_bus_get_device(handle, &adev))
+		return -ENODEV;
+
+	/*
+	 * Cherrytrail I2C7 gets used for the PMIC which gets accessed
+	 * through ACPI opregions during late suspend / early resume
+	 * disable pm for it.
+	 */
+	uid = adev->pnp.unique_id;
+	if ((dev->flags & MODEL_CHERRYTRAIL) && !strcmp(uid, "7"))
+		dev->pm_disabled = true;
 
 	return 0;
 }
