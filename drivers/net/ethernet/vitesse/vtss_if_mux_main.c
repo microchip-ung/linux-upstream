@@ -173,6 +173,12 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
         return RX_HANDLER_PASS;
     }
 
+    // Check if SMAC matches our own address
+    if (ether_addr_equal(skb->data + ether_type_offset - 6, dev->dev_addr)) {
+        //printk(KERN_ERR "Discard own SMAC, chip_port: %u, vid: %u\n", chip_port, vid);
+        return RX_HANDLER_PASS;
+    }
+
     skb_new = skb_clone(skb, GFP_ATOMIC /* invoked from softirq context */);
     if (!skb_new) {
         rx_ok = 0;
