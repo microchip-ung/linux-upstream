@@ -101,6 +101,9 @@ static int CIL_debug_print(ufdma_state_t *state, vtss_ufdma_debug_info_t *info, 
 
     pr(ref, " FDMA_CH_STAT         = 0x%08x\n",   REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_CH_STAT));
     pr(ref, " FDMA_CH_SAFE         = 0x%08x\n",   REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_CH_SAFE));
+    pr(ref, " FDMA_CH_ACTIVATE     = 0x%08x\n",   REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_CH_ACTIVATE));
+    pr(ref, " FDMA_CH_DISABLE      = 0x%08x\n",   REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_CH_DISABLE));
+    pr(ref, " FDMA_CH_FORCEDIS     = 0x%08x\n",   REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_CH_FORCEDIS));
     pr(ref, " FDMA_EVT_ERR         = 0x%08x\n",   REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_EVT_ERR));
     pr(ref, " FDMA_EVT_ERR_CODE    = 0x%08x\n",   REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_EVT_ERR_CODE));
     pr(ref, " FDMA_INTR_LLP        = 0x%08x\n",   REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_INTR_LLP));
@@ -251,7 +254,7 @@ static int CIL_poll(ufdma_state_t *state, BOOL rx, BOOL tx, unsigned int rx_cnt_
         REG_WR(VTSS_ICPU_CFG_FDMA_FDMA_INTR_SIG, intr_sig & intr_ident);
     }
 
-    // Clear the normal interrupts interrupts.
+    // Clear interrupts.
     REG_WR(VTSS_ICPU_CFG_FDMA_FDMA_INTR_LLP, intr_llp & intr_ident);
     REG_WR(VTSS_ICPU_CFG_FDMA_FDMA_INTR_FRM, intr_frm & intr_ident);
 
@@ -313,11 +316,17 @@ static void CIL_interrupts_disable(ufdma_state_t *state, BOOL graceful)
 
         REG_WR(VTSS_ICPU_CFG_FDMA_FDMA_CH_DISABLE, ch_mask);
         do {
-            val = REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_CH_DISABLE);
-        } while ((VTSS_X_ICPU_CFG_FDMA_FDMA_CH_DISABLE_CH_DISABLE(val) & ch_mask) != 0);
-    } else {
-        REG_WR(VTSS_ICPU_CFG_FDMA_FDMA_CH_FORCEDIS, ch_mask);
+            val = REG_RD(VTSS_ICPU_CFG_FDMA_FDMA_CH_SAFE);
+        } while ((val & ch_mask) != ch_mask);
     }
+
+    // Ensure we also force disable it, now that it's safe to change LLP (in
+    // case we were invoked with graceful == TRUE)
+    REG_WR(VTSS_ICPU_CFG_FDMA_FDMA_CH_FORCEDIS, ch_mask);
+
+    // And clear LLP pointers
+    REG_WR(VTSS_ICPU_CFG_FDMA_FDMA_DCB_LLP(SRVL_RX_CH), 0);
+    REG_WR(VTSS_ICPU_CFG_FDMA_FDMA_DCB_LLP(SRVL_TX_CH), 0);
 
     // Disable global interrupts from DMA controller
     REG_WRM(VTSS_ICPU_CFG_FDMA_FDMA_INTR_ENA,     ~ch_mask, ch_mask);

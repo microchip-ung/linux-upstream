@@ -40,6 +40,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/poll.h>
+#include <linux/reboot.h>
 
 #if defined(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
@@ -76,8 +77,8 @@ static u8 ifh_encap [] = {
 #define PROTO_B1               13
 
 #define DRV_NAME               "vc3fdma"
-#define DRV_VERSION            "01.24"
-#define DRV_RELDATE            "2017/9/22"
+#define DRV_VERSION            "01.25"
+#define DRV_RELDATE            "2018/9/26"
 
 #define ETH_VLAN_TAGSZ         4    // Size of a 802.1Q VLAN tag
 #define RX_MTU_DEFAULT         (ETH_FRAME_LEN + ETH_FCS_LEN + (2 * ETH_VLAN_TAGSZ))
@@ -200,6 +201,9 @@ struct vc3fdma_private {
         u8                     *user_space_data_start; // Contains the user-space virtual address corresponding to priv->rx_data.
         wait_queue_head_t      rx_wait_queue;
     } zc;
+
+    // Restart handler info
+    struct notifier_block restart_nb;
 };
 
 // Pre-declarations
@@ -2275,6 +2279,55 @@ do_exit:
 }
 
 /****************************************************************************/
+// vc3fdma_restart()
+// Invoked when we are about to reboot.
+/****************************************************************************/
+static int vc3fdma_restart(struct notifier_block *nb, unsigned long action, void *data)
+{
+    struct vc3fdma_private *priv = container_of(nb, struct vc3fdma_private, restart_nb);
+
+    L();
+
+    T_I("Uninitializing driver due to soon reboot");
+
+    if (driver) {
+        driver->uninit(driver);
+        driver = NULL;
+    }
+
+    // Don't unlock, because that may cause a pending interrupt to come through.
+    // U();
+
+    return NOTIFY_DONE;
+}
+
+/****************************************************************************/
+// restart_handler_install()
+/****************************************************************************/
+static void restart_handler_install(struct vc3fdma_private *priv)
+{
+    int rc;
+
+    priv->restart_nb.notifier_call = vc3fdma_restart;
+    priv->restart_nb.priority      = 128;
+    if ((rc = register_restart_handler(&priv->restart_nb))) {
+        T_E("Unable to register a restart handler: %d", rc);
+        // Keep going
+    }
+}
+
+/****************************************************************************/
+// restart_handler_uninstall()
+/****************************************************************************/
+static void restart_handler_uninstall(struct vc3fdma_private *priv)
+{
+    int rc;
+    if ((rc = unregister_restart_handler(&priv->restart_nb))) {
+        T_E("Unable to unregister a restart handler: %d", rc);
+    }
+}
+
+/****************************************************************************/
 // vc3fdma_probe()
 /****************************************************************************/
 static int vc3fdma_probe(struct platform_device *pdev)
@@ -2331,6 +2384,11 @@ static int vc3fdma_probe(struct platform_device *pdev)
     // would still work, but without zero-copy functionality.
     zc_create();
 
+    // Register a restart handler, to allow us to gracefully shut down prior to
+    // a - potentially - two-step reboot, where the switch core is reset first
+    // and the CPU - or perhaps the CPU system - is reset next.
+    restart_handler_install(priv);
+
     printk(KERN_INFO "%s: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n", dev->name);
 
     return 0;
@@ -2343,6 +2401,9 @@ static int vc3fdma_remove(struct platform_device *pdev)
 {
     struct net_device      *dev  = platform_get_drvdata(pdev);
     struct vc3fdma_private *priv = netdev_priv(dev);
+
+    // Unregister the restart handler.
+    restart_handler_uninstall(priv);
 
 #if defined(CONFIG_DEBUG_FS)
     if (priv->db_fs_dump_file) {

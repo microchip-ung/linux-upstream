@@ -830,17 +830,18 @@ static void AIL_callback_all(ufdma_state_t *state, ufdma_dcb_t *head, void (*cal
 {
     // Because the DCB state is located in memory that probably will get
     // freed during invokation by the rx_callback() function, we need the
-    // next pointer before calling rx_callback().
+    // next pointer before calling callback().
 
     UFDMA_D("Freeing %s", who);
     while (head) {
         ufdma_dcb_t           *next    = head->next;
         vtss_ufdma_buf_dscr_t buf_dscr = head->buf_dscr;
 
-        UFDMA_D("%s: Freeing %p", who, head);
+        UFDMA_D("%s: Freeing head = %p, buf_dscr = %p", who, head, &buf_dscr);
 
         buf_dscr.result = UFDMA_RC_UNINIT;
-        state->callout.rx_callback(state->self, &buf_dscr);
+        buf_dscr.next   = NULL;
+        callback(state->self, &buf_dscr);
 
         head = next;
     }
