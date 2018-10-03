@@ -1316,6 +1316,7 @@ config IRQ_GT641XX
 	bool
 
 config VTSS_VCOREIII_ARCH
+	select CPU_MIPSR2_IRQ_VI
 	bool
 
 config VTSS_VCOREIII_MK1
