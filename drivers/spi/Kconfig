@@ -708,6 +708,13 @@ config SPI_XCOMM
 	  Support for the SPI-I2C bridge found on the Analog Devices
 	  AD-FMCOMMS1-EBZ board.
 
+config SPI_VCOREIII_MK1
+	tristate "VCore-III SPI controller"
+	depends on SPI_MASTER && VTSS_VCOREIII_ARCH
+	select SPI_BITBANG
+	help
+	  SPI driver for VCore-III.
+
 config SPI_XILINX
 	tristate "Xilinx SPI controller common module"
 	depends on HAS_IOMEM
@@ -784,6 +791,10 @@ config SPI_TLE62X0
 	  such as the TLE6220, TLE6230 and TLE6240.  This provides a
 	  sysfs interface, with each line presented as a kind of GPIO
 	  exposing both switch control and diagnostic feedback.
+
+config SPI_DW_VCOREIII
+	tristate "VCoreIII io interface driver for DW SPI core"
+	depends on SPI_DESIGNWARE
 
 #
 # Add new SPI protocol masters in alphabetical order above this line

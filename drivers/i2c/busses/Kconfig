@@ -87,6 +87,15 @@ config I2C_HIX5HD2
 	  This driver can also be built as a module. If so, the module
 	  will be called i2c-hix5hd2.
 
+config I2C_VCOREIII_MK1
+	tristate "Vitesse VCore-III I2C driver"
+	depends on (VTSS_VCOREIII_MK1 || VTSS_VCOREIII_SERVAL1 || VTSS_VCOREIII_JAGUAR2_FAMILY)
+	help
+	  Support for Vitesse VCore-III I2C controller driver.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called i2c-vcoreiii.
+
 config I2C_I801
 	tristate "Intel 82801 (ICH/PCH)"
 	depends on PCI

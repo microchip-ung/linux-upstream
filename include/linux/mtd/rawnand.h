@@ -1438,6 +1438,7 @@ static inline void *nand_get_manufacturer_data(struct nand_chip *chip)
 #define NAND_MFR_INTEL		0x89
 #define NAND_MFR_ATO		0x9b
 #define NAND_MFR_WINBOND	0xef
+#define NAND_MFR_GIGA		NAND_MFR_ESMT
 
 
 /*
