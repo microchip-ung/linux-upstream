@@ -24,6 +24,7 @@
 #
 
 ccflags-$(CONFIG_VC3FDMA) := -Idrivers/net/ethernet/vitesse/ufdma/include
+ccflags-$(CONFIG_VC3FDMA) += -Werror
 #ccflags-$(CONFIG_VC3FDMA) += -Wextra -Wunused -Wno-unused-parameter
 ccflags-$(CONFIG_VC3FDMA) += -Wmaybe-uninitialized
 
