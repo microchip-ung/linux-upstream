@@ -74,7 +74,7 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
     int ether_type_offset, pop;
     u16 *ether_type;
     int rx_ok = 1;
-    u32 chip_port;
+    u32 chip_port, min_size;
     u16 etype;
 
     if (!pskb || !(*pskb))
@@ -82,9 +82,13 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 
     skb = *pskb;
 
-    if (skb->len < (ETH_ZLEN + IFH_ID)) {
+    // Frame layout:
+    // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame, FCS
+    min_size = 2 + IFH_LEN + ETH_ZLEN + ETH_FCS_LEN;
+    if (skb->len < min_size) {
         // Where should this be counted??
-        dev_err(&dev->dev, "Short frame: %u bytes\n", skb->len);
+        printk(KERN_ERR "Error: %s#%d: Short frame of %u bytes (minimum expected = %u bytes)\n", __FILE__, __LINE__, skb->len, min_size);
+        print_hex_dump(KERN_ERR, "Rx ", DUMP_PREFIX_ADDRESS, 16, 1, skb->data, skb->len, true);
         return RX_HANDLER_PASS;
     }
 
