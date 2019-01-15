@@ -2289,7 +2289,7 @@ static int vc3fdma_restart(struct notifier_block *nb, unsigned long action, void
 
     T_I("Uninitializing driver due to soon reboot");
 
-    if (driver) {
+    if (driver && driver->uninit) {
         driver->uninit(driver);
         driver = NULL;
     }

@@ -342,7 +342,7 @@ static int vcoreiii_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num
     if (likely(num > 0)) {
         if (dev->xfer.cmd_res & I2C_CMPLT_DONE) {
             /* no error */
-            num = dev->xfer.tx_done;
+            num = dev->xfer.tx_ix;
         } else {
             // Transfer failed
             num = -EIO;
