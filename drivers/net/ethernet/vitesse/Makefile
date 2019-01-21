@@ -24,9 +24,32 @@
 #
 
 ccflags-$(CONFIG_VC3FDMA) := -Idrivers/net/ethernet/vitesse/ufdma/include
+
+# We want all warnings to produce an error and lead to a failed build.
 ccflags-$(CONFIG_VC3FDMA) += -Werror
-#ccflags-$(CONFIG_VC3FDMA) += -Wextra -Wunused -Wno-unused-parameter
-ccflags-$(CONFIG_VC3FDMA) += -Wmaybe-uninitialized
+# Level-1 warning flags
+ccflags-$(CONFIG_VC3FDMA) += -Wextra -Wunused -Wno-unused-parameter -Wno-type-limits
+ccflags-$(CONFIG_VC3FDMA) += -Wmissing-declarations
+#ccflags-$(CONFIG_VC3FDMA) += -Wmissing-format-attribute
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wmissing-prototypes)
+ccflags-$(CONFIG_VC3FDMA) += -Wold-style-definition
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wmissing-include-dirs)
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wunused-but-set-variable)
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wunused-const-variable)
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wpacked-not-aligned)
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-disable-warning, missing-field-initializers)
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-disable-warning, sign-compare)
+# Level-2 warning flags
+ccflags-$(CONFIG_VC3FDMA) += -Waggregate-return
+#ccflags-$(CONFIG_VC3FDMA) += -Wcast-align
+ccflags-$(CONFIG_VC3FDMA) += -Wdisabled-optimization
+#ccflags-$(CONFIG_VC3FDMA) += -Wnested-externs
+#ccflags-$(CONFIG_VC3FDMA) += -Wshadow
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wlogical-op)
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wmissing-field-initializers)
+#ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wsign-compare)
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wmaybe-uninitialized)
+ccflags-$(CONFIG_VC3FDMA) += $(call cc-option, -Wunused-macros)
 
 obj-$(CONFIG_VC3FDMA) += vtss_vc3fdma.o
 

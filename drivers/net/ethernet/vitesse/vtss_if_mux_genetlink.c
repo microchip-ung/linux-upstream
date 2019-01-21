@@ -797,7 +797,7 @@ static void bitmask_idx_free(struct vtss_if_mux_filter_rule *r)
 	kfree(e);
 }
 
-void rule_free(struct rcu_head *head)
+static void rule_free(struct rcu_head *head)
 {
 	struct vtss_if_mux_filter_rule *r =
 		container_of(head, struct vtss_if_mux_filter_rule, rcu);
@@ -1090,8 +1090,8 @@ ERROR_MEM_MSG:
 	return err;
 }
 
-struct vtss_if_mux_filter_rule *find_rule_by_id(int id,
-						enum vtss_if_mux_list *list)
+static struct vtss_if_mux_filter_rule *find_rule_by_id(int id,
+                                                       enum vtss_if_mux_list *list)
 {
 	struct vtss_if_mux_filter_rule *res = NULL, *r;
 
@@ -1489,7 +1489,7 @@ static int genl_cmd_rule_dump(struct sk_buff *skb, struct netlink_callback *cb)
 	return -ENOSYS;
 }
 
-void debug_dump_element(struct seq_file *s, struct vtss_if_mux_filter_element *e)
+static void debug_dump_element(struct seq_file *s, struct vtss_if_mux_filter_element *e)
 {
 #define CASE(X)                                \
 	case VTSS_IF_MUX_FILTER_TYPE_##X:      \
@@ -1638,7 +1638,9 @@ static void debug_dump_rule(struct seq_file *s,
 	}
 	seq_printf(s, ", #Elements: %d\n", r->cnt);
 
-	for (i = 0; i < r->cnt; ++i) debug_dump_element(s, &r->elements[i]);
+	for (i = 0; i < r->cnt; ++i) {
+		debug_dump_element(s, &r->elements[i]);
+	}
 }
 
 static int debug_dump_(struct seq_file *s, void *v)

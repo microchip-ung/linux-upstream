@@ -227,7 +227,7 @@ errout:
     rtnl_set_sk_err(net, RTNLGRP_NOTIFY, err);
 }
 
-void vtss_if_mux_dellink(struct net_device *dev, struct list_head *head) {
+static void vtss_if_mux_dellink(struct net_device *dev, struct list_head *head) {
     int i;
 
     for (i = 0; i < VTSS_IF_MUX_PORT_CNT; ++i) {

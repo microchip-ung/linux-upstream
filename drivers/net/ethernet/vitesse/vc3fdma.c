@@ -596,7 +596,8 @@ static u32 rx_data_size_total_get(u32 rx_mtu, u32 rx_buf_cnt)
 static int rx_buffers_add(u32 rx_mtu_new, u32 rx_buf_cnt_new)
 {
     struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
-    int                    i, rc;
+    int                    rc;
+    u32                    i;
     u32                    size_of_one_list, size_of_one_frame_excl_shared_skb, total_size_of_one_frame, total_size;
     u8                     *ptr;
 
@@ -863,7 +864,8 @@ static int rx_throttle_cmd_cfg_get(struct sk_buff *skb, struct genl_info *info)
 {
     struct nlattr              *row;
     vtss_ufdma_throttle_conf_t throttle_cfg;
-    int                        rc, qu;
+    int                        rc;
+    unsigned int               qu;
     struct sk_buff             *msg;
     void                       *hdr;
 
@@ -924,7 +926,7 @@ static int rx_throttle_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
     vtss_ufdma_throttle_conf_t throttle_cfg;
     struct nlattr              *attr;
     int                        rc, remaining;
-    u32                        tick_period;
+    u32                        tick_period = 0;
     bool                       tick_period_seen = false;
 
     // info->attrs[] doesn't work if the same attribute appears multiple times.
@@ -962,7 +964,7 @@ static int rx_throttle_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
 
         case VTSS_PACKET_ATTR_RX_THROTTLE_QU_CFG: {
             struct nlattr *qu_attrs[VTSS_PACKET_ATTR_MAX];
-            u32           qu;
+            u32           qu = ARRAY_SIZE(throttle_cfg.frm_limit_per_tick);
 
             if ((rc = nla_parse_nested(qu_attrs, VTSS_PACKET_ATTR_END, attr, packet_policy, NULL)) != 0) {
                 T_E("Failed to parse queue config attributes (err = %d)", rc);
@@ -1104,7 +1106,7 @@ do_exit:
 static int rx_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
 {
     struct vc3fdma_private *priv;
-    u32                    new_mtu;
+    u32                    new_mtu = 0;
 
     T_I("Setting Rx cfg");
 
@@ -1420,7 +1422,7 @@ static void *CX_virt_to_phys(void *virt_addr)
 /****************************************************************************/
 // CX_trace_printf()
 /****************************************************************************/
-static const char CX_lvl_to_char(vtss_ufdma_trace_level_t level)
+static char CX_lvl_to_char(vtss_ufdma_trace_level_t level)
 {
     switch (level) {
     case VTSS_UFDMA_TRACE_LEVEL_ERROR:
@@ -1930,7 +1932,7 @@ static int zc_close(struct inode *inode, struct file *file)
 /****************************************************************************/
 static long zc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-    int                    rc;
+    int                    rc = 0;
     u32 __user             *p32;
     u32                    tmp;
     struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);

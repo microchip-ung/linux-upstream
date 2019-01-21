@@ -85,7 +85,7 @@ static struct proc_dir_entry *proc_dump_ifh = 0;
 #if defined(CONFIG_PROC_FS)
 static int debug_dump_ifh_(struct seq_file *s, void *v)
 {
-    int i;
+    unsigned int i;
 
     seq_printf(s, "IFH (port): ");
 
@@ -222,7 +222,7 @@ DO_CNT:
     return 0;
 }
 
-void internal_dev_get_stats(struct net_device *netdev, struct rtnl_link_stats64 *stats)
+static void internal_dev_get_stats(struct net_device *netdev, struct rtnl_link_stats64 *stats)
 {
     if (vtss_if_mux_dev_priv(netdev)->vtss_if_mux_pcpu_stats) {
         int i;
@@ -270,9 +270,6 @@ static int internal_dev_change_mtu(struct net_device *netdev, int new_mtu)
     netdev->mtu = new_mtu;
     return 0;
 }
-
-static void internal_dev_getinfo(struct net_device *netdev,
-                                 struct ethtool_drvinfo *info) { }
 
 static int internal_dev_init(struct net_device *dev) {
     int i;
@@ -334,7 +331,8 @@ int vtss_if_mux_dev_init(void) {
     return 0;
 }
 
-void vtss_if_mux_dev_uninit() {
+void vtss_if_mux_dev_uninit(void)
+{
     cancel_work_sync(&rt_notify_work);
 
 #if defined(CONFIG_PROC_FS)
@@ -393,11 +391,6 @@ static const struct net_device_ops internal_dev_netdev_ops = {
     .ndo_set_rx_mode           = internal_dev_set_rx_mode,
     .ndo_set_mac_address       = internal_dev_set_mac_address,
     .ndo_fdb_dump              = internal_dev_fdb_dump,
-};
-
-static const struct ethtool_ops internal_dev_ethtool_ops = {
-    .get_drvinfo = internal_dev_getinfo,
-    .get_link = ethtool_op_get_link,
 };
 
 void vtss_if_mux_setup(struct net_device *netdev) {
