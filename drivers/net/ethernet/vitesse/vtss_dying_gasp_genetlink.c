@@ -83,7 +83,7 @@ static struct vtss_dying_gasp_genl_buf *find_buf_by_id(int id)
     return res;
 }
 
-void buf_free(struct rcu_head *head)
+static void buf_free(struct rcu_head *head)
 {
     struct vtss_dying_gasp_genl_buf *b =
             container_of(head, struct vtss_dying_gasp_genl_buf, rcu);

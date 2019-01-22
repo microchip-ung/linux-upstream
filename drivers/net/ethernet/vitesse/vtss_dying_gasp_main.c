@@ -39,7 +39,7 @@ extern struct list_head VTSS_DYING_GASP_GENL_BUF;
 struct net_device *vtss_dying_gasp_parent_dev = NULL;
 
 /* function for getting the "vtss.ifh" net_device */
-struct net_device *vtss_dying_gasp_parent_dev_get(void)
+static struct net_device *vtss_dying_gasp_parent_dev_get(void)
 {
     if (vtss_dying_gasp_parent_dev) {
         /* immediately return if we already know */
