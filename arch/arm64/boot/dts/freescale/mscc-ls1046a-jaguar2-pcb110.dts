@@ -51,23 +51,38 @@
 	nand@0,0 {
 		partition@0 {
 			reg = <0x0 0x00100000>;
-			label = "NAND U-Boot Image";
+			label = "UBoot";
 			read-only;
 		};
 
 		partition@100000 {
-			reg = <0x00100000 0x00100000>;
-			label = "NAND U-Boot Env";
+			reg = <0x00100000 0x00040000>;
+			label = "Env";
+		};
+
+		partition@140000 {
+			reg = <0x00140000 0x00040000>;
+			label = "Env.bk";
+		};
+
+		partition@180000 {
+			reg = <0x00180000 0x00080000>;
+			label = "Unused";
 		};
 
 		partition@200000 {
-			reg = <0x00200000 0x01E00000>;
-			label = "NAND FIT Image";
+			reg = <0x00200000 0x01400000>;
+			label = "linux";
 		};
 
-		partition@02000000 {
-			reg = <0x02000000 0x1e000000>;
-			label = "NAND (RW) UBIFS Root File System";
+		partition@1600000 {
+			reg = <0x01600000 0x01400000>;
+			label = "linux.bk";
+		};
+
+		partition@2a00000 {
+			reg = <0x02a00000 0x1d600000>;
+			label = "rootfs_data";
 		};
 	};
 };
