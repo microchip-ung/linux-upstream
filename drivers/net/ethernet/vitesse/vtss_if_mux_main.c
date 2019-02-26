@@ -82,6 +82,12 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 
     skb = *pskb;
 
+#if 0
+    printk(KERN_INFO "RX %u bytes\n", skb->len);
+    print_hex_dump(KERN_INFO, "RX: ", DUMP_PREFIX_OFFSET, 16, 1,
+                   skb->data, skb->len, false);
+#endif
+
     // Frame layout:
     // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame, FCS
     min_size = 2 + IFH_LEN + ETH_ZLEN + ETH_FCS_LEN;
@@ -121,6 +127,25 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
     chip_port = ((skb->data[12] >> 3) & 0xf);
 #elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
 #define IFH_OFF  2  // We have IFH ID first (2 bytes)
+
+    {
+        // When using an external CPU along with an NPI port, it may happen that
+        // frames we send from the CPU get back to the NPI port. These frames
+        // must be discarded. They can be detected by the IFH.VSTAX.SRC having
+        // the following properties (when originally injected with
+        // IFH.PIPELINE_ACT = INJ_MASQ = 1):
+        //    SRC_ADDR_MODE == 0
+        //    SRC_PORT_TYPE == 1
+        //    SRC_INTPN     == 15
+        u16 vstax_src = ((skb->data[IFH_OFF + 20] & 0xf) << 8) | skb->data[IFH_OFF + 21];
+        if (vstax_src == 0x80f) {
+            printk(KERN_INFO "VSTAX.SRC = 0x%x. Discarding\n", vstax_src);
+            // Returning RX_HANDLER_CONSUMED makes sure not even to forward this
+            // on the raw vtss.ifh socket (to the application).
+            return RX_HANDLER_CONSUMED;
+        }
+    }
+
     if ((skb->data[IFH_OFF + 23] >> 5) & 1) {
         /* SFLOW discard */
         return RX_HANDLER_PASS;
@@ -150,9 +175,10 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
     dev = vtss_if_mux_port_net_dev[chip_port];
 
     if (!dev) {
-        // Do nothing if we have no dependend device
+        // Do nothing if we have no dependent device
         dev = vtss_if_mux_vlan_net_dev[vid];
         if (!dev) {
+            //printk(KERN_INFO "Discard, no dependent device\n");
             return RX_HANDLER_PASS;
         }
     }
@@ -174,6 +200,7 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 
     // Apply IP filter
     if (vtss_if_mux_filter_apply(skb, vid, ether_type_offset + pop)) {
+        //printk(KERN_INFO "Discard, IP filter");
         return RX_HANDLER_PASS;
     }
 

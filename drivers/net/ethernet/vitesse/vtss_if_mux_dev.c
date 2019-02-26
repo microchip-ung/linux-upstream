@@ -45,9 +45,9 @@ static const unsigned char hdr_tmpl[IFH_ENCAP_LEN + 4] = {
     0x00, 0x00, 0x28, 0x0f, 0x00, 0x40, 0x00, 0x01,
 #elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
+    0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x80,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x01,
-    0xa8, 0x00, 0x00, 0x00,
+    0xa9, 0x00, 0x00, 0x00,
 #else
 #error Architecture not supported
 #endif
@@ -394,11 +394,20 @@ static const struct net_device_ops internal_dev_netdev_ops = {
 };
 
 void vtss_if_mux_setup(struct net_device *netdev) {
+    struct net_device *parent_dev = vtss_if_mux_parent_dev_get();
+    unsigned short    parent_headroom;
+
     ether_setup(netdev);
     netdev->netdev_ops = &internal_dev_netdev_ops;
 
+    if (parent_dev) {
+        parent_headroom = parent_dev->needed_headroom;
+    } else {
+        parent_headroom = 0;
+    }
+
     // We add injection header plus 4 byte VLAN tag
-    netdev->needed_headroom = sizeof(hdr_tmpl);
+    netdev->needed_headroom = sizeof(hdr_tmpl) + parent_headroom;
 
     netdev->priv_destructor = internal_dev_destructor;
     netdev->priv_flags |= IFF_UNICAST_FLT;
