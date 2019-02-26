@@ -51,29 +51,18 @@
 #endif
 
 #include "vtss_ufdma_api.h"
-#include "vtss_if_mux.h" /* For IFH_ID and IFH_OFFS_PORT_MASK */
 
-// This is an IFH that allows to transmit directly on a port.
-static const unsigned char ifh_port[] = {
-#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
-    0x80, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, // BYPASS=1, POP_CNT=3
-#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-    0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // BYPASS=1
-    0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, // POP_CNT=3
+#if defined(CONFIG_VTSS_VCOREIII_SERVAL1_CLASSIC)
+#define IFH_ID   0x05
+#elif defined(CONFIG_VTSS_VCOREIII_OCELOT)
+#define IFH_ID   0x0a
 #elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x80, // VS.MUST_BE_1=1, VS.INGR_DROP_MODE=1
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,       // UPDATE_FCS=1
-#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    0xc0, 0x5c,                                     // DST_MODE=3, SRC_PORT=11 (CPU), DO_NOT_REW=1
+#define IFH_ID   0x07
+#elif defined(CONFIG_VTSS_VCOREIII_LUTON26)
+#define IFH_ID   0x01  /* No IFH_ID in Luton26, madeup 0x01 */
 #else
-    0xc1, 0xac,                                     // DST_MODE=3, SRC_PORT=53 (CPU), DO_NOT_REW=1
+#error Invalid architecture type
 #endif
-    0xc0, 0x00, 0x00,                               // PL_ACT=1 (INJ), PL_PT=16 (ANA_DONE)
-#else
-#error Architecture not supported
-#endif
-};
 
 #include <asm/vcoreiii.h>
 
@@ -165,15 +154,6 @@ struct rx_cfg {
     u32 mtu;
 };
 
-struct tx_cfg {
-    // This allows for sending a frame with an artificial ethernet header out of
-    // a particular port whose partner port is configured as NPI port.
-    // When this member is != 0xffffffff, the encapsulation header is kept upon
-    // Tx and another IFH is put outside to direct the frame to the chip port
-    // given by this member.
-    u32 encap_port;
-};
-
 /* Information that need to be kept for each board. */
 struct vc3fdma_private {
     spinlock_t            lock;          // uFDMA lock
@@ -188,9 +168,6 @@ struct vc3fdma_private {
 
     // Rx config
     struct rx_cfg      rx_cfg;
-
-    // Tx config
-    struct tx_cfg      tx_cfg;
 
     // Rx state
     int                rx_work_done;
@@ -755,7 +732,6 @@ enum {
     VTSS_PACKET_ATTR_TRACE_GROUP,                     /**< Default (0), Rx (1), Tx (2)                                               */
     VTSS_PACKET_ATTR_TRACE_LEVEL,                     /**< None (0), Error (1), Info (2), Debug (3)                                  */
     VTSS_PACKET_ATTR_RX_CFG_MTU,                      /**< Rx MTU [RX_MTU_MIN; RX_MTU_MAX]                                           */
-    VTSS_PACKET_ATTR_TX_CFG_ENCAP_PORT,               /**< Port to direct frames to when encapsulation of partner port is enabled.   */
     VTSS_PACKET_ATTR_END,                             /**< Must come last                                                            */
 };
 
@@ -851,8 +827,6 @@ enum {
     VTSS_PACKET_GENL_TRACE_CFG_SET,       /**< Set uFDMA trace level settings                     */
     VTSS_PACKET_GENL_RX_CFG_GET,          /**< Get Rx config                                      */
     VTSS_PACKET_GENL_RX_CFG_SET,          /**< Set Rx config                                      */
-    VTSS_PACKET_GENL_TX_CFG_GET,          /**< Get Tx config                                      */
-    VTSS_PACKET_GENL_TX_CFG_SET,          /**< Set Tx config                                      */
     // Add new operations here
 };
 
@@ -871,7 +845,6 @@ static const struct nla_policy packet_policy[VTSS_PACKET_ATTR_END] = {
     [VTSS_PACKET_ATTR_TRACE_GROUP]                     = {.type = NLA_U32},
     [VTSS_PACKET_ATTR_TRACE_LEVEL]                     = {.type = NLA_U32},
     [VTSS_PACKET_ATTR_RX_CFG_MTU]                      = {.type = NLA_U32},
-    [VTSS_PACKET_ATTR_TX_CFG_ENCAP_PORT]               = {.type = NLA_U32},
 };
 
 /****************************************************************************/
@@ -1163,80 +1136,6 @@ static int rx_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
     return 0;
 }
 
-
-/****************************************************************************/
-// tx_cmd_cfg_get()
-// Change Tx configuration based on what we got from user-space.
-/****************************************************************************/
-static int tx_cmd_cfg_get(struct sk_buff *skb, struct genl_info *info)
-{
-    struct vc3fdma_private *priv;
-    struct sk_buff         *msg;
-    void                   *hdr;
-    int                    rc;
-
-    T_I("Getting Tx cfg");
-
-    if (!vc3fdma_dev) {
-        T_E("No vc3fdma device");
-        return -EIO;
-    }
-
-    priv = netdev_priv(vc3fdma_dev);
-
-    if ((msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL)) == NULL) {
-        return -ENOMEM;
-    }
-
-    if ((hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq, &packet_generic_netlink_family, 0, VTSS_PACKET_GENL_TX_CFG_GET)) == NULL) {
-        T_E("genlmsg_put() failed");
-        rc = -EMSGSIZE;
-        goto do_exit;
-    }
-
-    VC3FDMA_NLA_U32_PUT(VTSS_PACKET_ATTR_TX_CFG_ENCAP_PORT, priv->tx_cfg.encap_port);
-    T_I("Exited with encap_port = 0x%x", priv->tx_cfg.encap_port);
-
-    genlmsg_end(msg, hdr);
-    return genlmsg_unicast(genl_info_net(info), msg, info->snd_portid);
-
-do_exit:
-    nlmsg_free(msg);
-    return rc;
-}
-
-/****************************************************************************/
-// tx_cmd_cfg_set()
-// Change Tx configuration based on what we got from user-space.
-/****************************************************************************/
-static int tx_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
-{
-    struct vc3fdma_private *priv;
-    u32                    new_encap_port = 0;
-
-    T_I("Setting Tx cfg");
-
-    if (!vc3fdma_dev) {
-        T_E("No vc3fdma device");
-        return -EIO;
-    }
-
-    priv = netdev_priv(vc3fdma_dev);
-
-    if (new_encap_port != 0xffffffff && new_encap_port >= 64 /* should have been number of physical ports on this device */) {
-        return -EINVAL;
-    }
-
-    if (info->attrs[VTSS_PACKET_ATTR_TX_CFG_ENCAP_PORT]) {
-        VC3FDMA_NLA_U32_GET(info->attrs[VTSS_PACKET_ATTR_TX_CFG_ENCAP_PORT], new_encap_port);
-    }
-
-    // The following takes effect immediately
-    priv->tx_cfg.encap_port = new_encap_port;
-
-    return 0;
-}
-
 /****************************************************************************/
 // Structure used to define the operations applicable to the rx throttle netlink family.
 /****************************************************************************/
@@ -1274,18 +1173,6 @@ static const struct genl_ops packet_generic_netlink_operations[] = {
     {
         .cmd    = VTSS_PACKET_GENL_RX_CFG_SET,
         .doit   = rx_cmd_cfg_set,
-        .policy = packet_policy,
-        .flags  = GENL_ADMIN_PERM
-    },
-    {
-        .cmd    = VTSS_PACKET_GENL_TX_CFG_GET,
-        .doit   = tx_cmd_cfg_get,
-        .policy = packet_policy,
-        .flags  = GENL_ADMIN_PERM
-    },
-    {
-        .cmd    = VTSS_PACKET_GENL_TX_CFG_SET,
-        .doit   = tx_cmd_cfg_set,
         .policy = packet_policy,
         .flags  = GENL_ADMIN_PERM
     },
@@ -1378,7 +1265,7 @@ static void RX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
     struct sk_buff         *skb  = buf_dscr->context;
     struct net_device      *dev  = skb->dev;
     struct vc3fdma_private *priv = netdev_priv(dev);
-    bool                   jumbo = buf_dscr->next != NULL, skip_encap = false;
+    bool                   jumbo = buf_dscr->next != NULL;
     u32                    frm_len;
 
     if (buf_dscr->result) {
@@ -1443,53 +1330,21 @@ static void RX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
         skb_put(skb, buf_dscr->frm_length_bytes);
     }
 
-    if (priv->tx_cfg.encap_port != 0xffffffff) {
-        // We are running with Tx encapsulation, so that all frames transmitted
-        // by the CPU will be directed to a particular port and transmitted with
-        // both an outer IFH, an encapsulation, and an inner IFH. The outer IFH
-        // is constructed by this file (in vc3fdma_send_packet()). The inner IFH
-        // is constructed by the IFMux or the application.
-        // By using an encapsulation port, it is assumed that the partnering
-        // port sits on a switch that has NPI enabled (and is of similar type as
-        // this switch). When NPI is enabled on the partnering port, that port
-        // will also encapsulate all frames before they go out. When the frame
-        // is received on this switch, it will therefore contain an outer IFH
-        // (added by this switch) and the encapsulation header followed by an
-        // inner IFH). We need to strip the outer IFH before sending it on.
-        // In order to detect it, we should actually decode the IFH and look at
-        // the source port, but that's cumbersome when we need to support
-        // multiple chips, so instead we detect whether the encapsulation header
-        // coming after the outer IFH matches an encapsulation header.
-        u32 rx_ifh_size = driver->props.rx_ifh_size_bytes;
-        if (skb->data[rx_ifh_size + 2 * ETH_ALEN + 0] == 0x88 &&
-            skb->data[rx_ifh_size + 2 * ETH_ALEN + 1] == 0x80 &&
-            skb->data[rx_ifh_size + 2 * ETH_ALEN + 2] == 0x00 &&
-            skb->data[rx_ifh_size + 2 * ETH_ALEN + 3] == IFH_ID) {
-            // Pull in the outer IFH
-            skb_pull_inline(skb, rx_ifh_size);
+    if (unlikely(skb_headroom(skb) < sizeof(ifh_encap))) {
+        T_E("Not enough headroom in SKB (need %u, only have %u)", sizeof(ifh_encap), skb_headroom(skb));
+        RX_buf_dscr_free(priv, buf_dscr, true /* back to uFDMA */);
 
-            // Don't add another encapsulation below.
-            skip_encap = true;
-        }
-    }
-
-    if (!skip_encap) {
-        if (unlikely(skb_headroom(skb) < sizeof(ifh_encap))) {
-            T_E("Not enough headroom in SKB (need %u, only have %u)", sizeof(ifh_encap), skb_headroom(skb));
-            RX_buf_dscr_free(priv, buf_dscr, true /* back to uFDMA */);
-
-            if (jumbo) {
-                // This is the Jumbo SKB allocated in this function.
-                kfree_skb(skb);
-            }
-
-            dev->stats.rx_errors++;
-            return;
+        if (jumbo) {
+            // This is the Jumbo SKB allocated in this function.
+            kfree_skb(skb);
         }
 
-        // Add IFH ethernet encapsulation header
-        memcpy(skb_push(skb, sizeof(ifh_encap)), ifh_encap, sizeof(ifh_encap));
+        dev->stats.rx_errors++;
+        return;
     }
+
+    // Add IFH ethernet encapsulation header
+    memcpy(skb_push(skb, sizeof(ifh_encap)), ifh_encap, sizeof(ifh_encap));
 
 #ifdef DEBUG
     print_hex_dump(KERN_DEBUG, "Rx ", DUMP_PREFIX_ADDRESS, 16, 1, skb->data, skb->len, true);
@@ -1787,10 +1642,6 @@ static int vc3fdma_open(struct net_device *dev)
         return ret;
     }
 
-    // When we Tx with the artifial header kept, we need additional headroom
-    // for an IFH.
-    dev->needed_headroom += driver->props.tx_ifh_size_bytes;
-
     // Initialize
     netif_start_queue(dev);
     if (dev->irq) {
@@ -1862,45 +1713,8 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
         return NETDEV_TX_OK;
     }
 
-    if (priv->tx_cfg.encap_port != 0xffffffff) {
-        unsigned int tx_ifh_size = driver->props.tx_ifh_size_bytes, min_size;
-
-        // If we are configured to transmit with an encapsulation header on a
-        // particular port, don't strip the artificial header, but add an outer
-        // IFH that causes the frame to go out on that port.
-        if (skb_headroom(skb) < tx_ifh_size) {
-            T_E("Not enough head room for %u bytes of additional outer IFH (available = %u). Dropping", tx_ifh_size, skb_headroom(skb));
-            dev->stats.tx_dropped++;
-            kfree(skb);
-            return NETDEV_TX_OK;
-        } else {
-            // Make room for the outer IFH
-            unsigned char *outer_ifh = skb_push(skb, tx_ifh_size);
-            unsigned int offset;
-
-            // Copy the template
-            memcpy(outer_ifh, ifh_port, tx_ifh_size);
-
-            // Set the destination port bit
-            offset = (IFH_OFFS_PORT_MASK + priv->tx_cfg.encap_port);
-            outer_ifh[tx_ifh_size - 1 - (offset / 8)] |= (1 << (offset % 8));
-        }
-
-        // Normally, the ufdma driver makes sure to adjust the size to a
-        // minimum-sized ethernet frame, but we cannot make it do that here,
-        // because we have added the extra encapsulation of an outer IFH and an
-        // artificial encapsulation L2 header of 2 x 6 + 2 + 2  = 16 bytes, so
-        // from the driver's perspective, the frame is indeed longer than a
-        // minimum-sized ethernet frame (w/o FCS).
-        min_size = tx_ifh_size /* outer IFH */ + 16 /* encap */ + tx_ifh_size /* inner IFH */ + ETH_ZLEN;
-        if (skb->len < min_size) {
-            T_I("Adjusting SKB from %u to %u bytes", skb->len, min_size);
-            skb_put(skb, min_size - skb->len);
-        }
-    } else {
-        // Transmit - first loose encap, leave SKB pointing at the IFH
-        skb_pull_inline(skb, sizeof(ifh_encap));
-    }
+    // Transmit - first loose encap, leave SKB pointing at the IFH
+    skb_pull_inline(skb, sizeof(ifh_encap));
 
     memset(&tbd, 0, sizeof(tbd));
     tbd.buf = skb->data;
@@ -2044,9 +1858,6 @@ static struct net_device *vc3fdma_create(void)
     // Set arbitrarily high for direct injection (not rx)
     dev->mtu = IF_BUFSIZE_JUMBO;
     priv->rx_cfg.mtu = RX_MTU_DEFAULT;
-
-    // Do not Tx with encapsulation to a particular port.
-    priv->tx_cfg.encap_port = 0xffffffff;
 
     // Debug procfs file
 #if defined(CONFIG_DEBUG_FS)
