@@ -84,6 +84,12 @@ config ARCH_LAYERSCAPE
 	help
 	  This enables support for the Freescale Layerscape SoC family.
 
+config VTSS_VCOREIII_JAGUAR2_FAMILY
+	bool "Select VCOREIII_JAGUAR2_FAMILY"
+	help
+	  Enable this when an external CPU is running on JR2 SoC family.
+
+
 config ARCH_LG1K
 	bool "LG Electronics LG1K SoC Family"
 	help
