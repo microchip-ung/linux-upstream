@@ -89,8 +89,14 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 #endif
 
     // Frame layout:
+#if defined(CONFIG_VTSS_VCOREIII_ARCH)
     // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame, FCS
     min_size = 2 + IFH_LEN + ETH_ZLEN + ETH_FCS_LEN;
+#else
+    // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame w/o FCS
+    min_size = 2 + IFH_LEN + ETH_ZLEN;
+#endif
+
     if (skb->len < min_size) {
         // Where should this be counted??
         printk(KERN_ERR "Error: %s#%d: Short frame of %u bytes (minimum expected = %u bytes)\n", __FILE__, __LINE__, skb->len, min_size);
@@ -219,8 +225,11 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
     // Front: Discard the VTSS headers (IFH + 2-byte IFH_ID)
     skb_pull_inline(skb_new, IFH_LEN + 2);
 
-    // Back: Discard the FCS
+#if defined(CONFIG_VTSS_VCOREIII_ARCH)
+    // Back: Discard the FCS, since - on Rx - the VC3FDMA driver includes
+    // the FCS, because it on some platforms contains meta data (sFlow)
     skb_trim(skb_new, skb_new->len - ETH_FCS_LEN);
+#endif
 
 #if 0
     printk(KERN_INFO "RX %u bytes on vlan %u\n", skb_new->len, vid);

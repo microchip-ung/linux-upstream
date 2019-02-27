@@ -158,6 +158,27 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
         goto DO_CNT;
     }
 
+#if !defined(CONFIG_VTSS_VCOREIII_ARCH)
+    // Make sure the original frame is at least 60 bytes long (w/o FCS), because
+    // the NIC driver cannot see if we are transmitting an undersize frame,
+    // once we have added the NPI encapsulation header, so it's not able to pad
+    // it itself. When the frame arrives on the switch's NPI-port, the switch
+    // strips the NPI header and IFH, and - bam - possible continues working
+    // with an undersized frame.
+    if (skb->len < ETH_ZLEN) {
+        u32 missing = ETH_ZLEN - skb->len;
+        // Add IFH ethernet encapsulation header
+        memset(skb_put(skb, missing), 0, missing);
+    }
+#endif
+
+#if 0
+    printk(KERN_INFO "TX %u bytes on %s %u\n", skb->len, priv->port_if ? "port" : "vlan", priv->port_if ? priv->port : priv->vlan_id);
+    print_hex_dump(KERN_INFO, "TX: ", DUMP_PREFIX_OFFSET, 16, 1,
+                   skb->data, skb->len, false);
+#endif
+
+
     if (priv->port_if) {
         // Make room for the VTSS-IFH
         hdr = skb_push(skb, sizeof(hdr_tmpl_port));
@@ -196,7 +217,7 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
     skb->dev = vtss_if_mux_parent_dev;
 
 #if 0
-    printk(KERN_INFO "TX %u bytes on vlan %u\n", len, vlan_id);
+    printk(KERN_INFO "TX %u bytes on %s %u\n", len, priv->port_if ? "port" : "vlan", priv->port_if ? priv->port : priv->vlan_id);
     print_hex_dump(KERN_INFO, "TX: ", DUMP_PREFIX_OFFSET, 16, 1,
                    skb->data, skb->len, false);
 #endif

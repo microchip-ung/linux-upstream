@@ -26,7 +26,6 @@
 config NET_VENDOR_VITESSE
 	bool "Vitesse devices"
 	default y
-	depends on VTSS_VCOREIII_ARCH
 	---help---
 	  This enables network interfaces from Vitesse Semiconductor
 
@@ -44,7 +43,6 @@ config VC3FDMA
 
 config VC3MUX
 	tristate "VCore-III IFH Frame VLAN MUX support"
-	depends on VTSS_VCOREIII_ARCH
 	default y
 	---help---
 	  This driver multiplex frames received with Vitess IFH encapulation into respective
