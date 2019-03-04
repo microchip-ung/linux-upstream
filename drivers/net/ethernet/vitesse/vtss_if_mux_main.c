@@ -136,10 +136,10 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
 
     {
         // When using an external CPU along with an NPI port, it may happen that
-        // frames we send from the CPU get back to the NPI port. These frames
-        // must be discarded. They can be detected by the IFH.VSTAX.SRC having
-        // the following properties (when originally injected with
-        // IFH.PIPELINE_ACT = INJ_MASQ = 1):
+        // frames we send *switched* from the CPU get back to the NPI port.
+        // These frames must be discarded. They can be detected by the
+        // IFH.VSTAX.SRC having the following properties (when originally
+        // injected with IFH.PIPELINE_ACT = INJ_MASQ = 1):
         //    SRC_ADDR_MODE == 0
         //    SRC_PORT_TYPE == 1
         //    SRC_INTPN     == 15
@@ -169,6 +169,23 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb) {
     }
     chip_port = ((skb->data[IFH_OFF + 23] << 8) | skb->data[IFH_OFF + 24]);
     chip_port = ((chip_port >> 3) & 0x3f);
+
+    // When using an external CPU along with an NPI port, it may happen that
+    // frames we send *directed* from the CPU get back to the NPI port. These
+    // frames must be discarded. They can be detected by the IFH.SRC_PORT being
+    // that of the CPU.
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+    // CPU port == 11 on ServalT
+    if (chip_port == 11) {
+#else
+    // CPU port == 53 on JR2
+    if (chip_port == 53) {
+#endif
+        printk(KERN_INFO "IFH.SRC_PORT == 0x%x. Discarding\n", chip_port);
+        // Returning RX_HANDLER_CONSUMED makes sure not even to forward this on
+        // the raw vtss.ifh socket (to the application).
+        return RX_HANDLER_CONSUMED;
+    }
 #else
 #error Invalid architecture type
 #endif
