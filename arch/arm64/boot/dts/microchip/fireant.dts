@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2018 Microsemi Corporation
+  */
+
+/dts-v1/;
+#include "fireant-soc.dtsi"
+
+/ {
+	model = "FireAnt PCB125 Reference Board";
+	compatible = "mscc,fireant-pcb125", "mscc,fireant";
+
+};
+
+&uart0 {
+        status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	spi-flash@0 {
+		compatible = "micron,n25q128a13", "jedec,spi-nor", "spi-flash";
+		spi-max-frequency = <18000000>; /* input clock */
+		reg = <0>; /* CS0 */
+	};
+};
+
+&sgpio {
+	status = "okay";
+	mscc,sgpio-ports = <0x00FFFFFF>;
+};
