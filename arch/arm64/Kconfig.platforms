@@ -71,6 +71,12 @@ config ARCH_EXYNOS
 	help
 	  This enables support for ARMv8 based Samsung Exynos SoC family.
 
+config ARCH_FIREANT
+	bool "ARMv8 based Microchip Fireant SoC family"
+	select PINCTRL
+	help
+	  This enables support for ARMv8 based Microchip Fireant SoC family.
+
 config ARCH_K3
 	bool "Texas Instruments Inc. K3 multicore SoC architecture"
 	select PM_GENERIC_DOMAINS if PM

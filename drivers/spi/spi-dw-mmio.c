@@ -33,21 +33,49 @@ struct dw_spi_mmio {
 	void           *priv;
 };
 
-#define MSCC_CPU_SYSTEM_CTRL_GENERAL_CTRL	0x24
-#define OCELOT_IF_SI_OWNER_OFFSET		4
-#define JAGUAR2_IF_SI_OWNER_OFFSET		6
 #define MSCC_IF_SI_OWNER_MASK			GENMASK(1, 0)
 #define MSCC_IF_SI_OWNER_SISL			0
 #define MSCC_IF_SI_OWNER_SIBM			1
 #define MSCC_IF_SI_OWNER_SIMC			2
 
 #define MSCC_SPI_MST_SW_MODE			0x14
-#define MSCC_SPI_MST_SW_MODE_SW_PIN_CTRL_MODE	BIT(13)
-#define MSCC_SPI_MST_SW_MODE_SW_SPI_CS(x)	(x << 5)
+
+struct dw_spi_mscc_props {
+	const char *syscon_name;
+	u32 general_ctrl_off;
+	u32 si_owner_bit;
+	u32 pinctrl_bit_off;
+	u32 cs_bit_off;
+};
+
+static const struct dw_spi_mscc_props dw_spi_mscc_props_ocelot = {
+	.syscon_name		= "mscc,ocelot-cpu-syscon",
+	.general_ctrl_off	= 0x24,
+	.si_owner_bit		= 4,
+	.pinctrl_bit_off	= 13,
+	.cs_bit_off		= 5,
+};
+
+static const struct dw_spi_mscc_props dw_spi_mscc_props_jaguar2 = {
+	.syscon_name		= "mscc,jaguar2-cpu-syscon",
+	.general_ctrl_off	= 0x24,
+	.si_owner_bit		= 6,
+	.pinctrl_bit_off	= 13,
+	.cs_bit_off		= 5,
+};
+
+static const struct dw_spi_mscc_props dw_spi_mscc_props_fireant = {
+	.syscon_name		= "mscc,fireant-cpu-syscon",
+	.general_ctrl_off	= 0x88,
+	.si_owner_bit		= 6,
+	.pinctrl_bit_off	= 22,
+	.cs_bit_off		= 8,
+};
 
 struct dw_spi_mscc {
-	struct regmap       *syscon;
-	void __iomem        *spi_mst;
+	struct regmap       		*syscon;
+	void __iomem        		*spi_mst;
+	const struct dw_spi_mscc_props	*props;
 };
 
 /*
@@ -62,13 +90,14 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 	struct dw_spi *dws = spi_master_get_devdata(spi->master);
 	struct dw_spi_mmio *dwsmmio = container_of(dws, struct dw_spi_mmio, dws);
 	struct dw_spi_mscc *dwsmscc = dwsmmio->priv;
+	const struct dw_spi_mscc_props *props = dwsmscc->props;
 	u32 cs = spi->chip_select;
 
 	if (cs < 4) {
-		u32 sw_mode = MSCC_SPI_MST_SW_MODE_SW_PIN_CTRL_MODE;
+		u32 sw_mode = BIT(props->pinctrl_bit_off);
 
 		if (!enable)
-			sw_mode |= MSCC_SPI_MST_SW_MODE_SW_SPI_CS(BIT(cs));
+			sw_mode |= (BIT(cs) << props->cs_bit_off);
 
 		writel(sw_mode, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
 	}
@@ -78,7 +107,7 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 
 static int dw_spi_mscc_init(struct platform_device *pdev,
 			    struct dw_spi_mmio *dwsmmio,
-			    const char *cpu_syscon, u32 if_si_owner_offset)
+			    const struct dw_spi_mscc_props *props)
 {
 	struct dw_spi_mscc *dwsmscc;
 	struct resource *res;
@@ -94,17 +123,18 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 		return PTR_ERR(dwsmscc->spi_mst);
 	}
 
-	dwsmscc->syscon = syscon_regmap_lookup_by_compatible(cpu_syscon);
+	dwsmscc->syscon = syscon_regmap_lookup_by_compatible(props->syscon_name);
 	if (IS_ERR(dwsmscc->syscon))
 		return PTR_ERR(dwsmscc->syscon);
+	dwsmscc->props = props;
 
 	/* Deassert all CS */
 	writel(0, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
 
 	/* Select the owner of the SI interface */
-	regmap_update_bits(dwsmscc->syscon, MSCC_CPU_SYSTEM_CTRL_GENERAL_CTRL,
-			   MSCC_IF_SI_OWNER_MASK << if_si_owner_offset,
-			   MSCC_IF_SI_OWNER_SIMC << if_si_owner_offset);
+	regmap_update_bits(dwsmscc->syscon, props->general_ctrl_off,
+			   MSCC_IF_SI_OWNER_MASK << props->si_owner_bit,
+			   MSCC_IF_SI_OWNER_SIMC << props->si_owner_bit);
 
 	dwsmmio->dws.set_cs = dw_spi_mscc_set_cs;
 	dwsmmio->priv = dwsmscc;
@@ -112,24 +142,9 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 	return 0;
 }
 
-static int dw_spi_mscc_ocelot_init(struct platform_device *pdev,
-				   struct dw_spi_mmio *dwsmmio)
-{
-	return dw_spi_mscc_init(pdev, dwsmmio, "mscc,ocelot-cpu-syscon",
-				OCELOT_IF_SI_OWNER_OFFSET);
-}
-
-static int dw_spi_mscc_jaguar2_init(struct platform_device *pdev,
-				    struct dw_spi_mmio *dwsmmio)
-{
-	return dw_spi_mscc_init(pdev, dwsmmio, "mscc,jaguar2-cpu-syscon",
-				JAGUAR2_IF_SI_OWNER_OFFSET);
-}
-
 static int dw_spi_mmio_probe(struct platform_device *pdev)
 {
-	int (*init_func)(struct platform_device *pdev,
-			 struct dw_spi_mmio *dwsmmio);
+	const struct dw_spi_mscc_props *props;
 	struct dw_spi_mmio *dwsmmio;
 	struct dw_spi *dws;
 	struct resource *mem;
@@ -197,9 +212,9 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 		}
 	}
 
-	init_func = device_get_match_data(&pdev->dev);
-	if (init_func) {
-		ret = init_func(pdev, dwsmmio);
+	props = device_get_match_data(&pdev->dev);
+	if (props) {
+		ret = dw_spi_mscc_init(pdev, dwsmmio, props);
 		if (ret)
 			goto out;
 	}
@@ -228,8 +243,9 @@ static int dw_spi_mmio_remove(struct platform_device *pdev)
 
 static const struct of_device_id dw_spi_mmio_of_match[] = {
 	{ .compatible = "snps,dw-apb-ssi", },
-	{ .compatible = "mscc,ocelot-spi", .data = dw_spi_mscc_ocelot_init},
-	{ .compatible = "mscc,jaguar2-spi", .data = dw_spi_mscc_jaguar2_init},
+	{ .compatible = "mscc,ocelot-spi", .data = &dw_spi_mscc_props_ocelot},
+	{ .compatible = "mscc,jaguar2-spi", .data = &dw_spi_mscc_props_jaguar2},
+	{ .compatible = "mscc,fireant-spi", .data = &dw_spi_mscc_props_fireant},
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, dw_spi_mmio_of_match);

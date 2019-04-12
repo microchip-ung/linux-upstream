@@ -46,42 +46,30 @@ enum {
 	FUNC_IRQ0_OUT,
 	FUNC_IRQ1_IN,
 	FUNC_IRQ1_OUT,
-	FUNC_MIIM1,
-	FUNC_MIIM2,
+	FUNC_MIIM,
 	FUNC_PCI_WAKE,
 	FUNC_PTP0,
 	FUNC_PTP1,
 	FUNC_PTP2,
 	FUNC_PTP3,
 	FUNC_PWM,
-	FUNC_RECO_CLK0,
-	FUNC_RECO_CLK1,
-	FUNC_SFP0,
-	FUNC_SFP1,
-	FUNC_SFP2,
-	FUNC_SFP3,
-	FUNC_SFP4,
-	FUNC_SFP5,
-	FUNC_SFP6,
-	FUNC_SFP7,
-	FUNC_SFP8,
-	FUNC_SFP9,
-	FUNC_SFP10,
-	FUNC_SFP11,
-	FUNC_SFP12,
-	FUNC_SFP13,
-	FUNC_SFP14,
-	FUNC_SFP15,
+	FUNC_RECO_CLK,
+	FUNC_SFP,
 	FUNC_SG0,
 	FUNC_SG1,
 	FUNC_SG2,
 	FUNC_SI,
+	FUNC_SI2,
 	FUNC_TACHO,
 	FUNC_TWI,
 	FUNC_TWI2,
+	FUNC_TWI3,
 	FUNC_TWI_SCL_M,
 	FUNC_UART,
 	FUNC_UART2,
+	FUNC_UART3,
+	FUNC_PLL_STAT,
+	FUNC_EMMC,
 	FUNC_MAX
 };
 
@@ -92,42 +80,30 @@ static const char *const ocelot_function_names[] = {
 	[FUNC_IRQ0_OUT]		= "irq0_out",
 	[FUNC_IRQ1_IN]		= "irq1_in",
 	[FUNC_IRQ1_OUT]		= "irq1_out",
-	[FUNC_MIIM1]		= "miim1",
-	[FUNC_MIIM2]		= "miim2",
+	[FUNC_MIIM]		= "miim",
 	[FUNC_PCI_WAKE]		= "pci_wake",
 	[FUNC_PTP0]		= "ptp0",
 	[FUNC_PTP1]		= "ptp1",
 	[FUNC_PTP2]		= "ptp2",
 	[FUNC_PTP3]		= "ptp3",
 	[FUNC_PWM]		= "pwm",
-	[FUNC_RECO_CLK0]	= "reco_clk0",
-	[FUNC_RECO_CLK1]	= "reco_clk1",
-	[FUNC_SFP0]		= "sfp0",
-	[FUNC_SFP1]		= "sfp1",
-	[FUNC_SFP2]		= "sfp2",
-	[FUNC_SFP3]		= "sfp3",
-	[FUNC_SFP4]		= "sfp4",
-	[FUNC_SFP5]		= "sfp5",
-	[FUNC_SFP6]		= "sfp6",
-	[FUNC_SFP7]		= "sfp7",
-	[FUNC_SFP8]		= "sfp8",
-	[FUNC_SFP9]		= "sfp9",
-	[FUNC_SFP10]		= "sfp10",
-	[FUNC_SFP11]		= "sfp11",
-	[FUNC_SFP12]		= "sfp12",
-	[FUNC_SFP13]		= "sfp13",
-	[FUNC_SFP14]		= "sfp14",
-	[FUNC_SFP15]		= "sfp15",
+	[FUNC_RECO_CLK]		= "reco_clk",
+	[FUNC_SFP]		= "sfp",
 	[FUNC_SG0]		= "sg0",
 	[FUNC_SG1]		= "sg1",
 	[FUNC_SG2]		= "sg2",
 	[FUNC_SI]		= "si",
+	[FUNC_SI2]		= "si2",
 	[FUNC_TACHO]		= "tacho",
 	[FUNC_TWI]		= "twi",
 	[FUNC_TWI2]		= "twi2",
+	[FUNC_TWI3]		= "twi3",
 	[FUNC_TWI_SCL_M]	= "twi_scl_m",
 	[FUNC_UART]		= "uart",
 	[FUNC_UART2]		= "uart2",
+	[FUNC_UART3]		= "uart3",
+	[FUNC_PLL_STAT]		= "pll_stat",
+	[FUNC_EMMC]		= "emmc",
 };
 
 struct ocelot_pmx_func {
@@ -168,18 +144,18 @@ OCELOT_P(6,  UART,      TWI_SCL_M, NONE);
 OCELOT_P(7,  UART,      TWI_SCL_M, NONE);
 OCELOT_P(8,  SI,        TWI_SCL_M, IRQ0_OUT);
 OCELOT_P(9,  SI,        TWI_SCL_M, IRQ1_OUT);
-OCELOT_P(10, PTP2,      TWI_SCL_M, SFP0);
-OCELOT_P(11, PTP3,      TWI_SCL_M, SFP1);
-OCELOT_P(12, UART2,     TWI_SCL_M, SFP2);
-OCELOT_P(13, UART2,     TWI_SCL_M, SFP3);
-OCELOT_P(14, MIIM1,     TWI_SCL_M, SFP4);
-OCELOT_P(15, MIIM1,     TWI_SCL_M, SFP5);
+OCELOT_P(10, PTP2,      TWI_SCL_M, SFP);
+OCELOT_P(11, PTP3,      TWI_SCL_M, SFP);
+OCELOT_P(12, UART2,     TWI_SCL_M, SFP);
+OCELOT_P(13, UART2,     TWI_SCL_M, SFP);
+OCELOT_P(14, MIIM,      TWI_SCL_M, SFP);
+OCELOT_P(15, MIIM,      TWI_SCL_M, SFP);
 OCELOT_P(16, TWI,       NONE,      SI);
 OCELOT_P(17, TWI,       TWI_SCL_M, SI);
 OCELOT_P(18, PTP0,      TWI_SCL_M, NONE);
 OCELOT_P(19, PTP1,      TWI_SCL_M, NONE);
-OCELOT_P(20, RECO_CLK0, TACHO,     NONE);
-OCELOT_P(21, RECO_CLK1, PWM,       NONE);
+OCELOT_P(20, RECO_CLK,  TACHO,     NONE);
+OCELOT_P(21, RECO_CLK,  PWM,       NONE);
 
 #define OCELOT_PIN(n) {						\
 	.number = n,						\
@@ -264,28 +240,28 @@ JAGUAR2_P(40, NONE,      TWI_SCL_M );
 JAGUAR2_P(41, NONE,      TWI_SCL_M );
 JAGUAR2_P(42, NONE,      TWI_SCL_M );
 JAGUAR2_P(43, NONE,      TWI_SCL_M );
-JAGUAR2_P(44, NONE,      SFP8      );
-JAGUAR2_P(45, NONE,      SFP9      );
-JAGUAR2_P(46, NONE,      SFP10     );
-JAGUAR2_P(47, NONE,      SFP11     );
-JAGUAR2_P(48, SFP0,      NONE      );
-JAGUAR2_P(49, SFP1,      SI        );
-JAGUAR2_P(50, SFP2,      SI        );
-JAGUAR2_P(51, SFP3,      SI        );
-JAGUAR2_P(52, SFP4,      NONE      );
-JAGUAR2_P(53, SFP5,      NONE      );
-JAGUAR2_P(54, SFP6,      NONE      );
-JAGUAR2_P(55, SFP7,      NONE      );
-JAGUAR2_P(56, MIIM1,     SFP12     );
-JAGUAR2_P(57, MIIM1,     SFP13     );
-JAGUAR2_P(58, MIIM2,     SFP14     );
-JAGUAR2_P(59, MIIM2,     SFP15     );
+JAGUAR2_P(44, NONE,      SFP       );
+JAGUAR2_P(45, NONE,      SFP       );
+JAGUAR2_P(46, NONE,      SFP       );
+JAGUAR2_P(47, NONE,      SFP       );
+JAGUAR2_P(48, SFP,       NONE      );
+JAGUAR2_P(49, SFP,       SI        );
+JAGUAR2_P(50, SFP,       SI        );
+JAGUAR2_P(51, SFP,       SI        );
+JAGUAR2_P(52, SFP,       NONE      );
+JAGUAR2_P(53, SFP,       NONE      );
+JAGUAR2_P(54, SFP,       NONE      );
+JAGUAR2_P(55, SFP,       NONE      );
+JAGUAR2_P(56, MIIM,      SFP       );
+JAGUAR2_P(57, MIIM,      SFP       );
+JAGUAR2_P(58, MIIM,      SFP       );
+JAGUAR2_P(59, MIIM,      SFP       );
 JAGUAR2_P(60, NONE,      NONE      );
 JAGUAR2_P(61, NONE,      NONE      );
 JAGUAR2_P(62, NONE,      NONE      );
 JAGUAR2_P(63, NONE,      NONE      );
 
-#define JAGUAR2_PIN(n) {						\
+#define JAGUAR2_PIN(n) {					\
 	.number = n,						\
 	.name = "GPIO_"#n,					\
 	.drv_data = &jaguar2_pin_##n				\
@@ -356,6 +332,152 @@ static const struct pinctrl_pin_desc jaguar2_pins[] = {
 	JAGUAR2_PIN(61),
 	JAGUAR2_PIN(62),
 	JAGUAR2_PIN(63),
+};
+
+#define FIREANT_P(p, f0, f1, f2)					\
+static struct ocelot_pin_caps fireant_pin_##p = {			\
+	.pin = p,							\
+	.functions = {							\
+		FUNC_GPIO, FUNC_##f0, FUNC_##f1, FUNC_##f2	 	\
+	},								\
+}
+
+FIREANT_P(0,  SG0,       PLL_STAT,  NONE);
+FIREANT_P(1,  SG0,       NONE,      NONE);
+FIREANT_P(2,  SG0,       NONE,      NONE);
+FIREANT_P(3,  SG0,       NONE,      NONE);
+FIREANT_P(4,  SG1,       NONE,      NONE);
+FIREANT_P(5,  SG1,       NONE,      NONE);
+FIREANT_P(6,  IRQ0_IN,   IRQ0_OUT,  SFP);
+FIREANT_P(7,  IRQ1_IN,   IRQ1_OUT,  SFP);
+FIREANT_P(8,  PTP0,      NONE,      SFP);
+FIREANT_P(9,  PTP1,      SFP,       TWI_SCL_M);
+FIREANT_P(10, UART,      NONE,      NONE);
+FIREANT_P(11, UART,      NONE,      NONE);
+FIREANT_P(12, SG1,       NONE,      NONE);
+FIREANT_P(13, SG1,       NONE,      NONE);
+FIREANT_P(14, TWI,       TWI_SCL_M, NONE);
+FIREANT_P(15, TWI,       NONE,      NONE);
+FIREANT_P(16, SI,        TWI_SCL_M, SFP);
+FIREANT_P(17, SI,        TWI_SCL_M, SFP);
+FIREANT_P(18, SI,        TWI_SCL_M, SFP);
+FIREANT_P(19, PCI_WAKE,  TWI_SCL_M, SFP);
+FIREANT_P(20, IRQ0_OUT,  TWI_SCL_M, SFP);
+FIREANT_P(21, IRQ1_OUT,  TACHO,     SFP);
+FIREANT_P(22, TACHO,     IRQ0_OUT,  TWI_SCL_M);
+FIREANT_P(23, PWM,       UART3,     TWI_SCL_M);
+FIREANT_P(24, PTP2,      UART3,     TWI_SCL_M);
+FIREANT_P(25, PTP3,      SI,        TWI_SCL_M);
+FIREANT_P(26, UART2,     SI,        TWI_SCL_M);
+FIREANT_P(27, UART2,     SI,        TWI_SCL_M);
+FIREANT_P(28, TWI2,      SI,        SFP);
+FIREANT_P(29, TWI2,      SI,        SFP);
+FIREANT_P(30, SG2,       SI,        PWM);
+FIREANT_P(31, SG2,       SI,        TWI_SCL_M);
+FIREANT_P(32, SG2,       SI,        TWI_SCL_M);
+FIREANT_P(33, SG2,       SI,        SFP);
+FIREANT_P(34, NONE,      TWI_SCL_M, EMMC);
+FIREANT_P(35, SFP,       TWI_SCL_M, EMMC);
+FIREANT_P(36, SFP,       TWI_SCL_M, EMMC);
+FIREANT_P(37, SFP,       NONE,      EMMC);
+FIREANT_P(38, NONE,      TWI_SCL_M, EMMC);
+FIREANT_P(39, SI2,       TWI_SCL_M, EMMC);
+FIREANT_P(40, SI2,       TWI_SCL_M, EMMC);
+FIREANT_P(41, SI2,       TWI_SCL_M, EMMC);
+FIREANT_P(42, SI2,       TWI_SCL_M, EMMC);
+FIREANT_P(43, SI2,       TWI_SCL_M, EMMC);
+FIREANT_P(44, SI,        SFP,       EMMC);
+FIREANT_P(45, SI,        SFP,       EMMC);
+FIREANT_P(46, NONE,      SFP,       EMMC);
+FIREANT_P(47, NONE,      SFP,       EMMC);
+FIREANT_P(48, TWI3,      SI,        SFP);
+FIREANT_P(49, TWI3,      NONE,      SFP);
+FIREANT_P(50, SFP,       NONE,      TWI_SCL_M);
+FIREANT_P(51, SFP,       SI,        TWI_SCL_M);
+FIREANT_P(52, SFP,       MIIM,      TWI_SCL_M);
+FIREANT_P(53, SFP,       MIIM,      TWI_SCL_M);
+FIREANT_P(54, SFP,       PTP2,      TWI_SCL_M);
+FIREANT_P(55, SFP,       PTP3,      PCI_WAKE);
+FIREANT_P(56, MIIM,      SFP,       TWI_SCL_M);
+FIREANT_P(57, MIIM,      SFP,       TWI_SCL_M);
+FIREANT_P(58, MIIM,      SFP,       TWI_SCL_M);
+FIREANT_P(59, MIIM,      SFP,       NONE);
+FIREANT_P(60, RECO_CLK,  NONE,      NONE);
+FIREANT_P(61, RECO_CLK,  NONE,      NONE);
+FIREANT_P(62, RECO_CLK,  PLL_STAT,  NONE);
+FIREANT_P(63, RECO_CLK,  NONE,      NONE);
+
+#define FIREANT_PIN(n) {					\
+	.number = n,						\
+	.name = "GPIO_"#n,					\
+	.drv_data = &fireant_pin_##n				\
+}
+
+static const struct pinctrl_pin_desc fireant_pins[] = {
+	FIREANT_PIN(0),
+	FIREANT_PIN(1),
+	FIREANT_PIN(2),
+	FIREANT_PIN(3),
+	FIREANT_PIN(4),
+	FIREANT_PIN(5),
+	FIREANT_PIN(6),
+	FIREANT_PIN(7),
+	FIREANT_PIN(8),
+	FIREANT_PIN(9),
+	FIREANT_PIN(10),
+	FIREANT_PIN(11),
+	FIREANT_PIN(12),
+	FIREANT_PIN(13),
+	FIREANT_PIN(14),
+	FIREANT_PIN(15),
+	FIREANT_PIN(16),
+	FIREANT_PIN(17),
+	FIREANT_PIN(18),
+	FIREANT_PIN(19),
+	FIREANT_PIN(20),
+	FIREANT_PIN(21),
+	FIREANT_PIN(22),
+	FIREANT_PIN(23),
+	FIREANT_PIN(24),
+	FIREANT_PIN(25),
+	FIREANT_PIN(26),
+	FIREANT_PIN(27),
+	FIREANT_PIN(28),
+	FIREANT_PIN(29),
+	FIREANT_PIN(30),
+	FIREANT_PIN(31),
+	FIREANT_PIN(32),
+	FIREANT_PIN(33),
+	FIREANT_PIN(34),
+	FIREANT_PIN(35),
+	FIREANT_PIN(36),
+	FIREANT_PIN(37),
+	FIREANT_PIN(38),
+	FIREANT_PIN(39),
+	FIREANT_PIN(40),
+	FIREANT_PIN(41),
+	FIREANT_PIN(42),
+	FIREANT_PIN(43),
+	FIREANT_PIN(44),
+	FIREANT_PIN(45),
+	FIREANT_PIN(46),
+	FIREANT_PIN(47),
+	FIREANT_PIN(48),
+	FIREANT_PIN(49),
+	FIREANT_PIN(50),
+	FIREANT_PIN(51),
+	FIREANT_PIN(52),
+	FIREANT_PIN(53),
+	FIREANT_PIN(54),
+	FIREANT_PIN(55),
+	FIREANT_PIN(56),
+	FIREANT_PIN(57),
+	FIREANT_PIN(58),
+	FIREANT_PIN(59),
+	FIREANT_PIN(60),
+	FIREANT_PIN(61),
+	FIREANT_PIN(62),
+	FIREANT_PIN(63),
 };
 
 static int ocelot_get_functions_count(struct pinctrl_dev *pctldev)
@@ -511,6 +633,15 @@ static struct pinctrl_desc jaguar2_desc = {
 	.name = "jaguar2-pinctrl",
 	.pins = jaguar2_pins,
 	.npins = ARRAY_SIZE(jaguar2_pins),
+	.pctlops = &ocelot_pctl_ops,
+	.pmxops = &ocelot_pmx_ops,
+	.owner = THIS_MODULE,
+};
+
+static struct pinctrl_desc fireant_desc = {
+	.name = "fireant-pinctrl",
+	.pins = fireant_pins,
+	.npins = ARRAY_SIZE(fireant_pins),
 	.pctlops = &ocelot_pctl_ops,
 	.pmxops = &ocelot_pmx_ops,
 	.owner = THIS_MODULE,
@@ -760,6 +891,7 @@ static int ocelot_gpiochip_register(struct platform_device *pdev,
 static const struct of_device_id ocelot_pinctrl_of_match[] = {
 	{ .compatible = "mscc,ocelot-pinctrl", .data = &ocelot_desc },
 	{ .compatible = "mscc,jaguar2-pinctrl", .data = &jaguar2_desc },
+	{ .compatible = "mscc,fireant-pinctrl", .data = &fireant_desc },
 	{},
 };
 
@@ -806,6 +938,8 @@ static int ocelot_pinctrl_probe(struct platform_device *pdev)
 	ret = ocelot_gpiochip_register(pdev, info);
 	if (ret)
 		return ret;
+
+	dev_info(dev, "driver registered\n");
 
 	return 0;
 }
