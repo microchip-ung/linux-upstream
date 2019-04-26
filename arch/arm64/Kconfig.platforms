@@ -74,6 +74,7 @@ config ARCH_EXYNOS
 config ARCH_FIREANT
 	bool "ARMv8 based Microchip Fireant SoC family"
 	select PINCTRL
+	select DW_APB_TIMER_OF
 	help
 	  This enables support for ARMv8 based Microchip Fireant SoC family.
 
