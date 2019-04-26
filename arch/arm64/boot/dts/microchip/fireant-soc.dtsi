@@ -19,7 +19,7 @@
 	};
 
 	chosen {
-		stdout-path = "serial0:7812500n8";
+		stdout-path = "serial0:115200n8";
 	};
 
 	cpus {
@@ -41,6 +41,7 @@
 			reg = <0x0 0x0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x0000fff8>;
+			next-level-cache = <&L2_0>;
 		};
 		cpu1: cpu@1 {
 			compatible = "arm,cortex-a53", "arm,armv8";
@@ -48,6 +49,10 @@
 			reg = <0x0 0x1>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x0000fff8>;
+			next-level-cache = <&L2_0>;
+		};
+		L2_0: l2-cache0 {
+			compatible = "cache";
 		};
 	};
 
@@ -76,6 +81,12 @@
 	};
 
 	clocks: clocks {
+		veloce_clk: veloce-clk {
+			/* This clock is just to get the UART divisor right */
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <3686400>;
+		};
 		ahb_clk: ahb-clk {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
@@ -86,6 +97,14 @@
 			#clock-cells = <0>;
 			clock-frequency = <625000000>;
 		};
+	};
+
+	timer1: timer@600105000 {
+		compatible = "snps,dw-apb-timer";
+		reg = <6 0x00105000 0x1000>;
+		clocks = <&ahb_clk>;
+		clock-names = "timer";
+		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	ahb {
@@ -104,8 +123,8 @@
 			pinctrl-names = "default";
 			compatible = "ns16550a";
 			reg = <6 0x00100000 0x20>;
-			clocks = <&ahb_clk>;
-			clock-frequency = <250000000>;
+			//clocks = <&ahb_clk>;
+			clocks = <&veloce_clk>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
 			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
@@ -118,8 +137,8 @@
 			pinctrl-names = "default";
 			compatible = "ns16550a";
 			reg = <6 0x00102000 0x20>;
-			clocks = <&ahb_clk>;
-			clock-frequency = <250000000>;
+			//clocks = <&ahb_clk>;
+			clocks = <&veloce_clk>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
 			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
