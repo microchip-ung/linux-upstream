@@ -29,3 +29,11 @@
 	status = "okay";
 	mscc,sgpio-ports = <0x00FFFFFF>;
 };
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
