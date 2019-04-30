@@ -371,6 +371,7 @@ static int tipc_conn_rcv_sub(struct tipc_topsrv *srv,
 	struct tipc_subscription *sub;
 
 	if (tipc_sub_read(s, filter) & TIPC_SUB_CANCEL) {
+		s->filter &= __constant_ntohl(~TIPC_SUB_CANCEL);
 		tipc_conn_delete_sub(con, s);
 		return 0;
 	}
@@ -404,7 +405,7 @@ static int tipc_conn_rcv_from_sock(struct tipc_conn *con)
 	ret = sock_recvmsg(con->sock, &msg, MSG_DONTWAIT);
 	if (ret == -EWOULDBLOCK)
 		return -EWOULDBLOCK;
-	if (ret > 0) {
+	if (ret == sizeof(s)) {
 		read_lock_bh(&sk->sk_callback_lock);
 		ret = tipc_conn_rcv_sub(srv, con, &s);
 		read_unlock_bh(&sk->sk_callback_lock);
