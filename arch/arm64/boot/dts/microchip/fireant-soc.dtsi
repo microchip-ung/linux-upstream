@@ -172,7 +172,7 @@
 			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
 			#interrupt-cells = <2>;
 
-			sgpio_pins: sgpio-pins {
+			sgpio0_pins: sgpio-pins {
 				pins = "GPIO_0", "GPIO_1", "GPIO_2", "GPIO_3";
 				function = "sg0";
 			};
@@ -213,16 +213,40 @@
 			};
 		};
 
-		sgpio: gpio@61101036c {
+		sgpio0: gpio@61101036c {
 			compatible = "mscc,ocelot-sgpio";
 			status = "disabled";
 			clocks = <&sys_clk>;
-			pinctrl-0 = <&sgpio_pins>;
+			pinctrl-0 = <&sgpio0_pins>;
 			pinctrl-names = "default";
 			reg = <0x6 0x1101036c 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			gpio-ranges = <&sgpio 0 0 64>;
+			gpio-ranges = <&gpio 0 64 64>;
+		};
+
+		sgpio1: gpio@611010484 {
+			compatible = "mscc,ocelot-sgpio";
+			status = "disabled";
+			clocks = <&sys_clk>;
+			pinctrl-0 = <&sgpio1_pins>;
+			pinctrl-names = "default";
+			reg = <0x6 0x11010484 0x100>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&gpio 0 128 64>;
+		};
+
+		sgpio2: gpio@61101059c {
+			compatible = "mscc,ocelot-sgpio";
+			status = "disabled";
+			clocks = <&sys_clk>;
+			pinctrl-0 = <&sgpio2_pins>;
+			pinctrl-names = "default";
+			reg = <0x6 0x1101059c 0x100>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&gpio 0 192 64>;
 		};
 
 		i2c0: i2c@600101000 {

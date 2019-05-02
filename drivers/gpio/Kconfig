@@ -359,6 +359,17 @@ config GPIO_MPC8XXX
 	  Say Y here if you're going to use hardware that connects to the
 	  MPC512x/831x/834x/837x/8572/8610/QorIQ GPIOs.
 
+config GPIO_MSCC_SGPIO
+        bool "Microsemi Serial GPIO driver"
+	depends on SOC_VCOREIII || ARCH_FIREANT
+	help
+          Support for the VCoreIII SoC serial GPIO device. By using a
+	  serial interface, the SIO controller significantly extends
+	  the number of available GPIOs with a minimum number of
+	  additional pins on the device. The primary purpose of the
+	  SIO controller is to connect control signals from SFP
+	  modules and to act as an LED controller.
+
 config GPIO_MT7621
 	bool "Mediatek MT7621 GPIO Support"
 	depends on SOC_MT7620 || SOC_MT7621 || COMPILE_TEST
