@@ -25,7 +25,7 @@
 	};
 };
 
-&sgpio {
+&sgpio0 {
 	status = "okay";
 	mscc,sgpio-ports = <0x00FFFFFF>;
 };
