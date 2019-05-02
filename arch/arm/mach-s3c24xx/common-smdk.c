@@ -19,7 +19,6 @@
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/rawnand.h>
-#include <linux/mtd/nand_ecc.h>
 #include <linux/mtd/partitions.h>
 #include <linux/io.h>
 
@@ -166,7 +165,7 @@ static struct s3c2410_platform_nand smdk_nand_info = {
 	.twrph1		= 20,
 	.nr_sets	= ARRAY_SIZE(smdk_nand_sets),
 	.sets		= smdk_nand_sets,
-	.ecc_mode       = NAND_ECC_SOFT,
+	.engine_type	= NAND_ECC_ENGINE_SOFT,
 };
 
 /* devices we initialise */

@@ -40,7 +40,6 @@
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/rawnand.h>
-#include <linux/mtd/nand_ecc.h>
 #include <linux/mtd/partitions.h>
 
 #include <plat/gpio-cfg.h>
@@ -228,7 +227,7 @@ static struct s3c2410_platform_nand __initdata jive_nand_info = {
 	.twrph1		= 40,
 	.sets		= jive_nand_sets,
 	.nr_sets	= ARRAY_SIZE(jive_nand_sets),
-	.ecc_mode       = NAND_ECC_SOFT,
+	.engine_type	= NAND_ECC_ENGINE_SOFT,
 };
 
 static int __init jive_mtdset(char *options)

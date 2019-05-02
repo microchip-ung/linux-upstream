@@ -12,7 +12,6 @@
 #include <linux/delay.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/rawnand.h>
-#include <linux/mtd/nand_ecc.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/sharpsl.h>
 #include <linux/interrupt.h>
@@ -157,14 +156,14 @@ static int sharpsl_nand_probe(struct platform_device *pdev)
 	/* 15 us command delay time */
 	this->legacy.chip_delay = 15;
 	/* set eccmode using hardware ECC */
-	this->ecc.mode = NAND_ECC_HW;
+	this->ecc.engine_type = NAND_ECC_ENGINE_CONTROLLER;
 	this->ecc.size = 256;
 	this->ecc.bytes = 3;
 	this->ecc.strength = 1;
 	this->badblock_pattern = data->badblock_pattern;
 	this->ecc.hwctl = sharpsl_nand_enable_hwecc;
 	this->ecc.calculate = sharpsl_nand_calculate_ecc;
-	this->ecc.correct = nand_correct_data;
+	this->ecc.correct = rawnand_sw_hamming_correct;
 
 	/* Scan to find existence of the device */
 	err = nand_scan(this, 1);

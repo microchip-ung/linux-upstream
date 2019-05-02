@@ -33,7 +33,6 @@
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/rawnand.h>
-#include <linux/mtd/nand_ecc.h>
 #include <linux/mtd/partitions.h>
 
 #include <plat/cpu.h>
@@ -234,7 +233,7 @@ static struct s3c2410_platform_nand __initdata osiris_nand_info = {
 	.nr_sets	= ARRAY_SIZE(osiris_nand_sets),
 	.sets		= osiris_nand_sets,
 	.select_chip	= osiris_nand_select,
-	.ecc_mode       = NAND_ECC_SOFT,
+	.engine_type	= NAND_ECC_ENGINE_SOFT,
 };
 
 /* PCMCIA control and configuration */

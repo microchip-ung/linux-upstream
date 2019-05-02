@@ -2236,9 +2236,9 @@ static int brcmnand_setup_dev(struct brcmnand_host *host)
 	cfg->col_adr_bytes = 2;
 	cfg->blk_adr_bytes = get_blk_adr_bytes(mtd->size, mtd->writesize);
 
-	if (chip->ecc.mode != NAND_ECC_HW) {
+	if (chip->ecc.engine_type != NAND_ECC_ENGINE_CONTROLLER) {
 		dev_err(ctrl->dev, "only HW ECC supported; selected: %d\n",
-			chip->ecc.mode);
+			chip->ecc.engine_type);
 		return -EINVAL;
 	}
 
@@ -2258,12 +2258,13 @@ static int brcmnand_setup_dev(struct brcmnand_host *host)
 		return -EINVAL;
 	}
 
-	if (chip->ecc.mode != NAND_ECC_NONE &&
+	if (chip->ecc.engine_type != NAND_ECC_ENGINE_NONE &&
 	    (!chip->ecc.size || !chip->ecc.strength)) {
-		if (chip->base.eccreq.step_size && chip->base.eccreq.strength) {
+		if (chip->base.ecc.requirements.step_size &&
+		    chip->base.ecc.requirements.strength) {
 			/* use detected ECC parameters */
-			chip->ecc.size = chip->base.eccreq.step_size;
-			chip->ecc.strength = chip->base.eccreq.strength;
+			chip->ecc.size = chip->base.ecc.requirements.step_size;
+			chip->ecc.strength = chip->base.ecc.requirements.strength;
 			dev_info(ctrl->dev, "Using ECC step-size %d, strength %d\n",
 				chip->ecc.size, chip->ecc.strength);
 		}
@@ -2399,7 +2400,7 @@ static int brcmnand_init_cs(struct brcmnand_host *host, struct device_node *dn)
 	chip->legacy.read_buf = brcmnand_read_buf;
 	chip->legacy.write_buf = brcmnand_write_buf;
 
-	chip->ecc.mode = NAND_ECC_HW;
+	chip->ecc.engine_type = NAND_ECC_ENGINE_CONTROLLER;
 	chip->ecc.read_page = brcmnand_read_page;
 	chip->ecc.write_page = brcmnand_write_page;
 	chip->ecc.read_page_raw = brcmnand_read_page_raw;

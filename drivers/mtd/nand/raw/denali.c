@@ -1159,6 +1159,7 @@ int denali_chip_init(struct denali_controller *denali,
 {
 	struct nand_chip *chip = &dchip->chip;
 	struct mtd_info *mtd = nand_to_mtd(chip);
+	struct nand_device *nanddev = mtd_to_nanddev(mtd);
 	struct denali_chip *dchip2;
 	int i, j, ret;
 
@@ -1215,7 +1216,8 @@ int denali_chip_init(struct denali_controller *denali,
 	chip->bbt_options |= NAND_BBT_USE_FLASH;
 	chip->bbt_options |= NAND_BBT_NO_OOB;
 	chip->options |= NAND_NO_SUBPAGE_WRITE;
-	chip->ecc.mode = NAND_ECC_HW_SYNDROME;
+	chip->ecc.engine_type = NAND_ECC_ENGINE_CONTROLLER;
+	chip->ecc.placement = NAND_ECC_PLACEMENT_INTERLEAVED;
 	chip->ecc.read_page = denali_read_page;
 	chip->ecc.write_page = denali_write_page;
 	chip->ecc.read_page_raw = denali_read_page_raw;
@@ -1224,6 +1226,8 @@ int denali_chip_init(struct denali_controller *denali,
 	chip->ecc.write_oob = denali_write_oob;
 
 	mtd_set_ooblayout(mtd, &denali_ooblayout_ops);
+
+	nanddev->ecc.user_conf.flags |= NAND_ECC_MAXIMIZE;
 
 	ret = nand_scan(chip, dchip->nsels);
 	if (ret)

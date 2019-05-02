@@ -1043,7 +1043,9 @@ static int atmel_hsmc_nand_pmecc_read_page_raw(struct nand_chip *chip,
 
 static int atmel_nand_pmecc_init(struct nand_chip *chip)
 {
+	struct nand_ecc_props *requirements = &chip->base.ecc.requirements;
 	struct mtd_info *mtd = nand_to_mtd(chip);
+	struct nand_device *nanddev = mtd_to_nanddev(mtd);
 	struct atmel_nand *nand = to_atmel_nand(chip);
 	struct atmel_nand_controller *nc;
 	struct atmel_pmecc_user_req req;
@@ -1068,19 +1070,19 @@ static int atmel_nand_pmecc_init(struct nand_chip *chip)
 			chip->ecc.size = val;
 	}
 
-	if (chip->ecc.options & NAND_ECC_MAXIMIZE)
+	if (nanddev->ecc.user_conf.flags & NAND_ECC_MAXIMIZE)
 		req.ecc.strength = ATMEL_PMECC_MAXIMIZE_ECC_STRENGTH;
 	else if (chip->ecc.strength)
 		req.ecc.strength = chip->ecc.strength;
-	else if (chip->base.eccreq.strength)
-		req.ecc.strength = chip->base.eccreq.strength;
+	else if (requirements->strength)
+		req.ecc.strength = requirements->strength;
 	else
 		req.ecc.strength = ATMEL_PMECC_MAXIMIZE_ECC_STRENGTH;
 
 	if (chip->ecc.size)
 		req.ecc.sectorsize = chip->ecc.size;
-	else if (chip->base.eccreq.step_size)
-		req.ecc.sectorsize = chip->base.eccreq.step_size;
+	else if (requirements->step_size)
+		req.ecc.sectorsize = requirements->step_size;
 	else
 		req.ecc.sectorsize = ATMEL_PMECC_SECTOR_SIZE_AUTO;
 
@@ -1118,15 +1120,15 @@ static int atmel_nand_ecc_init(struct nand_chip *chip)
 
 	nc = to_nand_controller(chip->controller);
 
-	switch (chip->ecc.mode) {
-	case NAND_ECC_NONE:
-	case NAND_ECC_SOFT:
+	switch (chip->ecc.engine_type) {
+	case NAND_ECC_ENGINE_NONE:
+	case NAND_ECC_ENGINE_SOFT:
 		/*
 		 * Nothing to do, the core will initialize everything for us.
 		 */
 		break;
 
-	case NAND_ECC_HW:
+	case NAND_ECC_ENGINE_CONTROLLER:
 		ret = atmel_nand_pmecc_init(chip);
 		if (ret)
 			return ret;
@@ -1140,7 +1142,7 @@ static int atmel_nand_ecc_init(struct nand_chip *chip)
 	default:
 		/* Other modes are not supported. */
 		dev_err(nc->dev, "Unsupported ECC mode: %d\n",
-			chip->ecc.mode);
+			chip->ecc.engine_type);
 		return -ENOTSUPP;
 	}
 
@@ -1155,7 +1157,7 @@ static int atmel_hsmc_nand_ecc_init(struct nand_chip *chip)
 	if (ret)
 		return ret;
 
-	if (chip->ecc.mode != NAND_ECC_HW)
+	if (chip->ecc.engine_type != NAND_ECC_ENGINE_CONTROLLER)
 		return 0;
 
 	/* Adjust the ECC operations for the HSMC IP. */
@@ -1498,7 +1500,7 @@ static void atmel_nand_init(struct atmel_nand_controller *nc,
 
 	/* Default to HW ECC if pmecc is available. */
 	if (nc->pmecc)
-		chip->ecc.mode = NAND_ECC_HW;
+		chip->ecc.engine_type = NAND_ECC_ENGINE_CONTROLLER;
 }
 
 static void atmel_smc_nand_init(struct atmel_nand_controller *nc,
