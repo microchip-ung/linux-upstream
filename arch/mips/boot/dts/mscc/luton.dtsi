@@ -82,9 +82,14 @@
 			status = "disabled";
 		};
 
+		reset@60070090 {
+			compatible = "mscc,ocelot-chip-reset";
+			reg = <0x60070090 0x4>;
+		};
+
 		gpio: pinctrl@60070068 {
 			compatible = "mscc,luton-pinctrl";
-			reg = <0x60070068 0x68>;
+			reg = <0x60070068 0x28>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 0 32>;
