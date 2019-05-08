@@ -58,6 +58,5 @@
 		compatible = "jedec,spi-nor";
 		spi-max-frequency = <18000000>; /* input clock */
 		reg = <0>; /* CS0 */
-		read-mapped = <0x40000000 0x1000000>;
 	};
 };

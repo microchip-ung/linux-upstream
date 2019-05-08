@@ -6,7 +6,9 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/mtd/spi-nor.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi-mem.h>
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -36,7 +38,8 @@
 #define MAX_CS		4
 
 struct spi_vcoreiii {
-	void __iomem *regs;
+	void __iomem *regs;	/* Bitbang register */
+	void __iomem *read_map;	/* Memory mapped read window */
         u32 deactivate_delay;
 	u8 cs_num;
 	u32 svalue;                     /* Value to start transfer with */
@@ -86,6 +89,39 @@ static void inline vcoreiii_bb_writel_hold(struct spi_vcoreiii *priv, u32 value)
         /* Delay 16 instructions for this particular application */
 	mscc_vcoreiii_nop_delay(2);
 }
+
+static int vcoreiii_bb_exec_mem_op(struct spi_mem *mem,
+				   const struct spi_mem_op *op)
+{
+	struct spi_device *spi = mem->spi;
+	struct spi_vcoreiii *p = spi_master_get_devdata(spi->master);
+	u8 __iomem *src;
+
+	/* Only reads, addrsize 1..4 */
+	if (!op->data.nbytes || !op->addr.nbytes || op->addr.nbytes > 4 ||
+	    op->data.dir != SPI_MEM_DATA_IN)
+		return -ENOTSUPP;
+
+	/* Only handle (normal+fast) 3/4 bytes read */
+	if (op->cmd.opcode != SPINOR_OP_READ &&
+	    op->cmd.opcode != SPINOR_OP_READ_FAST &&
+	    op->cmd.opcode != SPINOR_OP_READ_4B &&
+	    op->cmd.opcode != SPINOR_OP_READ_FAST_4B)
+		return -ENOTSUPP;
+
+	/* Only 16M reach */
+	if ((op->addr.val + op->data.nbytes) >= SZ_16M)
+		return -ENOTSUPP;
+
+	src = p->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
+	memcpy(op->data.buf.in, src, op->data.nbytes);
+
+	return op->data.nbytes;
+}
+
+static const struct spi_controller_mem_ops vcoreiii_bb_mem_ops = {
+	.exec_op = vcoreiii_bb_exec_mem_op,
+};
 
 static void vcoreiii_bb_cs_activate(struct spi_vcoreiii *priv, struct spi_device *spi)
 {
@@ -222,8 +258,8 @@ int vcoreiii_bb_transfer_one_message(struct spi_master *master,
 
 static int vcoreiii_bb_probe(struct platform_device *pdev)
 {
-	struct resource *res_mem;
-	void __iomem *reg_base;
+	struct resource *res;
+	void __iomem *ptr;
 	struct spi_master *master;
 	struct spi_vcoreiii *p;
 	int err = -ENOENT;
@@ -234,14 +270,14 @@ static int vcoreiii_bb_probe(struct platform_device *pdev)
 	p = spi_master_get_devdata(master);
 	platform_set_drvdata(pdev, master);
 
-	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	reg_base = devm_ioremap_resource(&pdev->dev, res_mem);
-	if (IS_ERR(reg_base)) {
-		err = PTR_ERR(reg_base);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	ptr = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(ptr)) {
+		err = PTR_ERR(ptr);
 		goto fail;
 	}
 
-	p->regs = reg_base;
+	p->regs = ptr;
 	if (!device_property_read_u32(&pdev->dev, "spi-deactivate-delay", &p->deactivate_delay))
 		p->deactivate_delay = 0;
 
@@ -249,6 +285,16 @@ static int vcoreiii_bb_probe(struct platform_device *pdev)
 	master->mode_bits = SPI_CPHA | SPI_CPOL | SPI_CS_HIGH;
 
 	master->transfer_one_message = vcoreiii_bb_transfer_one_message;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (res && resource_size(res) >= (SZ_16M*MAX_CS)) {
+		ptr = devm_ioremap_resource(&pdev->dev, res);
+		if (!IS_ERR(ptr)) {
+			p->read_map = ptr;
+			master->mem_ops = &vcoreiii_bb_mem_ops;
+			dev_info(&pdev->dev, "Enabling fast memory operations\n");
+		}
+	}
 
 	dev_info(&pdev->dev, "vcoreiii bitbang SPI bus driver\n");
 
