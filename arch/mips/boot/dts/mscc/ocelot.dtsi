@@ -175,7 +175,7 @@
 
 		gpio: pinctrl@1070034 {
 			compatible = "mscc,ocelot-pinctrl";
-			reg = <0x1070034 0x68>;
+			reg = <0x1070034 0x28>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 0 22>;

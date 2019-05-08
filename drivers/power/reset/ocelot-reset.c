@@ -47,7 +47,6 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 {
 	struct ocelot_reset_context *ctx;
 	struct resource *res;
-
 	struct device *dev = &pdev->dev;
 	int err;
 
@@ -57,12 +56,16 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	ctx->base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(ctx->base))
+	if (IS_ERR(ctx->base)) {
+		dev_err(dev, "No reset register!\n");
 		return PTR_ERR(ctx->base);
+	}
 
 	ctx->cpu_ctrl = syscon_regmap_lookup_by_compatible("mscc,ocelot-cpu-syscon");
-	if (IS_ERR(ctx->cpu_ctrl))
+	if (IS_ERR(ctx->cpu_ctrl)) {
+		dev_err(dev, "No syscon regmap!\n");
 		return PTR_ERR(ctx->cpu_ctrl);
+	}
 
 	ctx->restart_handler.notifier_call = ocelot_restart_handle;
 	ctx->restart_handler.priority = 192;
