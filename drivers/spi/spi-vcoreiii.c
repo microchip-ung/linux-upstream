@@ -45,49 +45,30 @@ struct spi_vcoreiii {
 	u32 svalue;                     /* Value to start transfer with */
 	u32 clk1;                       /* Clock value start */
 	u32 clk2;                       /* Clock value 2nd phase */
+	void (*hold_time_delay)(void);	/* Hold time pause */
 };
 
-static inline void mscc_vcoreiii_nop_delay(int delay)
-{
-	while (delay > 0) {
 #define DELAY_8_NOPS() asm volatile("nop; nop; nop; nop; nop; nop; nop; nop;")
-		switch (delay) {
-		default:
-		case 8:
-			DELAY_8_NOPS();
-			/* fallthrough */
-		case 7:
-			DELAY_8_NOPS();
-			/* fallthrough */
-		case 6:
-			DELAY_8_NOPS();
-			/* fallthrough */
-		case 5:
-			DELAY_8_NOPS();
-			/* fallthrough */
-		case 4:
-			DELAY_8_NOPS();
-			/* fallthrough */
-		case 3:
-			DELAY_8_NOPS();
-			/* fallthrough */
-		case 2:
-			DELAY_8_NOPS();
-			/* fallthrough */
-		case 1:
-			DELAY_8_NOPS();
-		}
-		delay -= 8;
-#undef DELAY_8_NOPS
-	}
+
+static void hold_time_delay_nop_1_4khz(void)
+{
+	int i;
+	for (i = 0; i < 8; i++)
+		DELAY_8_NOPS();
+}
+
+static void hold_time_delay_1us(void)
+{
+	udelay(1);
 }
 
 static void inline vcoreiii_bb_writel_hold(struct spi_vcoreiii *priv, u32 value)
 {
 	__raw_writel(value, priv->regs);
 	wmb();
-        /* Delay 16 instructions for this particular application */
-	mscc_vcoreiii_nop_delay(2);
+        /* Hold time delay, if set */
+	if (unlikely(priv->hold_time_delay))
+		priv->hold_time_delay();
 }
 
 static int vcoreiii_bb_exec_mem_op(struct spi_mem *mem,
@@ -156,6 +137,16 @@ static void vcoreiii_bb_cs_activate(struct spi_vcoreiii *priv, struct spi_device
 
 	priv->svalue |= cs_value;
 
+	/* Crude speed setup */
+	if (spi->max_speed_hz > 3500000) {
+		priv->hold_time_delay = NULL;
+	} else if (spi->max_speed_hz > 1400000) {
+		priv->hold_time_delay = hold_time_delay_nop_1_4khz;
+	} else {
+		/* Appx. 422KHz */
+		priv->hold_time_delay = hold_time_delay_1us;
+	}
+
 	/* Enable the CS in HW, Initial clock value */
 	vcoreiii_bb_writel_hold(priv, priv->svalue | priv->clk2);
 }
@@ -175,7 +166,7 @@ static void vcoreiii_bb_cs_deactivate(struct spi_vcoreiii *priv, struct spi_devi
 	vcoreiii_bb_writel_hold(priv, value);
 
 	/* Deselect hold time delay */
-	if (priv->deactivate_delay)
+	if (unlikely(priv->deactivate_delay))
 		udelay(priv->deactivate_delay);
 
 	/* Drop everything */
