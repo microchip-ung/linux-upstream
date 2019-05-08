@@ -35,10 +35,16 @@ config LEGACY_BOARD_OCELOT
 	depends on LEGACY_BOARD_SEAD3=n
 	select LEGACY_BOARDS
 	select MSCC_OCELOT
+	select MSCC_LUTON
 	select SYS_HAS_EARLY_PRINTK
 	select USE_GENERIC_EARLY_PRINTK_8250
 
 config MSCC_OCELOT
+	bool
+	select GPIOLIB
+	select MSCC_OCELOT_IRQ
+
+config MSCC_LUTON
 	bool
 	select GPIOLIB
 	select MSCC_OCELOT_IRQ
@@ -70,6 +76,14 @@ config FIT_IMAGE_FDT_OCELOT_PCB123
 	select MSCC_OCELOT
 	help
 	  Enable this to include the FDT for the Ocelot PCB123 platform
+	  from Microsemi in the FIT kernel image.
+	  This requires u-boot on the platform.
+
+config FIT_IMAGE_FDT_LUTON_PCB090
+	bool "Include FDT for Microsemi Luton PCB090"
+	select MSCC_LUTON
+	help
+	  Enable this to include the FDT for the Luton PCB090 platform
 	  from Microsemi in the FIT kernel image.
 	  This requires u-boot on the platform.
 

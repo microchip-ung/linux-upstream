@@ -205,6 +205,7 @@ static int m25p_probe(struct spi_mem *spimem)
 {
 	struct spi_device *spi = spimem->spi;
 	struct flash_platform_data	*data;
+	struct resource direct_mapped = { 0 }, *read_res = NULL;
 	struct m25p *flash;
 	struct spi_nor *nor;
 	struct spi_nor_hwcaps hwcaps = {
@@ -272,23 +273,37 @@ static int m25p_probe(struct spi_mem *spimem)
 	if (ret)
 		return ret;
 
+	if (IS_ENABLED(CONFIG_OF)) {
+		const __be32 *addr;
+		int len;
+		addr = of_get_property(spi->dev.of_node, "read-mapped", &len);
+		if (addr && len == (2*sizeof(addr[0]))) {
+				read_res = &direct_mapped;
+				read_res->start = be32_to_cpup(&addr[0]);
+				read_res->end = read_res->start + be32_to_cpup(&addr[1]) - 1;
+		}
+	} else {
+		/* Legacy platform driver */
+		if (data && data->read_mapped) {
+			read_res = &direct_mapped;
+			read_res->start = data->phys_offset;
+			read_res->end = data->phys_offset + data->phys_length - 1;
+		}
+	}
         /* Support for phys-mapped spi flash */
-        if(data && data->read_mapped) {
-		flash->read_max = min_t(size_t, nor->mtd.size, data->phys_length);
-		if((flash->res = request_mem_region(data->phys_offset, flash->read_max, nor->mtd.name))) {
-			if((flash->virt = ioremap(data->phys_offset, flash->read_max))) {
-				nor->read = m25p80_phys_read; /* Can read directly */
-				dev_info(&spi->dev, "Direct read area @0x%08x length %lld Kbytes\n",
-					 data->phys_offset, (long long)flash->read_max >> 10);
-			} else {
-				dev_err(&flash->spimem->spi->dev,
-					"Failed to ioremap flash region (@%08x len %lld) - will read using SPI\n",
-					data->phys_offset, (long long)flash->read_max);
-			}
+        if (read_res && resource_size(read_res) > 0) {
+		read_res->name = "flash-direct";
+		read_res->flags = IORESOURCE_MEM;
+		flash->read_max = min_t(size_t, nor->mtd.size, resource_size(read_res));
+		flash->virt = devm_ioremap_resource(nor->dev, read_res);
+		if (!IS_ERR(flash->virt)) {
+			nor->read = m25p80_phys_read; /* Can read directly */
+			dev_info(nor->dev, "Direct read area @0x%08x length %lld Kbytes\n",
+				 read_res->start, (long long)flash->read_max >> 10);
 		} else {
-			dev_err(&flash->spimem->spi->dev,
-				"Failed to reserve memory region (@%08x len %lld) - will read using SPI\n",
-				data->phys_offset, (long long)flash->read_max);
+			dev_err(nor->dev,
+				"Failed to ioremap flash region (@%08x len %lld) - will read using SPI\n",
+				read_res->start, (long long)flash->read_max);
 		}
         }
 

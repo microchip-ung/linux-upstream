@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2018 Microsemi Corporation
+ */
+
+/dts-v1/;
+#include "luton.dtsi"
+
+/ {
+	model = "Luton10 PCB091 Reference Board";
+	compatible = "mscc,luton-pcb091", "mscc,luton";
+
+	aliases {
+		serial0 = &uart0;
+		spi0 = &spi0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	gpio-leds {
+		compatible = "gpio-leds";
+
+		top_dimmer {
+			label = "pcb091:top:dimmer";
+			gpios = <&gpio 29 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		status_green {
+			label = "pcb091:green:status";
+			gpios = <&sgpio 26 GPIO_ACTIVE_HIGH>; /* p26.0 */
+			default-state = "on";
+		};
+
+		status_red {
+			label = "pcb091:red:status";
+			gpios = <&sgpio 58 GPIO_ACTIVE_HIGH>; /* p26.1 */
+			default-state = "off";
+		};
+	};
+};
+
+&sgpio {
+	status = "okay";
+	mscc,sgpio-ports = <0xFFF000FF>;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	spi-flash@0 {
+		label = "spi_flash";
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <18000000>; /* input clock */
+		reg = <0>; /* CS0 */
+		read-mapped = <0x40000000 0x1000000>;
+	};
+};
