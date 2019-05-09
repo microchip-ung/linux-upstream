@@ -175,8 +175,9 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 	}
 
 	dws->irq = platform_get_irq(pdev, 0);
-	if (dws->irq < 0)
-		return dws->irq; /* -ENXIO */
+	if (dws->irq < 0) {
+		dev_info(&pdev->dev, "no irq, using polled mode\n");
+	}
 
 	dwsmmio->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(dwsmmio->clk))
