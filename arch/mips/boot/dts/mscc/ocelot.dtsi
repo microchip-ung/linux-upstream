@@ -96,7 +96,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x101000 0x100>, <0x3c 0x18>;
-			interrupts = <9>;
 			clocks = <&ahb_clk>;
 
 			status = "disabled";

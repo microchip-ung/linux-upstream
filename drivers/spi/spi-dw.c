@@ -28,6 +28,8 @@
 #include <linux/debugfs.h>
 #endif
 
+#define VALID_IRQ(i) (i >= 0)
+
 /* Slave spi_dev related */
 struct chip_data {
 	u8 tmode;		/* TR/TO/RO/EEPROM */
@@ -358,7 +360,7 @@ static int dw_spi_transfer_one(struct spi_controller *master,
 			spi_enable_chip(dws, 1);
 			return ret;
 		}
-	} else if (!chip->poll_mode) {
+	} else if (!chip->poll_mode && VALID_IRQ(dws->irq)) {
 		txlevel = min_t(u16, dws->fifo_len / 2, dws->len / dws->n_bytes);
 		dw_writel(dws, DW_SPI_TXFLTR, txlevel);
 
@@ -378,7 +380,7 @@ static int dw_spi_transfer_one(struct spi_controller *master,
 			return ret;
 	}
 
-	if (chip->poll_mode)
+	if (chip->poll_mode || !VALID_IRQ(dws->irq))
 		return poll_transfer(dws);
 
 	return 1;
@@ -491,11 +493,13 @@ int dw_spi_add_host(struct device *dev, struct dw_spi *dws)
 
 	spi_controller_set_devdata(master, dws);
 
-	ret = request_irq(dws->irq, dw_spi_irq, IRQF_SHARED, dev_name(dev),
-			  master);
-	if (ret < 0) {
-		dev_err(dev, "can not get IRQ\n");
-		goto err_free_master;
+	if (VALID_IRQ(dws->irq)) {
+		ret = request_irq(dws->irq, dw_spi_irq, IRQF_SHARED, dev_name(dev),
+				  master);
+		if (ret < 0) {
+			dev_err(dev, "can not get IRQ\n");
+			goto err_free_master;
+		}
 	}
 
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP;
@@ -540,7 +544,8 @@ err_dma_exit:
 	if (dws->dma_ops && dws->dma_ops->dma_exit)
 		dws->dma_ops->dma_exit(dws);
 	spi_enable_chip(dws, 0);
-	free_irq(dws->irq, master);
+	if (VALID_IRQ(dws->irq))
+		free_irq(dws->irq, master);
 err_free_master:
 	spi_controller_put(master);
 	return ret;
