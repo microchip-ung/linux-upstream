@@ -74,30 +74,30 @@ static void inline vcoreiii_bb_writel_hold(struct spi_vcoreiii *priv, u32 value)
 static int vcoreiii_bb_exec_mem_op(struct spi_mem *mem,
 				   const struct spi_mem_op *op)
 {
-	struct spi_device *spi = mem->spi;
-	struct spi_vcoreiii *p = spi_master_get_devdata(spi->master);
-	u8 __iomem *src;
+	int ret = -ENOTSUPP;
 
 	/* Only reads, addrsize 1..4 */
 	if (!op->data.nbytes || !op->addr.nbytes || op->addr.nbytes > 4 ||
 	    op->data.dir != SPI_MEM_DATA_IN)
-		return -ENOTSUPP;
+		return ret;
 
 	/* Only handle (normal+fast) 3/4 bytes read */
 	if (op->cmd.opcode != SPINOR_OP_READ &&
 	    op->cmd.opcode != SPINOR_OP_READ_FAST &&
 	    op->cmd.opcode != SPINOR_OP_READ_4B &&
 	    op->cmd.opcode != SPINOR_OP_READ_FAST_4B)
-		return -ENOTSUPP;
+		return ret;
 
 	/* Only 16M reach */
-	if ((op->addr.val + op->data.nbytes) >= SZ_16M)
-		return -ENOTSUPP;
+	if ((op->addr.val + op->data.nbytes) < SZ_16M) {
+		struct spi_device *spi = mem->spi;
+		struct spi_vcoreiii *p = spi_master_get_devdata(spi->master);
+		u8 __iomem *src = p->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
+		memcpy(op->data.buf.in, src, op->data.nbytes);
+		ret = op->data.nbytes;
+	}
 
-	src = p->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
-	memcpy(op->data.buf.in, src, op->data.nbytes);
-
-	return op->data.nbytes;
+	return ret;
 }
 
 static const struct spi_controller_mem_ops vcoreiii_bb_mem_ops = {

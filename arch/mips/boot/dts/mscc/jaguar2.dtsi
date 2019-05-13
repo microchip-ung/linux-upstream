@@ -49,29 +49,29 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0x70000000 0x2000000>;
+		ranges;
 
 		interrupt-parent = <&intc>;
 
-		cpu_ctrl: syscon@0 {
+		cpu_ctrl: syscon@70000000 {
 			compatible = "mscc,ocelot-cpu-syscon", "syscon";
-			reg = <0x0 0x2c>;
+			reg = <0x70000000 0x2c>;
 		};
 
-		intc: interrupt-controller@70 {
+		intc: interrupt-controller@70000070 {
 			compatible = "mscc,jaguar2-icpu-intr";
-			reg = <0x70 0x94>;
+			reg = <0x70000070 0x94>;
 			#interrupt-cells = <1>;
 			interrupt-controller;
 			interrupt-parent = <&cpuintc>;
 			interrupts = <2>;
 		};
 
-		uart0: serial@100000 {
+		uart0: serial@70100000 {
 			pinctrl-0 = <&uart_pins>;
 			pinctrl-names = "default";
 			compatible = "ns16550a";
-			reg = <0x100000 0x20>;
+			reg = <0x70100000 0x20>;
 			interrupts = <6>;
 			clocks = <&ahb_clk>;
 			reg-io-width = <4>;
@@ -80,11 +80,11 @@
 			status = "disabled";
 		};
 
-		uart2: serial@100800 {
+		uart2: serial@70100800 {
 			pinctrl-0 = <&uart2_pins>;
 			pinctrl-names = "default";
 			compatible = "ns16550a";
-			reg = <0x100800 0x20>;
+			reg = <0x70100800 0x20>;
 			interrupts = <7>;
 			clocks = <&ahb_clk>;
 			reg-io-width = <4>;
@@ -93,24 +93,24 @@
 			status = "disabled";
 		};
 
-		spi0: spi-master@101000 {
+		spi0: spi-master@70101000 {
 			compatible = "mscc,jaguar2-spi", "snps,dw-apb-ssi";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x101000 0x100>, <0x3c 0x18>;
+			reg = <0x70101000 0x100>, <0x7000003c 0x18>, <0x40000000 0x4000000>;
 			clocks = <&ahb_clk>;
 
 			status = "disabled";
 		};
 
-		reset@1010008 {
+		reset@71010008 {
 			compatible = "mscc,ocelot-chip-reset";
-			reg = <0x1010008 0x4>;
+			reg = <0x71010008 0x4>;
 		};
 
-		gpio: pinctrl@1070034 {
+		gpio: pinctrl@71070034 {
 			compatible = "mscc,jaguar2-pinctrl";
-			reg = <0x1010038 0x90>;
+			reg = <0x71010038 0x90>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 0 64>;
@@ -141,34 +141,34 @@
 			};
 		};
 
-		sgpio: gpio@1010150 {
+		sgpio: gpio@71010150 {
 			compatible = "mscc,ocelot-sgpio";
 			status = "disabled";
 			pinctrl-0 = <&sgpio_pins>;
 			pinctrl-names = "default";
-			reg = <0x1010150 0x100>;
+			reg = <0x71010150 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&sgpio 0 0 64>;
 		};
 
-		sgpio1: gpio@101025c {
+		sgpio1: gpio@7101025c {
 			compatible = "mscc,ocelot-sgpio";
 			status = "disabled";
 			pinctrl-0 = <&sgpio1_pins>;
 			pinctrl-names = "default";
-			reg = <0x101025c 0x100>;
+			reg = <0x7101025c 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&sgpio1 0 0 64>;
 		};
 
-		sgpio2: gpio@1010368 {
+		sgpio2: gpio@71010368 {
 			compatible = "mscc,ocelot-sgpio";
 			status = "disabled";
 			pinctrl-0 = <&sgpio2_pins>;
 			pinctrl-names = "default";
-			reg = <0x1010368 0x100>;
+			reg = <0x71010368 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&sgpio2 0 0 64>;
