@@ -57,7 +57,7 @@ static const struct dw_spi_mscc_props dw_spi_mscc_props_ocelot = {
 };
 
 static const struct dw_spi_mscc_props dw_spi_mscc_props_jaguar2 = {
-	.syscon_name		= "mscc,jaguar2-cpu-syscon",
+	.syscon_name		= "mscc,ocelot-cpu-syscon",
 	.general_ctrl_off	= 0x24,
 	.si_owner_bit		= 6,
 	.pinctrl_bit_off	= 13,
@@ -94,11 +94,11 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 	u32 cs = spi->chip_select;
 
 	if (cs < 4) {
-		u32 sw_mode = BIT(props->pinctrl_bit_off);
-
+		u32 sw_mode;
 		if (!enable)
-			sw_mode |= (BIT(cs) << props->cs_bit_off);
-
+			sw_mode = BIT(props->pinctrl_bit_off) | (BIT(cs) << props->cs_bit_off);
+		else
+			sw_mode = 0;
 		writel(sw_mode, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
 	}
 
