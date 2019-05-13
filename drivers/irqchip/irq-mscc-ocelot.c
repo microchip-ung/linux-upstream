@@ -26,12 +26,12 @@ struct chip_props {
 };
 
 static const struct chip_props ocelot_props = {
-	.reg_off_sticky 	= 0x10,
-	.reg_off_ena		= 0x18,
-	.reg_off_ena_clr	= 0x1c,
-	.reg_off_ena_set	= 0x20,
-	.reg_off_ident		= 0x38,
-	.reg_off_trigger	= 0x5c,
+	.reg_off_sticky 	= 0x80 - 0x70,
+	.reg_off_ena		= 0x88 - 0x70,
+	.reg_off_ena_clr	= 0x8c - 0x70,
+	.reg_off_ena_set	= 0x90 - 0x70,
+	.reg_off_ident		= 0xa8 - 0x70,
+	.reg_off_trigger	= 0xcc - 0x70,
 	.n_irq			= 24,
 };
 
@@ -42,6 +42,16 @@ static const struct chip_props luton_props = {
 	.reg_off_ena_set	= 0x90 - 0x84,
 	.reg_off_ident		= 0x9c - 0x84,
 	.reg_off_trigger	= 0,
+	.n_irq			= 28,
+};
+
+static const struct chip_props jaguar2_props = {
+	.reg_off_sticky 	= 0x80 - 0x70,
+	.reg_off_ena		= 0x88 - 0x70,
+	.reg_off_ena_clr	= 0x8c - 0x70,
+	.reg_off_ena_set	= 0x90 - 0x70,
+	.reg_off_ident		= 0xa8 - 0x70,
+	.reg_off_trigger	= 0xcc - 0x70,
 	.n_irq			= 28,
 };
 
@@ -163,3 +173,11 @@ static int __init luton_irq_init(struct device_node *node,
 }
 
 IRQCHIP_DECLARE(luton_icpu, "mscc,luton-icpu-intr", luton_irq_init);
+
+static int __init jaguar2_irq_init(struct device_node *node,
+				 struct device_node *parent)
+{
+	return vcoreiii_irq_init(node, parent, &jaguar2_props);
+}
+
+IRQCHIP_DECLARE(jaguar2_icpu, "mscc,jaguar2-icpu-intr", jaguar2_irq_init);

@@ -19,6 +19,10 @@ static const struct plat_props luton_props = {
 	.uart_addr = 0x70100000,
 };
 
+static const struct plat_props jr2_props = {
+	.uart_addr = 0x70100000,
+};
+
 static const struct plat_props *props;
 
 static void __init ocelot_earlyprintk_init(void)
@@ -53,15 +57,16 @@ static const struct of_device_id mscc_of_match[] __initconst = {
 		.compatible = "mscc,luton",
 		.data	    = &luton_props,
 	},{
+		.compatible = "mscc,jr2",
+		.data	    = &jr2_props,
+	},{
 		.compatible = "mscc,serval",
 	},{
 		.compatible = "mscc,serval",
 	},{
 		.compatible = "mscc,servalt",
 	},{
-		.compatible = "mscc,jr2",
-	},
-	{}
+	}
 };
 
 MIPS_MACHINE(ocelot) = {
