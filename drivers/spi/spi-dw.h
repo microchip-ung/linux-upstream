@@ -5,6 +5,7 @@
 #include <linux/io.h>
 #include <linux/scatterlist.h>
 #include <linux/gpio.h>
+#include <linux/spi/spi-mem.h>
 
 /* Register offsets */
 #define DW_SPI_CTRL0			0x00
@@ -113,6 +114,7 @@ struct dw_spi {
 	u16			bus_num;
 	u16			num_cs;		/* supported slave numbers */
 	void (*set_cs)(struct spi_device *spi, bool enable);
+	const struct spi_controller_mem_ops *mem_ops;
 
 	/* Current message transfer state info */
 	size_t			len;

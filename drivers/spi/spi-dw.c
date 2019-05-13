@@ -521,6 +521,9 @@ int dw_spi_add_host(struct device *dev, struct dw_spi *dws)
 	/* Basic HW init */
 	spi_hw_init(dev, dws);
 
+	/* Memory ops? */
+	master->mem_ops = dws->mem_ops;
+
 	if (dws->dma_ops && dws->dma_ops->dma_init) {
 		ret = dws->dma_ops->dma_init(dws);
 		if (ret) {

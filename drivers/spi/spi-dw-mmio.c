@@ -14,6 +14,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
+#include <linux/mtd/spi-nor.h>
+#include <linux/spi/spi-mem.h>
 #include <linux/scatterlist.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
@@ -27,8 +29,11 @@
 
 #define DRIVER_NAME "dw_spi_mmio"
 
+#define MAX_CS		4
+
 struct dw_spi_mmio {
 	struct dw_spi  dws;
+	void __iomem   *read_map;
 	struct clk     *clk;
 	void           *priv;
 };
@@ -105,7 +110,42 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 	dw_spi_set_cs(spi, enable);
 }
 
+static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
+					   const struct spi_mem_op *op)
+{
+	int ret = -ENOTSUPP;
+
+	/* Only reads, addrsize 1..4 */
+	if (!op->data.nbytes || !op->addr.nbytes || op->addr.nbytes > 4 ||
+	    op->data.dir != SPI_MEM_DATA_IN)
+		return ret;
+
+	/* Only handle (normal+fast) 3/4 bytes read */
+	if (op->cmd.opcode != SPINOR_OP_READ &&
+	    op->cmd.opcode != SPINOR_OP_READ_FAST &&
+	    op->cmd.opcode != SPINOR_OP_READ_4B &&
+	    op->cmd.opcode != SPINOR_OP_READ_FAST_4B)
+		return ret;
+
+	/* Only 16M reach */
+	if ((op->addr.val + op->data.nbytes) < SZ_16M) {
+		struct spi_device *spi = mem->spi;
+		struct dw_spi *dws = spi_master_get_devdata(spi->master);
+		struct dw_spi_mmio *dwsmmio = container_of(dws, struct dw_spi_mmio, dws);
+		u8 __iomem *src = dwsmmio->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
+		memcpy(op->data.buf.in, src, op->data.nbytes);
+		ret = op->data.nbytes;
+	}
+
+	return ret;
+}
+
+static const struct spi_controller_mem_ops vcoreiii_bootmaster_mem_ops = {
+	.exec_op = vcoreiii_bootmaster_exec_mem_op,
+};
+
 static int dw_spi_mscc_init(struct platform_device *pdev,
+			    struct dw_spi *dws,
 			    struct dw_spi_mmio *dwsmmio,
 			    const struct dw_spi_mscc_props *props)
 {
@@ -121,6 +161,17 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 	if (IS_ERR(dwsmscc->spi_mst)) {
 		dev_err(&pdev->dev, "SPI_MST region map failed\n");
 		return PTR_ERR(dwsmscc->spi_mst);
+	}
+
+	/* See if we have a direct read window */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (res && resource_size(res) >= (SZ_16M*MAX_CS)) {
+		void __iomem *ptr = devm_ioremap_resource(&pdev->dev, res);
+		if (!IS_ERR(ptr)) {
+			dwsmmio->read_map = ptr;
+			dws->mem_ops = &vcoreiii_bootmaster_mem_ops;
+			dev_info(&pdev->dev, "Enabling fast memory operations\n");
+		}
 	}
 
 	dwsmscc->syscon = syscon_regmap_lookup_by_compatible(props->syscon_name);
@@ -213,7 +264,7 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 
 	props = device_get_match_data(&pdev->dev);
 	if (props) {
-		ret = dw_spi_mscc_init(pdev, dwsmmio, props);
+		ret = dw_spi_mscc_init(pdev, dws, dwsmmio, props);
 		if (ret)
 			goto out;
 	}

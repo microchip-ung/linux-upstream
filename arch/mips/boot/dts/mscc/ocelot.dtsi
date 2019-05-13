@@ -47,29 +47,29 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0x70000000 0x2000000>;
+		ranges;
 
 		interrupt-parent = <&intc>;
 
-		cpu_ctrl: syscon@0 {
+		cpu_ctrl: syscon@70000000 {
 			compatible = "mscc,ocelot-cpu-syscon", "syscon";
-			reg = <0x0 0x2c>;
+			reg = <0x70000000 0x2c>;
 		};
 
-		intc: interrupt-controller@70 {
+		intc: interrupt-controller@70000070 {
 			compatible = "mscc,ocelot-icpu-intr";
-			reg = <0x70 0x70>;
+			reg = <0x70000070 0x70>;
 			#interrupt-cells = <1>;
 			interrupt-controller;
 			interrupt-parent = <&cpuintc>;
 			interrupts = <2>;
 		};
 
-		uart0: serial@100000 {
+		uart0: serial@70100000 {
 			pinctrl-0 = <&uart_pins>;
 			pinctrl-names = "default";
 			compatible = "ns16550a";
-			reg = <0x100000 0x20>;
+			reg = <0x70100000 0x20>;
 			interrupts = <6>;
 			clocks = <&ahb_clk>;
 			reg-io-width = <4>;
@@ -78,11 +78,11 @@
 			status = "disabled";
 		};
 
-		uart2: serial@100800 {
+		uart2: serial@70100800 {
 			pinctrl-0 = <&uart2_pins>;
 			pinctrl-names = "default";
 			compatible = "ns16550a";
-			reg = <0x100800 0x20>;
+			reg = <0x70100800 0x20>;
 			interrupts = <7>;
 			clocks = <&ahb_clk>;
 			reg-io-width = <4>;
@@ -91,35 +91,35 @@
 			status = "disabled";
 		};
 
-		spi: spi@101000 {
+		spi: spi@70101000 {
 			compatible = "mscc,ocelot-spi", "snps,dw-apb-ssi";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x101000 0x100>, <0x3c 0x18>;
+			reg = <0x70101000 0x100>, <0x7000003c 0x18>, <0x40000000 0x4000000>;
 			clocks = <&ahb_clk>;
 
 			status = "disabled";
 		};
 
-		switch@1010000 {
+		switch@71010000 {
 			compatible = "mscc,vsc7514-switch";
-			reg = <0x1010000 0x10000>,
-			      <0x1030000 0x10000>,
-			      <0x1080000 0x100>,
-			      <0x10d0000 0x10000>,
-			      <0x11e0000 0x100>,
-			      <0x11f0000 0x100>,
-			      <0x1200000 0x100>,
-			      <0x1210000 0x100>,
-			      <0x1220000 0x100>,
-			      <0x1230000 0x100>,
-			      <0x1240000 0x100>,
-			      <0x1250000 0x100>,
-			      <0x1260000 0x100>,
-			      <0x1270000 0x100>,
-			      <0x1280000 0x100>,
-			      <0x1800000 0x80000>,
-			      <0x1880000 0x10000>;
+			reg = <0x71010000 0x10000>,
+			      <0x71030000 0x10000>,
+			      <0x71080000 0x100>,
+			      <0x710d0000 0x10000>,
+			      <0x711e0000 0x100>,
+			      <0x711f0000 0x100>,
+			      <0x71200000 0x100>,
+			      <0x71210000 0x100>,
+			      <0x71220000 0x100>,
+			      <0x71230000 0x100>,
+			      <0x71240000 0x100>,
+			      <0x71250000 0x100>,
+			      <0x71260000 0x100>,
+			      <0x71270000 0x100>,
+			      <0x71280000 0x100>,
+			      <0x71800000 0x80000>,
+			      <0x71880000 0x10000>;
 			reg-names = "sys", "rew", "qs", "hsio", "port0",
 				    "port1", "port2", "port3", "port4", "port5",
 				    "port6", "port7", "port8", "port9", "port10",
@@ -167,14 +167,14 @@
 			};
 		};
 
-		reset@1070008 {
+		reset@71070008 {
 			compatible = "mscc,ocelot-chip-reset";
-			reg = <0x1070008 0x4>;
+			reg = <0x71070008 0x4>;
 		};
 
-		gpio: pinctrl@1070034 {
+		gpio: pinctrl@71070034 {
 			compatible = "mscc,ocelot-pinctrl";
-			reg = <0x1070034 0x28>;
+			reg = <0x71070034 0x28>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 0 22>;
@@ -198,11 +198,11 @@
 			};
 		};
 
-		mdio0: mdio@107009c {
+		mdio0: mdio@7107009c {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "mscc,ocelot-miim";
-			reg = <0x107009c 0x24>, <0x10700f0 0x8>;
+			reg = <0x7107009c 0x24>, <0x710700f0 0x8>;
 			interrupts = <14>;
 			status = "disabled";
 
@@ -220,11 +220,11 @@
 			};
 		};
 
-		mdio1: mdio@10700c0 {
+		mdio1: mdio@710700c0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "mscc,ocelot-miim";
-			reg = <0x10700c0 0x24>;
+			reg = <0x710700c0 0x24>;
 			interrupts = <15>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&miim1>;
