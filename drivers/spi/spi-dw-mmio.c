@@ -105,7 +105,7 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 				   MSCC_IF_SI_OWNER_SIMC << props->si_owner_bit);
 	}
 
-	if (cs < 4) {
+	if (cs < MAX_CS) {
 		u32 sw_mode;
 		if (!enable)
 			sw_mode = BIT(props->pinctrl_bit_off) | (BIT(cs) << props->cs_bit_off);
@@ -120,6 +120,7 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
 					   const struct spi_mem_op *op)
 {
+	struct spi_device *spi = mem->spi;
 	int ret = -ENOTSUPP;
 
 	/* Only reads, addrsize 1..4 */
@@ -134,9 +135,9 @@ static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
 	    op->cmd.opcode != SPINOR_OP_READ_FAST_4B)
 		return ret;
 
-	/* Only 16M reach */
-	if ((op->addr.val + op->data.nbytes) < SZ_16M) {
-		struct spi_device *spi = mem->spi;
+	/* CS0..3, only 16M reach */
+	if ((spi->chip_select < MAX_CS) &&
+	    (op->addr.val + op->data.nbytes) < SZ_16M) {
 		struct dw_spi *dws = spi_master_get_devdata(spi->master);
 		struct dw_spi_mmio *dwsmmio = container_of(dws, struct dw_spi_mmio, dws);
 		struct dw_spi_mscc *dwsmscc = dwsmmio->priv;
