@@ -199,3 +199,4 @@ static int __init jaguar2_irq_init(struct device_node *node,
 }
 
 IRQCHIP_DECLARE(jaguar2_icpu, "mscc,jaguar2-icpu-intr", jaguar2_irq_init);
+IRQCHIP_DECLARE(servalt_icpu, "mscc,servalt-icpu-intr", jaguar2_irq_init);
