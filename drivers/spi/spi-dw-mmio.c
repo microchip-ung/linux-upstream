@@ -98,6 +98,13 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 	const struct dw_spi_mscc_props *props = dwsmscc->props;
 	u32 cs = spi->chip_select;
 
+	if (!enable) {
+		/* Make SIMC owner of the SI interface */
+		regmap_update_bits(dwsmscc->syscon, props->general_ctrl_off,
+				   MSCC_IF_SI_OWNER_MASK << props->si_owner_bit,
+				   MSCC_IF_SI_OWNER_SIMC << props->si_owner_bit);
+	}
+
 	if (cs < 4) {
 		u32 sw_mode;
 		if (!enable)
@@ -132,7 +139,13 @@ static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
 		struct spi_device *spi = mem->spi;
 		struct dw_spi *dws = spi_master_get_devdata(spi->master);
 		struct dw_spi_mmio *dwsmmio = container_of(dws, struct dw_spi_mmio, dws);
+		struct dw_spi_mscc *dwsmscc = dwsmmio->priv;
+		const struct dw_spi_mscc_props *props = dwsmscc->props;
 		u8 __iomem *src = dwsmmio->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
+		/* Make boot master owner of SI interface */
+		regmap_update_bits(dwsmscc->syscon, props->general_ctrl_off,
+				   MSCC_IF_SI_OWNER_MASK << props->si_owner_bit,
+				   MSCC_IF_SI_OWNER_SIBM << props->si_owner_bit);
 		memcpy(op->data.buf.in, src, op->data.nbytes);
 		ret = op->data.nbytes;
 	}
@@ -181,11 +194,6 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 
 	/* Deassert all CS */
 	writel(0, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
-
-	/* Select the owner of the SI interface */
-	regmap_update_bits(dwsmscc->syscon, props->general_ctrl_off,
-			   MSCC_IF_SI_OWNER_MASK << props->si_owner_bit,
-			   MSCC_IF_SI_OWNER_SIMC << props->si_owner_bit);
 
 	dwsmmio->dws.set_cs = dw_spi_mscc_set_cs;
 	dwsmmio->priv = dwsmscc;
