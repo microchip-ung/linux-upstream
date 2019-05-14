@@ -67,11 +67,8 @@ static const struct of_device_id mscc_of_match[] __initconst = {
 		.compatible = "mscc,jr2",
 		.data	    = &jr2_props,
 	},{
-		.compatible = "mscc,serval",
-	},{
-		.compatible = "mscc,serval",
-	},{
 		.compatible = "mscc,servalt",
+		.data	    = &jr2_props,
 	},{
 	}
 };

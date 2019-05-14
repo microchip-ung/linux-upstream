@@ -75,6 +75,8 @@ enum {
 	FUNC_UART3,
 	FUNC_PLL_STAT,
 	FUNC_EMMC,
+	FUNC_REF_CLK,
+	FUNC_RCVRD_CLK,
 	FUNC_MAX
 };
 
@@ -114,6 +116,8 @@ static const char *const ocelot_function_names[] = {
 	[FUNC_UART3]		= "uart3",
 	[FUNC_PLL_STAT]		= "pll_stat",
 	[FUNC_EMMC]		= "emmc",
+	[FUNC_REF_CLK]		= "ref_clk",
+	[FUNC_RCVRD_CLK]	= "rcvrd_clk",
 };
 
 struct ocelot_pmx_func {
@@ -508,6 +512,98 @@ static const struct pinctrl_pin_desc jaguar2_pins[] = {
 	JAGUAR2_PIN(63),
 };
 
+#define SERVALT_P(p, f0, f1, f2)					\
+static struct ocelot_pin_caps servalt_pin_##p = {			\
+	.pin = p,							\
+	.functions = {							\
+		FUNC_GPIO, FUNC_##f0, FUNC_##f1, FUNC_##f2	 	\
+	},								\
+}
+
+SERVALT_P(0,  SG0,        NONE,      NONE);
+SERVALT_P(1,  SG0,        NONE,      NONE);
+SERVALT_P(2,  SG0,        NONE,      NONE);
+SERVALT_P(3,  SG0,        NONE,      NONE);
+SERVALT_P(4,  IRQ0_IN,    IRQ0_OUT,  TWI_SCL_M);
+SERVALT_P(5,  IRQ1_IN,    IRQ1_OUT,  TWI_SCL_M);
+SERVALT_P(6,  UART,       NONE,      NONE);
+SERVALT_P(7,  UART,       NONE,      NONE);
+SERVALT_P(8,  SI,         SFP,       TWI_SCL_M);
+SERVALT_P(9,  PCI_WAKE,   SFP,       SI);
+SERVALT_P(10, PTP0,       SFP,       TWI_SCL_M);
+SERVALT_P(11, PTP1,       SFP,       TWI_SCL_M);
+SERVALT_P(12, REF_CLK,    SFP,       TWI_SCL_M);
+SERVALT_P(13, REF_CLK,    SFP,       TWI_SCL_M);
+SERVALT_P(14, REF_CLK,    IRQ0_OUT,  SI);
+SERVALT_P(15, REF_CLK,    IRQ1_OUT,  SI);
+SERVALT_P(16, TACHO,      SFP,       SI);
+SERVALT_P(17, PWM,        NONE,      TWI_SCL_M);
+SERVALT_P(18, PTP2,       SFP,       SI);
+SERVALT_P(19, PTP3,       SFP,       SI);
+SERVALT_P(20, UART2,      SFP,       SI);
+SERVALT_P(21, UART2,      NONE,      NONE);
+SERVALT_P(22, MIIM,       SFP,       TWI2);
+SERVALT_P(23, MIIM,       SFP,       TWI2);
+SERVALT_P(24, TWI,        NONE,      NONE);
+SERVALT_P(25, TWI,        SFP,       TWI_SCL_M);
+SERVALT_P(26, TWI_SCL_M,  SFP,       SI);
+SERVALT_P(27, TWI_SCL_M,  SFP,       SI);
+SERVALT_P(28, TWI_SCL_M,  SFP,       SI);
+SERVALT_P(29, TWI_SCL_M,  NONE,      NONE);
+SERVALT_P(30, TWI_SCL_M,  NONE,      NONE);
+SERVALT_P(31, TWI_SCL_M,  NONE,      NONE);
+SERVALT_P(32, TWI_SCL_M,  NONE,      NONE);
+SERVALT_P(33, RCVRD_CLK,  NONE,      NONE);
+SERVALT_P(34, RCVRD_CLK,  NONE,      NONE);
+SERVALT_P(35, RCVRD_CLK,  NONE,      NONE);
+SERVALT_P(36, RCVRD_CLK,  NONE,      NONE);
+
+#define SERVALT_PIN(n) {					\
+	.number = n,						\
+	.name = "GPIO_"#n,					\
+	.drv_data = &servalt_pin_##n				\
+}
+
+static const struct pinctrl_pin_desc servalt_pins[] = {
+	SERVALT_PIN(0),
+	SERVALT_PIN(1),
+	SERVALT_PIN(2),
+	SERVALT_PIN(3),
+	SERVALT_PIN(4),
+	SERVALT_PIN(5),
+	SERVALT_PIN(6),
+	SERVALT_PIN(7),
+	SERVALT_PIN(8),
+	SERVALT_PIN(9),
+	SERVALT_PIN(10),
+	SERVALT_PIN(11),
+	SERVALT_PIN(12),
+	SERVALT_PIN(13),
+	SERVALT_PIN(14),
+	SERVALT_PIN(15),
+	SERVALT_PIN(16),
+	SERVALT_PIN(17),
+	SERVALT_PIN(18),
+	SERVALT_PIN(19),
+	SERVALT_PIN(20),
+	SERVALT_PIN(21),
+	SERVALT_PIN(22),
+	SERVALT_PIN(23),
+	SERVALT_PIN(24),
+	SERVALT_PIN(25),
+	SERVALT_PIN(26),
+	SERVALT_PIN(27),
+	SERVALT_PIN(28),
+	SERVALT_PIN(29),
+	SERVALT_PIN(30),
+	SERVALT_PIN(31),
+	SERVALT_PIN(32),
+	SERVALT_PIN(33),
+	SERVALT_PIN(34),
+	SERVALT_PIN(35),
+	SERVALT_PIN(36),
+};
+
 #define FIREANT_P(p, f0, f1, f2)					\
 static struct ocelot_pin_caps fireant_pin_##p = {			\
 	.pin = p,							\
@@ -830,6 +926,15 @@ static struct pinctrl_desc jaguar2_desc = {
 	.owner = THIS_MODULE,
 };
 
+static struct pinctrl_desc servalt_desc = {
+	.name = "servalt-pinctrl",
+	.pins = servalt_pins,
+	.npins = ARRAY_SIZE(servalt_pins),
+	.pctlops = &ocelot_pctl_ops,
+	.pmxops = &ocelot_pmx_ops,
+	.owner = THIS_MODULE,
+};
+
 static struct pinctrl_desc fireant_desc = {
 	.name = "fireant-pinctrl",
 	.pins = fireant_pins,
@@ -1085,6 +1190,7 @@ static const struct of_device_id ocelot_pinctrl_of_match[] = {
 	{ .compatible = "mscc,serval-pinctrl", .data = &serval_desc },
 	{ .compatible = "mscc,ocelot-pinctrl", .data = &ocelot_desc },
 	{ .compatible = "mscc,jaguar2-pinctrl", .data = &jaguar2_desc },
+	{ .compatible = "mscc,servalt-pinctrl", .data = &servalt_desc },
 	{ .compatible = "mscc,fireant-pinctrl", .data = &fireant_desc },
 	{},
 };
