@@ -19,6 +19,10 @@ static const struct plat_props luton_props = {
 	.uart_addr = 0x70100000,
 };
 
+static const struct plat_props serval_props = {
+	.uart_addr = 0x70100000,
+};
+
 static const struct plat_props jr2_props = {
 	.uart_addr = 0x70100000,
 };
@@ -56,6 +60,9 @@ static const struct of_device_id mscc_of_match[] __initconst = {
 	},{
 		.compatible = "mscc,luton",
 		.data	    = &luton_props,
+	},{
+		.compatible = "mscc,serval",
+		.data	    = &serval_props,
 	},{
 		.compatible = "mscc,jr2",
 		.data	    = &jr2_props,

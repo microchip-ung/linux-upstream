@@ -35,6 +35,16 @@ static const struct chip_props ocelot_props = {
 	.n_irq			= 24,
 };
 
+static const struct chip_props serval_props = {
+	.reg_off_sticky 	= 0x7c - 0x70,
+	.reg_off_ena		= 0x84 - 0x70,
+	.reg_off_ena_clr	= 0x88 - 0x70,
+	.reg_off_ena_set	= 0x8c - 0x70,
+	.reg_off_ident		= 0x90 - 0x70,
+	.reg_off_trigger	= 0x74 - 0x70,
+	.n_irq			= 24,
+};
+
 static const struct chip_props luton_props = {
 	.reg_off_sticky 	= 0x84 - 0x84,
 	.reg_off_ena		= 0x88 - 0x84,
@@ -165,6 +175,14 @@ static int __init ocelot_irq_init(struct device_node *node,
 }
 
 IRQCHIP_DECLARE(ocelot_icpu, "mscc,ocelot-icpu-intr", ocelot_irq_init);
+
+static int __init serval_irq_init(struct device_node *node,
+				  struct device_node *parent)
+{
+	return vcoreiii_irq_init(node, parent, &serval_props);
+}
+
+IRQCHIP_DECLARE(serval_icpu, "mscc,serval-icpu-intr", serval_irq_init);
 
 static int __init luton_irq_init(struct device_node *node,
 				 struct device_node *parent)
