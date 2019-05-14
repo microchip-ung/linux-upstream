@@ -19,4 +19,5 @@ its-$(CONFIG_FIT_IMAGE_FDT_NI169445)	+= board-ni169445.its.S
 its-$(CONFIG_FIT_IMAGE_FDT_OCELOT_PCB123) += board-ocelot_pcb123.its.S
 its-$(CONFIG_FIT_IMAGE_FDT_LUTON_PCB090) += board-luton_pcb090.its.S
 its-$(CONFIG_FIT_IMAGE_FDT_JAGUAR2_PCB110) += board-jaguar2_pcb110.its.S
+its-$(CONFIG_FIT_IMAGE_FDT_SERVAL_PCB105) += board-serval_pcb105.its.S
 its-$(CONFIG_FIT_IMAGE_FDT_XILFPGA)	+= board-xilfpga.its.S

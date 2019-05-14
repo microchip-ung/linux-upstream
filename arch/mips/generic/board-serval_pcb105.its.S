@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: (GPL-2.0 OR MIT) */
 / {
 	images {
-		fdt@ocelot_pcb123 {
-			description = "MSCC Ocelot PCB123 Device Tree";
-			data = /incbin/("boot/dts/mscc/ocelot_pcb123.dtb");
+		fdt@serval_pcb105 {
+			description = "MSCC Serval PCB105 Device Tree";
+			data = /incbin/("boot/dts/mscc/serval_pcb105.dtb");
 			type = "flat_dt";
 			arch = "mips";
 			compression = "none";
@@ -14,10 +14,10 @@
 	};
 
 	configurations {
-		conf@ocelot_pcb123 {
-			description = "Ocelot Linux kernel";
+		conf@serval_pcb105 {
+			description = "Serval Linux kernel";
 			kernel = "kernel@0";
-			fdt = "fdt@ocelot_pcb123";
+			fdt = "fdt@serval_pcb105";
 			ramdisk = "ramdisk";
 		};
 	};

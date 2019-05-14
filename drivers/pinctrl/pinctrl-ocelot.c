@@ -42,14 +42,17 @@
 enum {
 	FUNC_NONE,
 	FUNC_GPIO,
+	FUNC_IRQ0,
 	FUNC_IRQ0_IN,
 	FUNC_IRQ0_OUT,
+	FUNC_IRQ1,
 	FUNC_IRQ1_IN,
 	FUNC_IRQ1_OUT,
 	FUNC_EXT_IRQ,
 	FUNC_MIIM,
 	FUNC_PHY_LED,
 	FUNC_PCI_WAKE,
+	FUNC_MD,
 	FUNC_PTP0,
 	FUNC_PTP1,
 	FUNC_PTP2,
@@ -78,14 +81,17 @@ enum {
 static const char *const ocelot_function_names[] = {
 	[FUNC_NONE]		= "none",
 	[FUNC_GPIO]		= "gpio",
+	[FUNC_IRQ0]		= "irq0",
 	[FUNC_IRQ0_IN]		= "irq0_in",
 	[FUNC_IRQ0_OUT]		= "irq0_out",
+	[FUNC_IRQ1]		= "irq1",
 	[FUNC_IRQ1_IN]		= "irq1_in",
 	[FUNC_IRQ1_OUT]		= "irq1_out",
 	[FUNC_EXT_IRQ]		= "ext_irq",
 	[FUNC_MIIM]		= "miim",
 	[FUNC_PHY_LED]		= "phy_led",
 	[FUNC_PCI_WAKE]		= "pci_wake",
+	[FUNC_MD]		= "md",
 	[FUNC_PTP0]		= "ptp0",
 	[FUNC_PTP1]		= "ptp1",
 	[FUNC_PTP2]		= "ptp2",
@@ -211,6 +217,89 @@ static const struct pinctrl_pin_desc luton_pins[] = {
 	LUTON_PIN(30),
 	LUTON_PIN(31),
 };
+
+#define SERVAL_P(p, f0, f1, f2)						\
+static struct ocelot_pin_caps serval_pin_##p = {			\
+	.pin = p,							\
+	.functions = {							\
+			FUNC_GPIO, FUNC_##f0, FUNC_##f1, FUNC_##f2,	\
+	},								\
+}
+
+SERVAL_P(0,  SG0,       NONE,      NONE);
+SERVAL_P(1,  SG0,       NONE,      NONE);
+SERVAL_P(2,  SG0,       NONE,      NONE);
+SERVAL_P(3,  SG0,       NONE,      NONE);
+SERVAL_P(4,  TACHO,     NONE,      NONE);
+SERVAL_P(5,  PWM,       NONE,      NONE);
+SERVAL_P(6,  TWI,       NONE,      NONE);
+SERVAL_P(7,  TWI,       NONE,      NONE);
+SERVAL_P(8,  SI,        NONE,      NONE);
+SERVAL_P(9,  SI,        MD,        NONE);
+SERVAL_P(10, SI,        MD,        NONE);
+SERVAL_P(11, SFP,       MD,        TWI_SCL_M);
+SERVAL_P(12, SFP,       MD,        TWI_SCL_M);
+SERVAL_P(13, SFP,       UART2,     TWI_SCL_M);
+SERVAL_P(14, SFP,       UART2,     TWI_SCL_M);
+SERVAL_P(15, SFP,       PTP0,      TWI_SCL_M);
+SERVAL_P(16, SFP,       PTP0,      TWI_SCL_M);
+SERVAL_P(17, SFP,       PCI_WAKE,  TWI_SCL_M);
+SERVAL_P(18, SFP,       NONE,      TWI_SCL_M);
+SERVAL_P(19, SFP,       NONE,      TWI_SCL_M);
+SERVAL_P(20, SFP,       NONE,      TWI_SCL_M);
+SERVAL_P(21, SFP,       NONE,      TWI_SCL_M);
+SERVAL_P(22, NONE,      NONE,      NONE);
+SERVAL_P(23, NONE,      NONE,      NONE);
+SERVAL_P(24, NONE,      NONE,      NONE);
+SERVAL_P(25, NONE,      NONE,      NONE);
+SERVAL_P(26, UART,      NONE,      NONE);
+SERVAL_P(27, UART,      NONE,      NONE);
+SERVAL_P(28, IRQ0,      NONE,      NONE);
+SERVAL_P(29, IRQ1,      NONE,      NONE);
+SERVAL_P(30, PTP0,      NONE,      NONE);
+SERVAL_P(31, PTP0,      NONE,      NONE);
+
+#define SERVAL_PIN(n) {						\
+	.number = n,						\
+	.name = "GPIO_"#n,					\
+	.drv_data = &serval_pin_##n				\
+}
+
+static const struct pinctrl_pin_desc serval_pins[] = {
+	SERVAL_PIN(0),
+	SERVAL_PIN(1),
+	SERVAL_PIN(2),
+	SERVAL_PIN(3),
+	SERVAL_PIN(4),
+	SERVAL_PIN(5),
+	SERVAL_PIN(6),
+	SERVAL_PIN(7),
+	SERVAL_PIN(8),
+	SERVAL_PIN(9),
+	SERVAL_PIN(10),
+	SERVAL_PIN(11),
+	SERVAL_PIN(12),
+	SERVAL_PIN(13),
+	SERVAL_PIN(14),
+	SERVAL_PIN(15),
+	SERVAL_PIN(16),
+	SERVAL_PIN(17),
+	SERVAL_PIN(18),
+	SERVAL_PIN(19),
+	SERVAL_PIN(20),
+	SERVAL_PIN(21),
+	SERVAL_PIN(22),
+	SERVAL_PIN(23),
+	SERVAL_PIN(24),
+	SERVAL_PIN(25),
+	SERVAL_PIN(26),
+	SERVAL_PIN(27),
+	SERVAL_PIN(28),
+	SERVAL_PIN(29),
+	SERVAL_PIN(30),
+	SERVAL_PIN(31),
+};
+
 #define OCELOT_P(p, f0, f1, f2)						\
 static struct ocelot_pin_caps ocelot_pin_##p = {			\
 	.pin = p,							\
@@ -714,6 +803,15 @@ static struct pinctrl_desc luton_desc = {
 	.owner = THIS_MODULE,
 };
 
+static struct pinctrl_desc serval_desc = {
+	.name = "serval-pinctrl",
+	.pins = serval_pins,
+	.npins = ARRAY_SIZE(serval_pins),
+	.pctlops = &ocelot_pctl_ops,
+	.pmxops = &ocelot_pmx_ops,
+	.owner = THIS_MODULE,
+};
+
 static struct pinctrl_desc ocelot_desc = {
 	.name = "ocelot-pinctrl",
 	.pins = ocelot_pins,
@@ -984,6 +1082,7 @@ static int ocelot_gpiochip_register(struct platform_device *pdev,
 
 static const struct of_device_id ocelot_pinctrl_of_match[] = {
 	{ .compatible = "mscc,luton-pinctrl", .data = &luton_desc },
+	{ .compatible = "mscc,serval-pinctrl", .data = &serval_desc },
 	{ .compatible = "mscc,ocelot-pinctrl", .data = &ocelot_desc },
 	{ .compatible = "mscc,jaguar2-pinctrl", .data = &jaguar2_desc },
 	{ .compatible = "mscc,fireant-pinctrl", .data = &fireant_desc },
