@@ -116,19 +116,19 @@
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 0 64>;
 
-			sgpio_pins: sgpio-pins {
+			sgpio0_pins: sgpio0-pins {
 				pins = "GPIO_0", "GPIO_1", "GPIO_2", "GPIO_3";
-				function = "sio";
+				function = "sg0";
 			};
 
 			sgpio1_pins: sgpio1-pins {
 				pins = "GPIO_4", "GPIO_5", "GPIO_12", "GPIO_13";
-				function = "sio1";
+				function = "sg1";
 			};
 
 			sgpio2_pins: sgpio2-pins {
 				pins = "GPIO_30", "GPIO_31", "GPIO_32", "GPIO_33";
-				function = "sio2";
+				function = "sg2";
 			};
 
 			uart_pins: uart-pins {
@@ -196,7 +196,7 @@
 		sgpio: gpio@71010150 {
 			compatible = "mscc,ocelot-sgpio";
 			status = "disabled";
-			pinctrl-0 = <&sgpio_pins>;
+			pinctrl-0 = <&sgpio0_pins>;
 			pinctrl-names = "default";
 			reg = <0x71010150 0x100>;
 			gpio-controller;

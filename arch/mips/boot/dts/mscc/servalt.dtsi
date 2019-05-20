@@ -116,7 +116,7 @@
 
 			sgpio_pins: sgpio-pins {
 				pins = "GPIO_0", "GPIO_1", "GPIO_2", "GPIO_3";
-				function = "sio";
+				function = "sg0";
 			};
 
 			uart_pins: uart-pins {
