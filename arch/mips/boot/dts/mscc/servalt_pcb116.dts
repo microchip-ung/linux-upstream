@@ -48,6 +48,23 @@
 		spi-max-frequency = <18000000>; /* input clock */
 		reg = <0>; /* CS0 */
 	};
+	spi-flash@1 {
+		compatible = "spinand,mt29f";
+		pinctrl-0 = <&cs1_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <15625000>;
+		reg = <1>; /* CS1 */
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			/* 256MiB */
+			partition@0 {
+				    label = "spi_nand";
+				    reg = <0x0000000 0x10000000>;
+			};
+		};
+	};
 };
 
 &sgpio {

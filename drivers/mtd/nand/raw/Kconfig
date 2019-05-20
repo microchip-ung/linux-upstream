@@ -433,6 +433,13 @@ config MTD_NAND_MPC5121_NFC
 	  This enables the driver for the NAND flash controller on the
 	  MPC5121 SoC.
 
+config MTD_NAND_VCOREIII
+	tristate "Support for generic nand on VCoreIII SoC's with PI interface"
+	depends on HAS_IOMEM && OF
+	help
+	  This enables the driver for the NAND flash controller on the
+	  VCoreIII with parallel interface for NAND.
+
 config MTD_NAND_VF610_NFC
 	tristate "Support for Freescale NFC for VF610/MPC5125"
 	depends on (SOC_VF610 || COMPILE_TEST)

@@ -22,6 +22,7 @@
 
 	aliases {
 		serial0 = &uart0;
+		gpio0 = &gpio;
 	};
 
 	cpuintc: interrupt-controller {
@@ -118,6 +119,11 @@
 			uart2_pins: uart2-pins {
 				pins = "GPIO_13", "GPIO_14";
 				function = "uart2";
+			};
+
+			cs1_pins: cs1-pins {
+				pins = "GPIO_8";
+				function = "si";
 			};
 		};
 
