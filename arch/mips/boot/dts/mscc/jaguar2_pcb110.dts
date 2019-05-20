@@ -18,22 +18,6 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
-
-	gpio-leds {
-		compatible = "gpio-leds";
-
-		status_green {
-			label = "pcb110:green:status";
-                        gpios = <&gpio 12 0>;
-                        default-state = "on";
-		};
-
-		status_red {
-			label = "pcb110:red:status";
-			gpios = <&gpio 13 0>;
-                        default-state = "off";
-		};
-	};
 };
 
 &uart0 {
@@ -69,28 +53,4 @@
 &i2c0 {
 	status = "okay";
 	i2c-sda-hold-time-ns = <300>;
-};
-
-&gpio {
-	// SPIO only use DO, CLK, no inputs
-	sgpio1_pins: sgpio1-pins {
-		pins = "GPIO_4", "GPIO_5";
-		function = "sio1";
-	};
-};
-
-&sgpio {
-	status = "okay";
-	sgpio-ports = <0x00ffffff>;
-};
-
-&sgpio1 {
-	status = "okay";
-	sgpio-ports = <0x00ff0000>;
-};
-
-&sgpio2 {
-	status = "okay";
-	sgpio-ports = <0x3f00ffff>;
-	gpio-ranges = <&sgpio2 0 0 96>;
 };

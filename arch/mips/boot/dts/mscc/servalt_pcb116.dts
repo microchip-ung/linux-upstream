@@ -18,22 +18,6 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
-
-	gpio-leds {
-		compatible = "gpio-leds";
-
-		status_green {
-			label = "pcb116:green:status";
-			gpios = <&sgpio 70 0>; //p6.2
-			default-state = "on";
-		};
-
-		status_red {
-			label = "pcb116:red:status";
-			gpios = <&sgpio 102 0>; //p6.3
-			default-state = "off";
-		};
-	};
 };
 
 &uart0 {
@@ -65,9 +49,4 @@
 			};
 		};
 	};
-};
-
-&sgpio {
-	status = "okay";
-	sgpio-ports = <0x0000fe7f>;
 };
