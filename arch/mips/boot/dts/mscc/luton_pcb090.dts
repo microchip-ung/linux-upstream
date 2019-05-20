@@ -54,3 +54,19 @@
 		reg = <0>; /* CS0 */
 	};
 };
+
+&pi_nand {
+	status = "okay";
+	chip-delay = <100>; // MX30LF1GE8AB with internal ECC has 45-70 us tR_ECC
+	waitcc = <8>;       // Slow down NAND CS via waitcc - appx 77ns
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		/* 256MiB */
+		partition@0 {
+			    label = "rootfs_data";
+			    reg = <0x0000000 0x08000000>;
+		};
+	};
+};

@@ -20,6 +20,7 @@
 
 	aliases {
 		serial0 = &uart0;
+		gpio0 = &gpio;
 	};
 
 	cpuintc: interrupt-controller {
@@ -102,6 +103,19 @@
 			reg-shift = <2>;
 
 			status = "disabled";
+		};
+
+		i2c0: i2c@70100400 {
+			compatible = "mscc,ocelot-i2c", "snps,designware-i2c";
+			status = "disabled";
+			pinctrl-0 = <&i2c_pins>;
+			pinctrl-names = "default";
+			reg = <0x70100400 0x100>, <0x70000198 0x8>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <8>;
+			clock-frequency = <100000>;
+			clocks = <&ahb_clk>;
 		};
 
 		spi: spi@70101000 {
@@ -210,11 +224,20 @@
 				function = "uart2";
 			};
 
+			cs1_pins: cs1-pins {
+				pins = "GPIO_8";
+				function = "si";
+			};
+
 			miim1: miim1 {
 				pins = "GPIO_14", "GPIO_15";
 				function = "miim1";
 			};
 
+			i2c_pins: i2c-pins {
+				pins = "GPIO_16", "GPIO_17";
+				function = "twi";
+			};
 		};
 
 		mdio0: mdio@7107009c {

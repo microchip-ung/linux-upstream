@@ -124,4 +124,10 @@
 			#size-cells = <0>;
 		};
 	};
+
+	pi_nand: nand@50000000 {
+		compatible = "mscc,luton-nand";
+		status = "disabled";
+		reg = <0x50000000 0x100>, <0x70000030 4>;
+	};
 };
