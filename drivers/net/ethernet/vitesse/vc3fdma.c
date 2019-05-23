@@ -50,30 +50,21 @@
 #include <linux/proc_fs.h>
 #endif
 
+#include "vtss_ifh.h"
 #include "vtss_ufdma_api.h"
 
-#if defined(CONFIG_VTSS_VCOREIII_SERVAL1_CLASSIC)
-#define IFH_ID   0x05
-#elif defined(CONFIG_VTSS_VCOREIII_OCELOT)
-#define IFH_ID   0x0a
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
-#define IFH_ID   0x07
-#elif defined(CONFIG_VTSS_VCOREIII_LUTON26)
-#define IFH_ID   0x01  /* No IFH_ID in Luton26, madeup 0x01 */
-#else
-#error Invalid architecture type
-#endif
+struct fdma_chip {
+	vtss_ufdma_platform_driver_t *driver;
+	u8 ifh_id;
+};
 
-#include <asm/vcoreiii.h>
-
-static vtss_ufdma_platform_driver_t *driver;
 /* fwd */
 static struct genl_family packet_generic_netlink_family;
 
 static u8 ifh_encap [] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x88, 0x80, 0x00, IFH_ID};
+    0x88, 0x80, 0x00, 0x00 /* IFH_ID */};
 
 #define PROTO_B0               12
 #define PROTO_B1               13
@@ -111,7 +102,7 @@ static int do_debug;
 /****************************************************************************/
 #define VC3FDMA_CACHE_ALIGNED_SIZE(_size_) VC3FDMA_ALIGNED_SIZE(_size_, DCACHE_LINE_SIZE_BYTES)
 
-static struct net_device *vc3fdma_dev;
+static struct vc3fdma_private *vc3fdma_inst;
 
 /****************************************************************************/
 // Structure common between kernel and user space.
@@ -156,6 +147,12 @@ struct rx_cfg {
 
 /* Information that need to be kept for each board. */
 struct vc3fdma_private {
+    struct net_device      *netdev;
+    const struct fdma_chip *chip;
+    void __iomem           *map_origin1;
+    void __iomem           *map_origin2;
+    struct resource	   origin1, origin2;
+
     spinlock_t            lock;          // uFDMA lock
     struct napi_struct    napi;
 #if defined(CONFIG_DEBUG_FS)
@@ -317,13 +314,12 @@ static inline u32 zc_circ_buf_copy(struct zc_circ_buf *dst, struct zc_circ_buf *
 /****************************************************************************/
 static int rx_buffer_add_to_ufdma(u8 *data, gfp_t flags)
 {
-    struct vc3fdma_private *priv;
+    struct vc3fdma_private *priv = vc3fdma_inst;
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     struct sk_buff         *skb;
     struct skb_shared_info *shinfo;
     vtss_ufdma_buf_dscr_t  buf_dscr;
     int                    rc;
-
-    priv = netdev_priv(vc3fdma_dev);
 
     if ((skb = __build_skb(data, 1000 /* any size > 0 will work*/)) == NULL) {
         T_E("Unable to allocate Rx SKB");
@@ -335,7 +331,7 @@ static int rx_buffer_add_to_ufdma(u8 *data, gfp_t flags)
     // tail, end, head, data, truesize, and users.
     // It then sets users.counter to 1 and truesize to sizeof(sk_buff).
     // We override that here.
-    skb->dev        = vc3fdma_dev;
+    skb->dev        = priv->netdev;
     skb->head       = data;
     skb->data       = data;
     skb_reset_tail_pointer(skb); // Make tail point to data (use a function, because on some platforms, it's an offset while on others, it's a pointer).
@@ -412,16 +408,14 @@ static void rx_no_recycle(struct sk_buff *skb)
 /****************************************************************************/
 static void rx_recycle(struct sk_buff *skb)
 {
-    struct vc3fdma_private *priv;
+    struct vc3fdma_private *priv = vc3fdma_inst;
 
-    if (!driver || !vc3fdma_dev) {
+    if (!priv) {
         // We've probably been uninitialized and someone
         // (the IP stack?) held a frame while this happened.
         // Just let the SKB framework free the SKB itself.
         return;
     }
-
-    priv = netdev_priv(vc3fdma_dev);
 
     L();
 
@@ -455,6 +449,8 @@ static void rx_recycle(struct sk_buff *skb)
 /****************************************************************************/
 static u32 rx_data_size_get(u32 rx_mtu, u32 rx_buf_cnt, u32 *size_of_one_list, u32 *size_of_one_frame_excl_shared_skb, u32 *total_size_of_one_frame)
 {
+    struct vc3fdma_private *priv = vc3fdma_inst;
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     unsigned int frame_buffer_alloc_size;
     u32          size_of_skb_shared_info, total_size;
     int          rc;
@@ -555,7 +551,7 @@ static u32 rx_data_size_get(u32 rx_mtu, u32 rx_buf_cnt, u32 *size_of_one_list, u
     // This is because of cache alignment (avoid invalidating/flushing other users' data,
     // which could occur if the frame buffer wasn't completely within its own cache lines).
     // The uFDMA provides a function for returning the required size.
-    if ((rc = driver->rx_buf_alloc_size_get(driver, rx_mtu + driver->props.rx_ifh_size_bytes, &frame_buffer_alloc_size))) {
+    if ((rc = priv->chip->driver->rx_buf_alloc_size_get(driver, rx_mtu + driver->props.rx_ifh_size_bytes, &frame_buffer_alloc_size))) {
         T_E("uFDMA error: %s", driver->error_txt(driver, rc));
         return 0; // Signifies error
     }
@@ -595,7 +591,7 @@ static u32 rx_data_size_total_get(u32 rx_mtu, u32 rx_buf_cnt)
 /****************************************************************************/
 static int rx_buffers_add(u32 rx_mtu_new, u32 rx_buf_cnt_new)
 {
-    struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
+    struct vc3fdma_private *priv = vc3fdma_inst;
     int                    rc;
     u32                    i;
     u32                    size_of_one_list, size_of_one_frame_excl_shared_skb, total_size_of_one_frame, total_size;
@@ -657,14 +653,13 @@ static int rx_buffers_add(u32 rx_mtu_new, u32 rx_buf_cnt_new)
 /****************************************************************************/
 static int rx_buffers_refresh(u32 rx_mtu_new, u32 rx_buf_cnt_new)
 {
-    struct vc3fdma_private *priv;
+    struct vc3fdma_private *priv = vc3fdma_inst;
+    vtss_ufdma_platform_driver_t *driver;
     int                    rc;
 
-    if (!vc3fdma_dev) {
+    if (!priv) {
         return -EINVAL;
     }
-
-    priv = netdev_priv(vc3fdma_dev);
 
     if (rx_mtu_new == priv->rx_mtu_cur && rx_buf_cnt_new == priv->rx_buf_cnt_cur) {
         // The requested MTU and buffer count is already what we're running with.
@@ -673,7 +668,8 @@ static int rx_buffers_refresh(u32 rx_mtu_new, u32 rx_buf_cnt_new)
 
     L();
 
-    if ((rc = driver->rx_free(driver)) != 0) {
+    driver = priv->chip->driver;
+    if ((rc = driver->rx_free(priv->chip->driver)) != 0) {
         T_E("ufdma::rx_free() failed: %s", driver->error_txt(driver, rc));
         // Fall through
     }
@@ -760,6 +756,8 @@ static void rx_throttle_timer_tick_add(void (*func)(struct timer_list *t))
 /****************************************************************************/
 static void rx_throttle_time_out(struct timer_list *t)
 {
+    struct vc3fdma_private *priv = vc3fdma_inst;
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     int rc;
 
     spin_lock_bh(&rx_throttle_timer_lock);
@@ -862,6 +860,8 @@ static int packet_cmd_noop(struct sk_buff *skb, struct genl_info *info)
 /****************************************************************************/
 static int rx_throttle_cmd_cfg_get(struct sk_buff *skb, struct genl_info *info)
 {
+    struct vc3fdma_private *priv = vc3fdma_inst;
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     struct nlattr              *row;
     vtss_ufdma_throttle_conf_t throttle_cfg;
     int                        rc;
@@ -923,6 +923,8 @@ do_exit:
 /****************************************************************************/
 static int rx_throttle_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
 {
+    struct vc3fdma_private *priv = vc3fdma_inst;
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     vtss_ufdma_throttle_conf_t throttle_cfg;
     struct nlattr              *attr;
     int                        rc, remaining;
@@ -1016,6 +1018,8 @@ static int rx_throttle_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
 /****************************************************************************/
 static int trace_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
 {
+    struct vc3fdma_private *priv = vc3fdma_inst;
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     vtss_ufdma_trace_layer_t layer;
     vtss_ufdma_trace_group_t group;
     vtss_ufdma_trace_level_t level;
@@ -1064,19 +1068,17 @@ static int trace_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
 /****************************************************************************/
 static int rx_cmd_cfg_get(struct sk_buff *skb, struct genl_info *info)
 {
-    struct vc3fdma_private *priv;
+    struct vc3fdma_private *priv = vc3fdma_inst;
     struct sk_buff         *msg;
     void                   *hdr;
     int                    rc;
 
     T_I("Getting Rx cfg");
 
-    if (!vc3fdma_dev) {
+    if (!priv) {
         T_E("No vc3fdma device");
         return -EIO;
     }
-
-    priv = netdev_priv(vc3fdma_dev);
 
     if ((msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL)) == NULL) {
         return -ENOMEM;
@@ -1105,17 +1107,15 @@ do_exit:
 /****************************************************************************/
 static int rx_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
 {
-    struct vc3fdma_private *priv;
+    struct vc3fdma_private *priv = vc3fdma_inst;
     u32                    new_mtu = 0;
 
     T_I("Setting Rx cfg");
 
-    if (!vc3fdma_dev) {
+    if (!priv) {
         T_E("No vc3fdma device");
         return -EIO;
     }
-
-    priv = netdev_priv(vc3fdma_dev);
 
     if (info->attrs[VTSS_PACKET_ATTR_RX_CFG_MTU]) {
         VC3FDMA_NLA_U32_GET(info->attrs[VTSS_PACKET_ATTR_RX_CFG_MTU], new_mtu);
@@ -1265,6 +1265,7 @@ static void RX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
     struct sk_buff         *skb  = buf_dscr->context;
     struct net_device      *dev  = skb->dev;
     struct vc3fdma_private *priv = netdev_priv(dev);
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     bool                   jumbo = buf_dscr->next != NULL;
     u32                    frm_len;
 
@@ -1398,8 +1399,8 @@ static void TX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
 /****************************************************************************/
 static void CX_cache_flush(void *virt_addr, unsigned int bytes)
 {
-//    T_E("virt_addr = %p, bytes = %u", virt_addr, bytes);
-    dma_cache_sync(NULL, virt_addr, bytes, DMA_TO_DEVICE);
+//    T_E("virt_addr = 0x%08x, bytes = %u", (u32)virt_addr, bytes);
+    dma_cache_wback((unsigned long)virt_addr, bytes);
 }
 
 /****************************************************************************/
@@ -1407,8 +1408,8 @@ static void CX_cache_flush(void *virt_addr, unsigned int bytes)
 /****************************************************************************/
 static void CX_cache_invalidate(void *virt_addr, unsigned int bytes)
 {
-//    T_E("virt_addr = %p, bytes = %u", virt_addr, bytes);
-    dma_cache_sync(NULL, virt_addr, bytes, DMA_BIDIRECTIONAL);
+//    T_E("virt_addr = 0x%08x, bytes = %u", (u32)virt_addr, bytes);
+    dma_cache_wback_inv((unsigned long)virt_addr, bytes);
 }
 
 /****************************************************************************/
@@ -1485,24 +1486,23 @@ static unsigned long long CX_timestamp(void)
     return val;
 }
 
-// Register window dword boundaries
-#define MEM1_BEG (0)
-#define MEM1_END (MEM1_BEG + (VTSS_IO_ORIGIN1_SIZE/4))
-#define MEM2_BEG ((VTSS_IO_ORIGIN2_OFFSET-VTSS_IO_ORIGIN1_OFFSET)/4)
-#define MEM2_END (MEM2_BEG + (VTSS_IO_ORIGIN2_SIZE/4))
-
 /****************************************************************************/
 // get_reg()
 // Register helper
 /****************************************************************************/
-static volatile unsigned int *get_reg(unsigned int chip_no, unsigned int addr)
+static void __iomem *get_reg(unsigned int chip_no, unsigned int addr)
 {
-    if (addr >= MEM1_BEG && addr < MEM1_END) {
-        return &((volatile unsigned int *)map_base_switch)[addr - MEM1_BEG];
-    } else if (addr >= MEM2_BEG && addr < MEM2_END) {
-        return &((volatile unsigned int *)map_base_cpu)[addr - MEM2_BEG];
-    }
-    return NULL;
+	struct vc3fdma_private *priv = vc3fdma_inst;
+
+	/* relative register to abs u32 address */
+	addr = priv->origin1.start + (addr*4);
+
+	if (addr >= priv->origin1.start && addr < priv->origin1.end) {
+		return priv->map_origin1 + (addr - priv->origin1.start);
+	} else if (addr >= priv->origin2.start && addr < priv->origin2.end) {
+		return priv->map_origin2 + (addr - priv->origin2.start);
+	}
+	return NULL;
 }
 
 /****************************************************************************/
@@ -1510,14 +1510,14 @@ static volatile unsigned int *get_reg(unsigned int chip_no, unsigned int addr)
 /****************************************************************************/
 static unsigned int CX_reg_read(unsigned int chip_no, unsigned int addr)
 {
-    volatile unsigned int *regptr = get_reg(chip_no, addr);
-    if (regptr) {
-        return *regptr;
-    }
+	void __iomem *regptr = get_reg(chip_no, addr);
+	if (regptr) {
+		return readl(regptr);
+	}
 
-    T_E("Illegal address referenced: address = %d:0x%08x", chip_no, addr);
-    BUG();
-    return -1;
+	T_E("Illegal address referenced: address = %d:0x%08x", chip_no, addr);
+	BUG();
+	return -1;
 }
 
 /****************************************************************************/
@@ -1525,14 +1525,14 @@ static unsigned int CX_reg_read(unsigned int chip_no, unsigned int addr)
 /****************************************************************************/
 static void CX_reg_write(unsigned int chip_no, unsigned int addr, unsigned int value)
 {
-    volatile unsigned int *regptr = get_reg(chip_no, addr);
-    if (regptr) {
-        *regptr = value;
-        return;
-    }
+	void __iomem *regptr = get_reg(chip_no, addr);
+	if (regptr) {
+		writel(value, regptr);
+		return;
+	}
 
-    T_E("Illegal address referenced: address = %d:0x%08x", chip_no, addr);
-    BUG();
+	T_E("Illegal address referenced: address = %d:0x%08x", chip_no, addr);
+	BUG();
 }
 
 /****************************************************************************/
@@ -1541,7 +1541,8 @@ static void CX_reg_write(unsigned int chip_no, unsigned int addr, unsigned int v
 /****************************************************************************/
 static int vc3fdma_poll(struct napi_struct *napi, int budget)
 {
-    struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
+    struct vc3fdma_private *priv = vc3fdma_inst;
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
 
     // Ensure uFDMA driver calls are serialized
     L();
@@ -1558,7 +1559,7 @@ static int vc3fdma_poll(struct napi_struct *napi, int budget)
         priv->irq_ena_self_cnt++;
         priv->irq_ena_last_was_napi = 0;
         napi_complete(napi);
-        enable_irq(vc3fdma_dev->irq);
+        enable_irq(priv->netdev->irq);
     } else {
         priv->irq_ena_napi_cnt++;
         priv->irq_ena_last_was_napi = 1;
@@ -1590,6 +1591,8 @@ static irqreturn_t vc3fdma_dma_interrupt(int irq, void *dev_id)
 /****************************************************************************/
 static int vc3fdma_ufdma_init(struct net_device *dev)
 {
+    struct vc3fdma_private *priv = netdev_priv(dev);
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     vtss_ufdma_init_conf_t init_conf;
     int                    rc;
 
@@ -1662,6 +1665,7 @@ static int vc3fdma_open(struct net_device *dev)
 static void vc3fdma_ufdma_uninit(struct net_device *dev)
 {
     struct vc3fdma_private *priv = netdev_priv(dev);
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
 
     dev_info(&dev->dev, "Closing device\n");
 
@@ -1699,6 +1703,7 @@ static int vc3fdma_close(struct net_device *dev)
 static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
 {
     struct vc3fdma_private *priv = netdev_priv(dev);
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     vtss_ufdma_buf_dscr_t  tbd;
     int                    rc;
 
@@ -1750,6 +1755,8 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
 /****************************************************************************/
 static int vc3fdma_change_mtu(struct net_device *dev, int new_mtu)
 {
+    struct vc3fdma_private *priv = netdev_priv(dev);
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
     if (new_mtu < (68 + ETH_FCS_LEN + driver->props.tx_ifh_size_bytes) || new_mtu > IF_BUFSIZE_JUMBO)
         return -EINVAL;
     dev->mtu = new_mtu;
@@ -1772,6 +1779,7 @@ static const struct net_device_ops vc3fdma_netdev_ops = {
 /****************************************************************************/
 static int show_ufdma(struct seq_file *m, void *v)
 {
+    struct vc3fdma_private *priv = vc3fdma_inst;
     vtss_ufdma_debug_info_t info;
 
     memset(&info, 0, sizeof(info));
@@ -1783,7 +1791,8 @@ static int show_ufdma(struct seq_file *m, void *v)
     seq_printf(m, "Driver: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n\n");
 
     seq_printf(m, "uFDMA driver:\n=============\n\n");
-    if (driver) {
+    if (priv && priv->chip->driver) {
+	vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
         seq_printf(m, "TX IFH size      : %4d bytes\n", driver->props.tx_ifh_size_bytes);
         seq_printf(m, "RX IFH size      : %4d bytes\n", driver->props.rx_ifh_size_bytes);
         seq_printf(m, "Buffer state size: %4d bytes\n", driver->props.buf_state_size_bytes);
@@ -1794,8 +1803,8 @@ static int show_ufdma(struct seq_file *m, void *v)
     seq_printf(m, "\n");
 
     seq_printf(m, "uFDMA state:\n============\n\n");
-    if (vc3fdma_dev && vc3fdma_dev->flags & IFF_UP) {
-        struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
+    if (priv && priv->netdev && priv->netdev->flags & IFF_UP) {
+        vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
         driver->debug_print(driver, &info, (void *)seq_printf);
         seq_printf(m, "Network Driver state:\n=====================\n\n");
         seq_printf(m, "IRQ ena count made by us:   %10u\n", priv->irq_ena_self_cnt);
@@ -1835,10 +1844,11 @@ static const struct file_operations ufdma_fops = {
 /****************************************************************************/
 // vc3fdma_create()
 /****************************************************************************/
-static struct net_device *vc3fdma_create(void)
+static struct net_device *vc3fdma_create(struct platform_device *pdev)
 {
     struct net_device      *dev;
     struct vc3fdma_private *priv;
+    struct resource *res;
 
     if ((dev = alloc_etherdev(sizeof(struct vc3fdma_private))) == NULL) {
         return NULL;
@@ -1847,13 +1857,36 @@ static struct net_device *vc3fdma_create(void)
     dev->netdev_ops = &vc3fdma_netdev_ops;
     priv = netdev_priv(dev);
     memset(priv, 0, sizeof(*priv));
-    vc3fdma_dev = dev;
+    priv->netdev = dev;		/* Backlink */
+    priv->chip = device_get_match_data(&pdev->dev);
+    vc3fdma_inst = priv;	/* Static pointer, ugly! */
+    ifh_encap[sizeof(ifh_encap)-1] = priv->chip->ifh_id; /* shared static data - ugly */
     /* This particular device adds no MAC header - must be part of data */
     dev->hard_header_len = dev->min_header_len = 0;
 
     // Set initial, bogus MAC address
     eth_hw_addr_random(dev);
     memset(&dev->broadcast[0], 0xff, 6);
+
+    // Memory regions
+    res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    if (!res) {
+	    dev_err(&pdev->dev, "Unable to map origin1\n");
+	    free_netdev(dev);
+	    return NULL;
+    }
+    priv->map_origin1 = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+    priv->origin1 = *res;
+    res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+    if (!res) {
+	    dev_err(&pdev->dev, "Unable to map origin2\n");
+	    free_netdev(dev);
+	    return NULL;
+    }
+    priv->map_origin2 = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+    priv->origin2 = *res;
+    dev_dbg(&pdev->dev, "Mapped switch registers 0x%08x 0x%08x\n",
+	    (u32) priv->map_origin1, (u32) priv->map_origin2);
 
     // Set arbitrarily high for direct injection (not rx)
     dev->mtu = IF_BUFSIZE_JUMBO;
@@ -1878,9 +1911,9 @@ static struct net_device *vc3fdma_create(void)
 /****************************************************************************/
 static int zc_open(struct inode *inode, struct file *filp)
 {
-    struct vc3fdma_private *priv;
+    struct vc3fdma_private *priv = vc3fdma_inst;
 
-    if (!vc3fdma_dev) {
+    if (!priv) {
         return -EINVAL;
     }
 
@@ -1888,8 +1921,6 @@ static int zc_open(struct inode *inode, struct file *filp)
         T_E("Zero-copy with Rx multi-DCB support is not working");
         return -EINVAL;
     }
-
-    priv = netdev_priv(vc3fdma_dev);
 
     if (priv->zc.dev_open) {
         return -EBUSY;
@@ -1912,7 +1943,7 @@ static int zc_open(struct inode *inode, struct file *filp)
 /****************************************************************************/
 static int zc_close(struct inode *inode, struct file *file)
 {
-    struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
+    struct vc3fdma_private *priv = vc3fdma_inst;
 
     priv->zc.dev_open = false;
     priv->zc.mmapped  = false; // RBNTBD: Anything to do if mmapped before we close?
@@ -1935,7 +1966,7 @@ static long zc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     int                    rc = 0;
     u32 __user             *p32;
     u32                    tmp;
-    struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
+    struct vc3fdma_private *priv = vc3fdma_inst;
 
     if (_IOC_TYPE(cmd) != ZC_IOCTL_MAGIC) {
         return -ENOTTY;
@@ -2029,7 +2060,7 @@ static long zc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 /****************************************************************************/
 static int zc_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-    struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
+    struct vc3fdma_private *priv = vc3fdma_inst;
     u32                    expected_size;
     unsigned long          requested_size = vma->vm_end - vma->vm_start, orig_vm_start = vma->vm_start, ua, ka_15lsbits;
     int                    rc;
@@ -2097,7 +2128,7 @@ static int zc_mmap(struct file *filp, struct vm_area_struct *vma)
 /****************************************************************************/
 static unsigned int zc_poll(struct file *filp, struct poll_table_struct *pts)
 {
-    struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
+    struct vc3fdma_private *priv = vc3fdma_inst;
     struct zc_frm_dscr     *item;
     unsigned int           mask = 0;
 
@@ -2206,7 +2237,7 @@ static void zc_error(const char *str, int rc)
 /****************************************************************************/
 static void zc_destroy(void)
 {
-    struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
+    struct vc3fdma_private *priv = vc3fdma_inst;
 
     if (priv->zc.cdev.owner == THIS_MODULE) {
         cdev_del(&priv->zc.cdev);
@@ -2228,9 +2259,8 @@ static void zc_destroy(void)
 /****************************************************************************/
 // zc_create()
 /****************************************************************************/
-static void zc_create(void)
+static void zc_create(struct vc3fdma_private *priv)
 {
-    struct vc3fdma_private *priv = netdev_priv(vc3fdma_dev);
     int                    rc;
 
     // Create the zero-copy character device
@@ -2286,6 +2316,7 @@ do_exit:
 static int vc3fdma_restart(struct notifier_block *nb, unsigned long action, void *data)
 {
     struct vc3fdma_private *priv = container_of(nb, struct vc3fdma_private, restart_nb);
+    vtss_ufdma_platform_driver_t *driver = priv->chip->driver;
 
     L();
 
@@ -2337,23 +2368,7 @@ static int vc3fdma_probe(struct platform_device *pdev)
     struct vc3fdma_private *priv;
     int                    rc;
 
-#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
-    driver = &vtss_ufdma_platform_driver_luton26;
-#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1_CLASSIC)
-    driver = &vtss_ufdma_platform_driver_serval;
-#elif defined(CONFIG_VTSS_VCOREIII_OCELOT)
-    driver = &vtss_ufdma_platform_driver_ocelot;
-#elif defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    driver = &vtss_ufdma_platform_driver_servalt;
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2)
-    driver = &vtss_ufdma_platform_driver_jaguar2ab;
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C)
-    driver = &vtss_ufdma_platform_driver_jaguar2c;
-#else
-#error "Unsupported platform"
-#endif
-
-    if ((dev = vc3fdma_create()) == NULL) {
+    if ((dev = vc3fdma_create(pdev)) == NULL) {
         return -ENOMEM;
     }
 
@@ -2364,7 +2379,12 @@ static int vc3fdma_probe(struct platform_device *pdev)
     SET_NETDEV_DEV(dev, &pdev->dev);
     platform_set_drvdata(pdev, dev);
 
-    dev->irq = FDMA_IRQ;
+    dev->irq = platform_get_irq(pdev, 0);
+    if (dev->irq <= 0) {
+	    dev_warn(&dev->dev, "interrupt resource missing\n");
+	    free_netdev(dev);
+	    return -ENXIO;
+    }
 
     if ((rc = register_netdev(dev)) < 0) {
         T_E("Cannot register net device: %d", rc);
@@ -2382,7 +2402,7 @@ static int vc3fdma_probe(struct platform_device *pdev)
     // If the creation function fails, we should *not* return
     // an error code from this function, because this driver
     // would still work, but without zero-copy functionality.
-    zc_create();
+    zc_create(priv);
 
     // Register a restart handler, to allow us to gracefully shut down prior to
     // a - potentially - two-step reboot, where the switch core is reset first
@@ -2424,20 +2444,73 @@ static int vc3fdma_remove(struct platform_device *pdev)
 
     unregister_netdev(dev);
     free_netdev(dev);
-    vc3fdma_dev = NULL;
+    vc3fdma_inst = NULL;
 
     return 0;
 }
 
 /****************************************************************************/
 /****************************************************************************/
-static struct platform_driver vc3fdma_driver = {
-    .driver.name = DRV_NAME,
-    .probe       = vc3fdma_probe,
-    .remove      = vc3fdma_remove,
+
+static const struct fdma_chip luton_chip = {
+	.driver = &vtss_ufdma_platform_driver_luton26,
+	.ifh_id = IFH_ID_LUTON,
 };
 
-module_platform_driver(vc3fdma_driver);
+static const struct fdma_chip serval_chip = {
+	.driver =  &vtss_ufdma_platform_driver_serval,
+	.ifh_id = IFH_ID_SERVAL1,
+};
+
+static const struct fdma_chip ocelot_chip = {
+	.driver =  &vtss_ufdma_platform_driver_ocelot,
+	.ifh_id = IFH_ID_OCELOT,
+};
+
+static const struct fdma_chip servalt_chip = {
+	.driver =  &vtss_ufdma_platform_driver_servalt,
+	.ifh_id = IFH_ID_JAGUAR2,
+};
+
+static const struct fdma_chip jaguar2_chip = {
+	.driver =  &vtss_ufdma_platform_driver_jaguar2c,
+	.ifh_id = IFH_ID_JAGUAR2,
+};
+
+static const struct of_device_id mscc_fdma_id_table[] = {
+	{
+		.compatible = "mscc,luton-fdma",
+		.data = &luton_chip,
+	},
+	{
+		.compatible = "mscc,serval-fdma",
+		.data = &serval_chip,
+	},
+	{
+		.compatible = "mscc,ocelot-fdma",
+		.data = &ocelot_chip,
+	},
+	{
+		.compatible = "mscc,servalt-fdma",
+		.data = &servalt_chip,
+	},
+	{
+		.compatible = "mscc,jaguar2-fdma",
+		.data = &jaguar2_chip,
+	},
+	{}
+};
+MODULE_DEVICE_TABLE(of, mscc_fdma_id_table);
+
+static struct platform_driver vc3fdma_driver = {
+	.remove      = vc3fdma_remove,
+	.driver = {
+		.name = DRV_NAME,
+		.of_match_table = mscc_fdma_id_table,
+	},
+};
+
+module_platform_driver_probe(vc3fdma_driver, vc3fdma_probe);
 
 MODULE_AUTHOR("Lars Povlsen <lpovlsen@vitesse.com>");
 MODULE_DESCRIPTION("VCore-III FDMA ethernet interface driver");

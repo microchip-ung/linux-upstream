@@ -210,30 +210,33 @@ static u64 OWNER_BIT_MASK_POOL = 0;
 static struct list_head OWNER_BIT_MASK_ASSOCIATION;
 static u16 vsi2vid[VLAN_N_VID];
 
-#define VTSS_HDR (IFH_LEN + 2)
+#define VTSS_HDR (vtss_if_mux_chip->ifh_len + 2)
 #define ETHERTYPE_LENGTH 2
 static inline int vtss_port_check(struct frame_data *d, u64 mask)
 {
 	u64 p = 0, m = 0;
-#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
-	p = d->skb->data[3];
-	p = (p >> 3);
-	p &= 0x1f;
+	if (vtss_if_mux_chip->soc == SOC_LUTON) {
+		p = d->skb->data[3];
+		p = (p >> 3);
+		p &= 0x1f;
+	} else if (vtss_if_mux_chip->soc == SOC_SERVAL1 ||
+		   vtss_if_mux_chip->soc == SOC_OCELOT) {
+		p = d->skb->data[12];
+		p = (p >> 3);
+		p &= 0xf;
 
-#elif defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-	p = d->skb->data[12];
-	p = (p >> 3);
-	p &= 0xf;
+	} else if (vtss_if_mux_chip->soc == SOC_JAGUAR2 ||
+		   vtss_if_mux_chip->soc == SOC_SERVALT) {
+		p = d->skb->data[25] & 1;
+		p <<= 5;
+		p |= (d->skb->data[26] >> 3) & 0x1f;
+		//printk(KERN_ERR "CHIP-PORT: %llu - delete line when tested!", p);
+	} else {
+	    if (printk_ratelimit())
+		    printk("Invalid architecture type\n");
+	    return 0;
+	}
 
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2_FAMILY)
-	p = d->skb->data[25] & 1;
-	p <<= 5;
-	p |= (d->skb->data[26] >> 3) & 0x1f;
-	//printk(KERN_ERR "CHIP-PORT: %llu - delete line when tested!", p);
-
-#else
-#error Invalid architecture type
-#endif
 	m = 1llu << p;
 
 	return (mask & m) != 0llu;
@@ -439,29 +442,27 @@ static inline int vtss_arp_proto_gratuitous_check(struct frame_data *d)
 
 static inline int vtss_acl_id_check(struct frame_data *d, char *mask, int offset)
 {
-#if defined(CONFIG_VTSS_VCOREIII_LUTON26)
-	u32 hit = 0, id = 0;
-	hit = d->skb->data[6];
-	hit = (hit >> 7);
-	hit &= 0x01;
-	id = ((u32)d->skb->data[4] << 8) | ((u32)d->skb->data[5]);
-	id = (id >> 5);
-	id &= 0xff;
-	//printk(KERN_ERR "ACL-ID: %d %d\n", hit, id);
+	if (vtss_if_mux_chip->soc == SOC_LUTON) {
+		u32 hit = 0, id = 0;
+		hit = d->skb->data[6];
+		hit = (hit >> 7);
+		hit &= 0x01;
+		id = ((u32)d->skb->data[4] << 8) | ((u32)d->skb->data[5]);
+		id = (id >> 5);
+		id &= 0xff;
+		//printk(KERN_ERR "ACL-ID: %d %d\n", hit, id);
 
-	if (!hit)
-		return 0;
+		if (!hit)
+			return 0;
 
-	if (id < offset * 128 || id >= (offset + 1) * 128)
-		return 0;
+		if (id < offset * 128 || id >= (offset + 1) * 128)
+			return 0;
 
-	id -= offset * 128;
-	return mask[id / 8] & (1 << (id % 8));
-
-#else
+		id -= offset * 128;
+		return mask[id / 8] & (1 << (id % 8));
+	}
 	printk(KERN_ERR "PLATFORM-NOT-SUPPORTED!\n");
 	return 0;
-#endif
 }
 
 static inline int element_match(struct vtss_if_mux_filter_element *e,
@@ -904,10 +905,10 @@ static int parse_elements(struct vtss_if_mux_filter_element *e,
 		break;
 
 	case VTSS_IF_MUX_FILTER_TYPE_acl_id: // fallthrough
-#if !defined(CONFIG_VTSS_VCOREIII_LUTON26)
-		printk(KERN_ERR "Platform not supported\n");
-		return -EINVAL;
-#endif
+		if (vtss_if_mux_chip->soc != SOC_LUTON) {
+			printk(KERN_ERR "Platform not supported\n");
+			return -EINVAL;
+		}
 	case VTSS_IF_MUX_FILTER_TYPE_ipv6_src: // fallthrough
 	case VTSS_IF_MUX_FILTER_TYPE_ipv6_dst: // fallthrough
 	case VTSS_IF_MUX_FILTER_TYPE_ipv6_src_or_dst:

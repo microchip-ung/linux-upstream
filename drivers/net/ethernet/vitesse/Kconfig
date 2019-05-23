@@ -33,7 +33,7 @@ if NET_VENDOR_VITESSE
 
 config VC3FDMA
 	tristate "VCore-III Gigabit Ethernet support"
-	depends on VTSS_VCOREIII_ARCH
+#	depends on VTSS_VCOREIII_ARCH
 	---help---
 	  This driver use the VCore-III switch FDMA
           to implement a network interface.
