@@ -32,10 +32,11 @@ struct ifmux_chip {
 	u8 ifh_len;
 	u8 ifh_offs_port_mask;
 	u8 cpu_port;
-	const u8 *hdr_tmpl;
+	const u8 *hdr_tmpl_vlan;
 	const u8 *hdr_tmpl_port;
-	size_t ifh_encap_len;
-	bool fcs_included;
+	size_t ifh_encap_vlan_len;
+	size_t ifh_encap_port_len;
+	bool internal_cpu;
 };
 
 struct vtss_if_mux_pcpu_stats {

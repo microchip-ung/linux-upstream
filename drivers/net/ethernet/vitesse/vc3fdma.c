@@ -42,13 +42,8 @@
 #include <linux/poll.h>
 #include <linux/reboot.h>
 
-#if defined(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
-#endif
-
-#if defined(CONFIG_PROC_FS)
 #include <linux/proc_fs.h>
-#endif
 
 #include "vtss_ifh.h"
 #include "vtss_ufdma_api.h"
@@ -68,6 +63,7 @@ static u8 ifh_encap [] = {
 
 #define PROTO_B0               12
 #define PROTO_B1               13
+#define IFH_ID_OFF	       (sizeof(ifh_encap)-1)
 
 #define DRV_NAME               "vc3fdma"
 #define DRV_VERSION            "01.25"
@@ -155,13 +151,8 @@ struct vc3fdma_private {
 
     spinlock_t            lock;          // uFDMA lock
     struct napi_struct    napi;
-#if defined(CONFIG_DEBUG_FS)
     struct dentry         *db_fs_dump_file;
-#endif
-
-#if defined(CONFIG_PROC_FS)
     struct proc_dir_entry *proc_fs_dump_file;
-#endif
 
     // Rx config
     struct rx_cfg      rx_cfg;
@@ -1409,7 +1400,7 @@ static void CX_cache_flush(void *virt_addr, unsigned int bytes)
 static void CX_cache_invalidate(void *virt_addr, unsigned int bytes)
 {
 //    T_E("virt_addr = 0x%08x, bytes = %u", (u32)virt_addr, bytes);
-    dma_cache_wback_inv((unsigned long)virt_addr, bytes);
+    dma_cache_inv((unsigned long)virt_addr, bytes);
 }
 
 /****************************************************************************/
@@ -1711,11 +1702,14 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
 
     // Check for proper encapsulation
     if (skb->data[PROTO_B0] != ifh_encap[PROTO_B0] ||
-        skb->data[PROTO_B1] != ifh_encap[PROTO_B1]) {
-        T_D("Wrong encapsulation - dropping %d bytes @ %p (%02x:%02x)", skb->len, skb->data, skb->data[PROTO_B0], skb->data[PROTO_B1]);
-        dev->stats.tx_dropped++;
-        kfree_skb(skb);
-        return NETDEV_TX_OK;
+        skb->data[PROTO_B1] != ifh_encap[PROTO_B1] ||
+	skb->data[IFH_ID_OFF] != ifh_encap[IFH_ID_OFF]) {
+	    T_D("Wrong encapsulation - dropping %d bytes @ %p (%02x:%02x:%02x)",
+		skb->len, skb->data, skb->data[PROTO_B0], skb->data[PROTO_B1],
+		skb->data[IFH_ID_OFF]);
+	    dev->stats.tx_dropped++;
+	    kfree_skb(skb);
+	    return NETDEV_TX_OK;
     }
 
     // Transmit - first loose encap, leave SKB pointing at the IFH
@@ -1860,7 +1854,7 @@ static struct net_device *vc3fdma_create(struct platform_device *pdev)
     priv->netdev = dev;		/* Backlink */
     priv->chip = device_get_match_data(&pdev->dev);
     vc3fdma_inst = priv;	/* Static pointer, ugly! */
-    ifh_encap[sizeof(ifh_encap)-1] = priv->chip->ifh_id; /* shared static data - ugly */
+    ifh_encap[IFH_ID_OFF] = priv->chip->ifh_id; /* shared static data - ugly */
     /* This particular device adds no MAC header - must be part of data */
     dev->hard_header_len = dev->min_header_len = 0;
 
@@ -1893,13 +1887,9 @@ static struct net_device *vc3fdma_create(struct platform_device *pdev)
     priv->rx_cfg.mtu = RX_MTU_DEFAULT;
 
     // Debug procfs file
-#if defined(CONFIG_DEBUG_FS)
     priv->db_fs_dump_file = debugfs_create_file(DRV_NAME, S_IRUGO, NULL, NULL, &ufdma_fops);
-#endif
 
-#if defined(CONFIG_PROC_FS)
     priv->proc_fs_dump_file = proc_create(DRV_NAME, S_IRUGO,  NULL, &ufdma_fops);
-#endif
 
     spin_lock_init(&priv->lock);
 
@@ -2425,17 +2415,13 @@ static int vc3fdma_remove(struct platform_device *pdev)
     // Unregister the restart handler.
     restart_handler_uninstall(priv);
 
-#if defined(CONFIG_DEBUG_FS)
     if (priv->db_fs_dump_file) {
         debugfs_remove(priv->db_fs_dump_file);
     }
-#endif
 
-#if defined(CONFIG_PROC_FS)
     if (priv->proc_fs_dump_file) {
         proc_remove(priv->proc_fs_dump_file);
     }
-#endif
 
     // Remove zero-copy character device.
     zc_destroy();

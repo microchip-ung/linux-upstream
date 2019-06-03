@@ -49,10 +49,10 @@
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			/* 256MiB */
+			/* 128MiB */
 			partition@0 {
 				    label = "rootfs_data";
-				    reg = <0x0000000 0x10000000>;
+				    reg = <0x0000000 0x8000000>;
 			};
 		};
 	};

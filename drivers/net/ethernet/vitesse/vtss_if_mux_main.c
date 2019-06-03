@@ -56,7 +56,7 @@ int vtss_if_mux_vlan_up[VLAN_N_VID];
 #define _vlantag				\
     0x00, 0x00, 0x00, 0x00
 
-static const u8 hdr_tmpl_luton[IFH_ENCAP_LEN(IFH_LEN_LUTON)+4] = {
+static const u8 hdr_tmpl_vlan_luton[IFH_ENCAP_LEN(IFH_LEN_LUTON)+4] = {
 	_encap(IFH_ID_LUTON),
 	0x00, 0x00, 0x28, 0x0f, 0x00, 0x40, 0x00, 0x01,
 	_vlantag,
@@ -66,19 +66,19 @@ static const u8 hdr_tmpl_luton[IFH_ENCAP_LEN(IFH_LEN_LUTON)+4] = {
 	0x00, 0x2e, 0xe5, 0x41, 0x16, 0x58, 0x02, 0x00, \
 	0x00, 0x00, 0x28, 0x0f, 0x00, 0x40, 0x00, 0x01
 
-static const u8 hdr_tmpl_serval1[IFH_ENCAP_LEN(IFH_LEN_SERVAL1)+4] = {
+static const u8 hdr_tmpl_vlan_serval1[IFH_ENCAP_LEN(IFH_LEN_SERVAL1)+4] = {
 	_encap(IFH_ID_SERVAL1),
 	_ifh_tmpl_serval_family,
 	_vlantag,
 };
 
-static const u8 hdr_tmpl_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)+4] = {
+static const u8 hdr_tmpl_vlan_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)+4] = {
 	_encap(IFH_ID_OCELOT),
 	_ifh_tmpl_serval_family,
 	_vlantag,
 };
 
-static const u8 hdr_tmpl_jaguar2[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)+4] = {
+static const u8 hdr_tmpl_vlan_jaguar2[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)+4] = {
 	_encap(IFH_ID_JAGUAR2),
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x80,
@@ -87,26 +87,23 @@ static const u8 hdr_tmpl_jaguar2[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)+4] = {
 	_vlantag,
 };
 
-static const u8 hdr_tmpl_port_luton[IFH_ENCAP_LEN(IFH_LEN_LUTON)+4] = {
+static const u8 hdr_tmpl_port_luton[IFH_ENCAP_LEN(IFH_LEN_LUTON)] = {
 	_encap(IFH_ID_LUTON),
 	0x80, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, /* BYPASS=1, POP_CNT=3 */
-	_vlantag,
 };
 
 #define _ifh_tmpl_port_serval_family					\
 	0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* BYPASS=1 */	\
 	0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00  /* POP_CNT=3 */
 
-static const u8 hdr_tmpl_port_serval1[IFH_ENCAP_LEN(IFH_LEN_SERVAL1)+4] = {
+static const u8 hdr_tmpl_port_serval1[IFH_ENCAP_LEN(IFH_LEN_SERVAL1)] = {
 	_encap(IFH_ID_SERVAL1),
 	_ifh_tmpl_port_serval_family,
-	_vlantag,
 };
 
-static const u8 hdr_tmpl_port_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)+4] = {
+static const u8 hdr_tmpl_port_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)] = {
 	_encap(IFH_ID_OCELOT),
 	_ifh_tmpl_port_serval_family,
-	_vlantag,
 };
 
 #define _ifh_tmpl_port_jaguar2_family(b1, b2)           \
@@ -119,18 +116,16 @@ static const u8 hdr_tmpl_port_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)+4] = {
 	/* PL_ACT=1 (INJ), PL_PT=16 (ANA_DONE) */	\
         0xc0, 0x00, 0x00
 
-static const u8 hdr_tmpl_port_servalt[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)+4] = {
+static const u8 hdr_tmpl_port_servalt[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)] = {
 	_encap(IFH_ID_JAGUAR2),
 	// DST_MODE=3, SRC_PORT=11 (CPU), DO_NOT_REW=1
 	_ifh_tmpl_port_jaguar2_family(0xc0, 0x5c),
-	_vlantag,
 };
 
-static const u8 hdr_tmpl_port_jaguar2[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)+4] = {
+static const u8 hdr_tmpl_port_jaguar2[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)] = {
 	_encap(IFH_ID_JAGUAR2),
 	// DST_MODE=3, SRC_PORT=53 (CPU), DO_NOT_REW=1
 	_ifh_tmpl_port_jaguar2_family(0xc1, 0xac),
-	_vlantag,
 };
 
 struct net_device *vtss_if_mux_parent_dev_get(void) {
@@ -185,7 +180,7 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb)
 #endif
 
     // Frame layout:
-    if (vtss_if_mux_chip->fcs_included)
+    if (vtss_if_mux_chip->internal_cpu)
 	    // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame, FCS
 	    min_size = 2 + vtss_if_mux_chip->ifh_len + ETH_ZLEN + ETH_FCS_LEN;
     else
@@ -332,11 +327,11 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb)
     // Front: Discard the VTSS headers (IFH + 2-byte IFH_ID)
     skb_pull_inline(skb_new, vtss_if_mux_chip->ifh_len + 2);
 
-#if defined(CONFIG_VTSS_VCOREIII_ARCH)
-    // Back: Discard the FCS, since - on Rx - the VC3FDMA driver includes
-    // the FCS, because it on some platforms contains meta data (sFlow)
-    skb_trim(skb_new, skb_new->len - ETH_FCS_LEN);
-#endif
+    if (vtss_if_mux_chip->internal_cpu) {
+	    // Back: Discard the FCS, since - on Rx - the VC3FDMA driver includes
+	    // the FCS, because it on some platforms contains meta data (sFlow)
+	    skb_trim(skb_new, skb_new->len - ETH_FCS_LEN);
+    }
 
 #if 0
     printk(KERN_INFO "RX %u bytes on vlan %u\n", skb_new->len, vid);
@@ -442,7 +437,7 @@ static int ifmux_probe(struct platform_device *pdev)
 
     /* Save chip properties (global) */
     vtss_if_mux_chip = (struct ifmux_chip*) device_get_match_data(&pdev->dev);
-    vtss_if_mux_chip->fcs_included = !device_property_read_bool(&pdev->dev, "no-fcs");
+    vtss_if_mux_chip->internal_cpu = !device_property_read_bool(&pdev->dev, "external-cpu");
     (void) device_property_read_string(&pdev->dev, "parent-interface", &parent_if_name);
 
     return 0;
@@ -512,9 +507,10 @@ static const struct ifmux_chip luton_chip = {
 	.ifh_len            = IFH_LEN_LUTON,
 	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_LUTON,
 	.cpu_port	    = 0,	/* Unused */
-	.hdr_tmpl	    = hdr_tmpl_luton,
+	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_luton,
 	.hdr_tmpl_port	    = hdr_tmpl_port_luton,
-	.ifh_encap_len	    = sizeof(hdr_tmpl_luton),
+	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_luton),
+	.ifh_encap_port_len = sizeof(hdr_tmpl_port_luton),
 };
 
 static const struct ifmux_chip serval1_chip = {
@@ -523,9 +519,10 @@ static const struct ifmux_chip serval1_chip = {
 	.ifh_len            = IFH_LEN_SERVAL1,
 	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_SERVAL1,
 	.cpu_port	    = 0,	/* Unused */
-	.hdr_tmpl	    = hdr_tmpl_serval1,
+	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_serval1,
 	.hdr_tmpl_port	    = hdr_tmpl_port_serval1,
-	.ifh_encap_len	    = sizeof(hdr_tmpl_serval1),
+	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_serval1),
+	.ifh_encap_port_len = sizeof(hdr_tmpl_port_serval1),
 };
 
 static const struct ifmux_chip ocelot_chip = {
@@ -534,9 +531,10 @@ static const struct ifmux_chip ocelot_chip = {
 	.ifh_len            = IFH_LEN_OCELOT,
 	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_OCELOT,
 	.cpu_port	    = 0,	/* Unused */
-	.hdr_tmpl	    = hdr_tmpl_ocelot,
+	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_ocelot,
 	.hdr_tmpl_port	    = hdr_tmpl_port_ocelot,
-	.ifh_encap_len	    = sizeof(hdr_tmpl_ocelot),
+	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_ocelot),
+	.ifh_encap_port_len = sizeof(hdr_tmpl_port_ocelot),
 };
 
 static const struct ifmux_chip servalt_chip = {
@@ -545,9 +543,10 @@ static const struct ifmux_chip servalt_chip = {
 	.ifh_len            = IFH_LEN_JAGUAR2,
 	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
 	.cpu_port	    = 11, /* CPU port == 11 on ServalT */
-	.hdr_tmpl	    = hdr_tmpl_jaguar2,
+	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_jaguar2,
 	.hdr_tmpl_port	    = hdr_tmpl_port_servalt,
-	.ifh_encap_len	    = sizeof(hdr_tmpl_jaguar2),
+	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_jaguar2),
+	.ifh_encap_port_len = sizeof(hdr_tmpl_port_servalt),
 };
 
 static const struct ifmux_chip jaguar2_chip = {
@@ -556,9 +555,10 @@ static const struct ifmux_chip jaguar2_chip = {
 	.ifh_len            = IFH_LEN_JAGUAR2,
 	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
 	.cpu_port	    = 53, /* CPU port == 53 on JR2 */
-	.hdr_tmpl	    = hdr_tmpl_jaguar2,
+	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_jaguar2,
 	.hdr_tmpl_port	    = hdr_tmpl_port_jaguar2,
-	.ifh_encap_len	    = sizeof(hdr_tmpl_jaguar2),
+	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_jaguar2),
+	.ifh_encap_port_len = sizeof(hdr_tmpl_port_jaguar2),
 };
 
 static const struct of_device_id mscc_ifmux_id_table[] = {

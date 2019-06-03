@@ -24,9 +24,7 @@
 #include <uapi/linux/ipv6.h>
 #include <linux/inetdevice.h>
 #include "vtss_if_mux.h"
-#if defined(CONFIG_PROC_FS)
 #include <linux/proc_fs.h>
-#endif
 
 enum vtss_if_mux_action {
 	VTSS_IF_MUX_ACTION_DROP,
@@ -202,10 +200,8 @@ static struct port_conf *if_mux_port_conf[PORT_CNT];
 static DEFINE_MUTEX(vtss_if_mux_genl_sem);
 static struct list_head VTSS_IF_MUX_FILTER_WHITE_LIST;
 static struct list_head VTSS_IF_MUX_FILTER_BLACK_LIST;
-#if defined(CONFIG_PROC_FS)
 static struct proc_dir_entry *proc_dump = 0;
 static struct proc_dir_entry *proc_dump_port_conf = 0;
-#endif
 static u64 OWNER_BIT_MASK_POOL = 0;
 static struct list_head OWNER_BIT_MASK_ASSOCIATION;
 static u16 vsi2vid[VLAN_N_VID];
@@ -1788,10 +1784,8 @@ int vtss_if_mux_genetlink_init(void)
 	INIT_LIST_HEAD_RCU(&VTSS_IF_MUX_FILTER_BLACK_LIST);
 	INIT_LIST_HEAD(&OWNER_BIT_MASK_ASSOCIATION);
 
-#if defined(CONFIG_PROC_FS)
 	proc_dump = proc_create("vtss_if_mux_filter", S_IRUGO, NULL, &dump_fops);
 	proc_dump_port_conf = proc_create("vtss_if_mux_port_conf", S_IRUGO, NULL, &dump_port_conf);
-#endif
 
 	err = genl_register_family(&vtss_if_mux_genl_family);
 	if (err == -1) {
@@ -1804,12 +1798,10 @@ int vtss_if_mux_genetlink_init(void)
 void vtss_if_mux_genetlink_uninit(void)
 {
         int i;
-#if defined(CONFIG_PROC_FS)
 	if (proc_dump)
 		proc_remove(proc_dump);
         if (proc_dump_port_conf)
             proc_remove(proc_dump_port_conf);
-#endif
 
 	genl_unregister_family(&vtss_if_mux_genl_family);
 

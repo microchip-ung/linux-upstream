@@ -27,56 +27,45 @@
 #include <linux/workqueue.h>
 #include <linux/etherdevice.h>
 #include <net/switchdev.h>
-
-#if defined(CONFIG_PROC_FS)
 #include <linux/proc_fs.h>
-#endif
 
 #include "vtss_if_mux.h"
 
-#if defined(CONFIG_PROC_FS)
 static struct proc_dir_entry *proc_dump_ifh = 0;
-#endif
 
-#if defined(CONFIG_PROC_FS)
 static int debug_dump_ifh_(struct seq_file *s, void *v)
 {
     unsigned int i;
 
     seq_printf(s, "IFH (port): ");
 
-    for (i = 0; i < vtss_if_mux_chip->ifh_encap_len; i++) {
+    for (i = 0; i < vtss_if_mux_chip->ifh_encap_port_len; i++) {
         seq_printf(s, "%02x", vtss_if_mux_chip->hdr_tmpl_port[i]);
     }
 
     seq_printf(s, "\nIFH (vlan): ");
 
     // Exclude VLAN tag placeholder
-    for (i = 0; i < vtss_if_mux_chip->ifh_encap_len - 4; i++) {
-        seq_printf(s, "%02x", vtss_if_mux_chip->hdr_tmpl[i]);
+    for (i = 0; i < vtss_if_mux_chip->ifh_encap_vlan_len - 4; i++) {
+        seq_printf(s, "%02x", vtss_if_mux_chip->hdr_tmpl_vlan[i]);
     }
 
     seq_printf(s, "\nPort-Mask-Offset: %u\n", vtss_if_mux_chip->ifh_offs_port_mask);
 
     return 0;
 }
-#endif
 
-#if defined(CONFIG_PROC_FS)
 static int debug_dump_ifh(struct inode *inode, struct file *f)
 {
 	return single_open(f, debug_dump_ifh_, NULL);
 }
-#endif
 
-#if defined(CONFIG_PROC_FS)
 static const struct file_operations dump_ifh_fops = {
     .open    = debug_dump_ifh,
     .read    = seq_read,
     .llseek  = seq_lseek,
     .release = single_release,
 };
-#endif
 
 static int internal_dev_open(struct net_device *netdev) {
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(netdev);
@@ -100,7 +89,9 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
     unsigned int i, ret, len, vlan_id, offset;
     struct vtss_if_mux_pcpu_stats *stats;
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(netdev);
-    int ifh_encap_len = vtss_if_mux_chip->ifh_encap_len;
+    int ifh_encap_len = (priv->port_if ?
+			 vtss_if_mux_chip->ifh_encap_port_len :
+			 vtss_if_mux_chip->ifh_encap_vlan_len);
 
     if (!vtss_if_mux_parent_dev) {
         tx_ok = 0;
@@ -115,19 +106,19 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
         goto DO_CNT;
     }
 
-#if !defined(CONFIG_VTSS_VCOREIII_ARCH)
-    // Make sure the original frame is at least 60 bytes long (w/o FCS), because
-    // the NIC driver cannot see if we are transmitting an undersize frame,
-    // once we have added the NPI encapsulation header, so it's not able to pad
-    // it itself. When the frame arrives on the switch's NPI-port, the switch
-    // strips the NPI header and IFH, and - bam - possible continues working
-    // with an undersized frame.
-    if (skb->len < ETH_ZLEN) {
-        u32 missing = ETH_ZLEN - skb->len;
-        // Add IFH ethernet encapsulation header
-        memset(skb_put(skb, missing), 0, missing);
+    if (!vtss_if_mux_chip->internal_cpu) {
+	    // Make sure the original frame is at least 60 bytes long (w/o FCS), because
+	    // the NIC driver cannot see if we are transmitting an undersize frame,
+	    // once we have added the NPI encapsulation header, so it's not able to pad
+	    // it itself. When the frame arrives on the switch's NPI-port, the switch
+	    // strips the NPI header and IFH, and - bam - possible continues working
+	    // with an undersized frame.
+	    if (skb->len < ETH_ZLEN) {
+		    u32 missing = ETH_ZLEN - skb->len;
+		    // Add IFH ethernet encapsulation header
+		    memset(skb_put(skb, missing), 0, missing);
+	    }
     }
-#endif
 
 #if 0
     printk(KERN_INFO "TX %u bytes on %s %u\n", skb->len, priv->port_if ? "port" : "vlan", priv->port_if ? priv->port : priv->vlan_id);
@@ -152,7 +143,7 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
         hdr = skb_push(skb, ifh_encap_len);
 
         // Write the template header
-        memcpy(hdr, vtss_if_mux_chip->hdr_tmpl, ifh_encap_len);
+        memcpy(hdr, vtss_if_mux_chip->hdr_tmpl_vlan, ifh_encap_len);
 
         // move the da/sa to make room for vlan tag (dummy tag is last in temoplate)
         for (i = 0; i < 12; ++i) {
@@ -301,9 +292,7 @@ static void rt_notify_task(struct work_struct *work) {
 static DECLARE_WORK(rt_notify_work, rt_notify_task);
 
 int vtss_if_mux_dev_init(void) {
-#if defined(CONFIG_PROC_FS)
     proc_dump_ifh = proc_create("vtss_if_mux_ifh", S_IRUGO, NULL, &dump_ifh_fops);
-#endif
 
     return 0;
 }
@@ -312,10 +301,8 @@ void vtss_if_mux_dev_uninit(void)
 {
     cancel_work_sync(&rt_notify_work);
 
-#if defined(CONFIG_PROC_FS)
     if (proc_dump_ifh)
         proc_remove(proc_dump_ifh);
-#endif
 }
 
 static void internal_dev_set_rx_mode(struct net_device *dev) {
@@ -384,7 +371,7 @@ void vtss_if_mux_setup(struct net_device *netdev) {
     }
 
     // We add injection header plus 4 byte VLAN tag
-    netdev->needed_headroom = vtss_if_mux_chip->ifh_encap_len + parent_headroom;
+    netdev->needed_headroom = vtss_if_mux_chip->ifh_encap_vlan_len + parent_headroom;
 
     netdev->priv_destructor = internal_dev_destructor;
     netdev->priv_flags |= IFF_UNICAST_FLT;

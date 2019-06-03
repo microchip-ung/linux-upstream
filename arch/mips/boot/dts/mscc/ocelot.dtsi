@@ -44,6 +44,14 @@
 		clock-mult = <1>;
 	};
 
+	uio0: vcoreiii_switch@70000000 {
+		compatible = "generic-uio";
+		interrupt-parent = <&cpuintc>;
+		reg = <0x70000000 0x02000000>;
+		reg-names = "origin1_2";
+		interrupts = <3>;
+	};
+
 	ahb@70000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -253,6 +261,18 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&miim1>;
 			status = "disabled";
+		};
+
+		fdma: fdma@0 {
+			compatible = "mscc,ocelot-fdma";
+			status = "okay";
+			reg = <0x70000000 0x00200000>, <0x71000000 0x01000000>;
+			interrupts = <16>;
+		};
+
+		ifmux: ifmux@0 {
+			compatible = "mscc,ocelot-ifmux";
+			status = "okay";
 		};
 	};
 };
