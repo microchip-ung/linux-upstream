@@ -81,12 +81,6 @@
 	};
 
 	clocks: clocks {
-		veloce_clk: veloce-clk {
-			/* This clock is just to get the UART divisor right */
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <3686400>;
-		};
 		ahb_clk: ahb-clk {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
@@ -123,8 +117,7 @@
 			pinctrl-names = "default";
 			compatible = "ns16550a";
 			reg = <6 0x00100000 0x20>;
-			//clocks = <&ahb_clk>;
-			clocks = <&veloce_clk>;
+			clocks = <&ahb_clk>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
 			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
@@ -137,8 +130,7 @@
 			pinctrl-names = "default";
 			compatible = "ns16550a";
 			reg = <6 0x00102000 0x20>;
-			//clocks = <&ahb_clk>;
-			clocks = <&veloce_clk>;
+			clocks = <&ahb_clk>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
 			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
@@ -155,7 +147,6 @@
 			bus-num = <0>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
-			spi-max-frequency = <18000000>; /* input clock */
 			clocks = <&ahb_clk>;
 			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 
@@ -171,6 +162,21 @@
                         interrupt-controller;
 			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
 			#interrupt-cells = <2>;
+
+			cs1_pins: cs1-pins {
+				pins = "GPIO_16";
+				function = "si";
+			};
+
+			cs2_pins: cs2-pins {
+				pins = "GPIO_17";
+				function = "si";
+			};
+
+			cs3_pins: cs3-pins {
+				pins = "GPIO_18";
+				function = "si";
+			};
 
 			sgpio0_pins: sgpio-pins {
 				pins = "GPIO_0", "GPIO_1", "GPIO_2", "GPIO_3";
