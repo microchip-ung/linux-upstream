@@ -19,9 +19,26 @@
 &spi0 {
 	status = "okay";
 	spi-flash@0 {
-		compatible = "micron,n25q128a13", "jedec,spi-nor", "spi-flash";
-		spi-max-frequency = <18000000>; /* input clock */
+		compatible = "mx66l1g45g", "jedec,spi-nor", "spi-flash";
+		spi-max-frequency = <8000000>; /* input clock */
 		reg = <0>; /* CS0 */
+	};
+        spi-flash@1 {
+		compatible = "spinand,mt29f";
+		pinctrl-0 = <&cs1_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <12000000>;
+		reg = <1>; /* CS1 */
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			/* 128MiB */
+			partition@0 {
+				label = "rootfs_data";
+				reg = <0x0000000 0x8000000>;
+			};
+		};
 	};
 };
 
