@@ -13,9 +13,9 @@
                 0x194 0x33      /* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
                 0x198 0x13      /* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
                 0x19c 0x13      /* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
-                /* AM33XX_IOPAD(0x844, PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpmc_a1.gpio1_17 */
-                /* AM33XX_IOPAD(0x9ac, PIN_OUTPUT_PULLUP | MUX_MODE7) /* mcasp0_ahclkx.gpio3_21 */
-                /* AM33XX_IOPAD(0x9a4, PIN_OUTPUT_PULLUP | MUX_MODE7) /* mcasp0_fsr.gpio3_19 */
+                AM33XX_IOPAD(0x844, PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpmc_a1.gpio1_17 */
+                AM33XX_IOPAD(0x9ac, PIN_OUTPUT_PULLUP | MUX_MODE7) /* mcasp0_ahclkx.gpio3_21 */
+                AM33XX_IOPAD(0x9a4, PIN_OUTPUT_PULLUP | MUX_MODE7) /* mcasp0_fsr.gpio3_19 */
 		>;
 	};
 };
@@ -28,39 +28,60 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&bb_spi1_pins>;
 
-        /* cs-gpios = <&gpio1 17 0>, <&gpio3 21 0>, <&gpio3 19 0>; */
+	cs-gpios = <0>, <&gpio1 17 0>, <&gpio3 21 0>, <&gpio3 19 0>;
 
 	channel@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		compatible = "spidev";
-
 		reg = <0>;
-		spi-max-frequency = <16000000>;
-		spi-cpha;
+		spi-max-frequency = <4000000>;
 	};
 
 	channel@1 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		compatible = "spidev";
-
+		compatible = "spidev", "jedec,spi-nor";
 		reg = <1>;
-		spi-max-frequency = <16000000>;
-		spi-cpha;
+		spi-max-frequency = <4000000>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			u-boot@0 {
+				label = "UBoot";
+				reg = <0x0 0x00100000>;
+			};
+
+			kernel@100000 {
+				label = "Linux";
+				reg = <0x00100000 0x00200000>;
+			};
+
+			rootfs@300000 {
+				label = "rootfs";
+				reg = <0x00300000 0x00600000>;
+			};
+
+			env@900000 {
+				label = "Env";
+				reg = <0x00900000 0x00010000>;
+			};
+
+			envbk@910000 {
+				label = "Env.bk";
+				reg = <0x00910000 0x00010000>;
+			};
+		};
 	};
 
 	channel@2 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		compatible = "spidev";
-
 		reg = <2>;
-		spi-max-frequency = <16000000>;
-		spi-cpha;
+		spi-max-frequency = <4000000>;
 	};
 
+	channel@3 {
+		compatible = "spidev";
+		reg = <3>;
+		spi-max-frequency = <4000000>;
+	};
 };
