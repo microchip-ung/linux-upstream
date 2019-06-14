@@ -75,6 +75,11 @@
 			#clock-cells = <0>;
 			clock-frequency = <625000000>;
 		};
+		aux1_clk: aux1-clk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <667000000>;
+		};
 	};
 
 	axi {
@@ -174,6 +179,18 @@
 			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		sdhci0: sdhci@800000 {
+			compatible = "snps,dwcmshc-sdhci";
+			status = "disabled";
+			reg = <0x800000 0x1000>;
+			pinctrl-0 = <&emmc_pins>;
+			pinctrl-names = "default";
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&ahb_clk>, <&aux1_clk>;
+			clock-names = "bus", "core";
+			bus-width = <8>;
+		};
+
 		reset@11010008 {
 			compatible = "mscc,fireant-chip-reset";
 			reg = <0x11010008 0x4>;
@@ -242,6 +259,15 @@
 			i2c2_pins: i2c2-pins {
 				pins = "GPIO_28", "GPIO_29";
 				function = "twi2";
+			};
+
+			emmc_pins: emmc-pins {
+				pins = "GPIO_34", "GPIO_35", "GPIO_36",
+					"GPIO_37", "GPIO_38", "GPIO_39",
+					"GPIO_40", "GPIO_41", "GPIO_42",
+					"GPIO_43", "GPIO_44", "GPIO_45",
+					"GPIO_46", "GPIO_47";
+				function = "emmc";
 			};
 		};
 
