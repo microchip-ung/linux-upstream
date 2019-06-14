@@ -117,7 +117,7 @@
 			compatible = "mscc,ocelot-spi", "snps,dw-apb-ssi";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x70101000 0x100>, <0x70000050 0x4>, <0x40000000 0x4000000>;
+			reg = <0x70101000 0x100>, <0x7000003c 0x18>, <0x40000000 0x4000000>;
 			clocks = <&ahb_clk>;
 
 			status = "disabled";
