@@ -147,7 +147,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "mscc,fireant-spi", "snps,dw-apb-ssi";
--			reg = <6 0x00104000 0x40>, <6 0x000000d4 0x18>;
+			reg = <6 0x00104000 0x40>, <6 0x000000d4 0x18>;
 			num-chipselect = <4>;
 			bus-num = <0>;
 			reg-io-width = <4>;
