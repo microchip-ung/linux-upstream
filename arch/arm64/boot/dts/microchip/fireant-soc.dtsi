@@ -10,7 +10,7 @@
 	compatible = "mscc,fireant";
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
-	#size-cells = <1>;
+	#size-cells = <2>;
 
 	aliases {
 		spi0 = &spi0;
@@ -56,22 +56,6 @@
 		};
 	};
 
-	memory@0 {
-		device_type = "memory";
-		reg = <0x00000000 0x00000000 0x10000000>;
-	};
-
-	gic: interrupt-controller@600300000 {
-		compatible = "arm,gic-v3";
-		#interrupt-cells = <3>;
-		#address-cells = <2>;
-		#size-cells = <2>;
-		interrupt-controller;
-		reg = <6 0x00300000 0x20000>,	/* GICD */
-		      <6 0x00340000 0x1000000>;	/* GICR */
-		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
@@ -93,35 +77,33 @@
 		};
 	};
 
-	timer1: timer@600105000 {
-		compatible = "snps,dw-apb-timer";
-		reg = <6 0x00105000 0x1000>;
-		clocks = <&ahb_clk>;
-		clock-names = "timer";
-		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	ahb {
+	axi {
 		compatible = "simple-bus";
-		#address-cells = <2>;
+		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges;
+		ranges = <0 0x6 0x00000000 0x20000000>;
 
-		cpu_ctrl: syscon@600000000 {
+		gic: interrupt-controller@300000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			interrupt-controller;
+			reg = <0x00300000 0x20000>,	/* GICD */
+			      <0x00340000 0x1000000>;	/* GICR */
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		cpu_ctrl: syscon@0 {
 			compatible = "mscc,fireant-cpu-syscon", "syscon";
-			reg = <6 0x00000000 0xd0>;
+			reg = <0x0 0xd0>;
 		};
 
-                reset@611010008 {
-			compatible = "mscc,fireant-chip-reset";
-			reg = <0x6 0x11010008 0x4>;
-		};
-
-		uart0: serial@600100000 {
+		uart0: serial@100000 {
 			pinctrl-0 = <&uart_pins>;
 			pinctrl-names = "default";
 			compatible = "ns16550a";
-			reg = <6 0x00100000 0x20>;
+			reg = <0x00100000 0x20>;
 			clocks = <&ahb_clk>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
@@ -130,11 +112,11 @@
 			status = "disabled";
 		};
 
-		uart1: serial@600102000 {
+		uart1: serial@0102000 {
 			pinctrl-0 = <&uart2_pins>;
 			pinctrl-names = "default";
 			compatible = "ns16550a";
-			reg = <6 0x00102000 0x20>;
+			reg = <0x00102000 0x20>;
 			clocks = <&ahb_clk>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
@@ -143,11 +125,37 @@
 			status = "disabled";
 		};
 
-		spi0: spi-master@600104000 {
+		i2c0: i2c@101000 {
+			compatible = "snps,designware-i2c";
+			pinctrl-0 = <&i2c_pins>;
+			pinctrl-names = "default";
+			reg = <0x00101000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
+			i2c-sda-hold-time-ns = <300>;
+			clock-frequency = <100000>;
+			clocks = <&ahb_clk>;
+		};
+
+		i2c1: i2c@103000 {
+			compatible = "snps,designware-i2c";
+			pinctrl-0 = <&i2c2_pins>;
+			pinctrl-names = "default";
+			reg = <0x00103000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
+			i2c-sda-hold-time-ns = <300>;
+			clock-frequency = <100000>;
+			clocks = <&ahb_clk>;
+		};
+
+		spi0: spi-master@0104000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "mscc,fireant-spi", "snps,dw-apb-ssi";
-			reg = <6 0x00104000 0x40>, <6 0x000000d4 0x18>;
+			reg = <0x00104000 0x40>, <0x000000d4 0x18>;
 			num-chipselect = <4>;
 			bus-num = <0>;
 			reg-io-width = <4>;
@@ -158,9 +166,22 @@
 			status = "disabled";
 		};
 
-		gpio: pinctrl@6110101e0 {
+		timer1: timer@105000 {
+			compatible = "snps,dw-apb-timer";
+			reg = <0x00105000 0x1000>;
+			clocks = <&ahb_clk>;
+			clock-names = "timer";
+			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		reset@11010008 {
+			compatible = "mscc,fireant-chip-reset";
+			reg = <0x11010008 0x4>;
+		};
+
+		gpio: pinctrl@110101e0 {
 			compatible = "mscc,fireant-pinctrl";
-			reg = <6 0x110101e0 0x90>;
+			reg = <0x110101e0 0x90>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 0 64>;
@@ -224,66 +245,40 @@
 			};
 		};
 
-		sgpio0: gpio@61101036c {
+		sgpio0: gpio@1101036c {
 			compatible = "mscc,ocelot-sgpio";
 			status = "disabled";
 			clocks = <&sys_clk>;
 			pinctrl-0 = <&sgpio0_pins>;
 			pinctrl-names = "default";
-			reg = <0x6 0x1101036c 0x100>;
+			reg = <0x1101036c 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 64 64>;
 		};
 
-		sgpio1: gpio@611010484 {
+		sgpio1: gpio@11010484 {
 			compatible = "mscc,ocelot-sgpio";
 			status = "disabled";
 			clocks = <&sys_clk>;
 			pinctrl-0 = <&sgpio1_pins>;
 			pinctrl-names = "default";
-			reg = <0x6 0x11010484 0x100>;
+			reg = <0x11010484 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 128 64>;
 		};
 
-		sgpio2: gpio@61101059c {
+		sgpio2: gpio@1101059c {
 			compatible = "mscc,ocelot-sgpio";
 			status = "disabled";
 			clocks = <&sys_clk>;
 			pinctrl-0 = <&sgpio2_pins>;
 			pinctrl-names = "default";
-			reg = <0x6 0x1101059c 0x100>;
+			reg = <0x1101059c 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 192 64>;
-		};
-
-		i2c0: i2c@600101000 {
-			compatible = "snps,designware-i2c";
-			pinctrl-0 = <&i2c_pins>;
-			pinctrl-names = "default";
-			reg = <6 0x00101000 0x100>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
-			i2c-sda-hold-time-ns = <300>;
-			clock-frequency = <100000>;
-			clocks = <&ahb_clk>;
-		};
-
-		i2c1: i2c@600103000 {
-			compatible = "snps,designware-i2c";
-			pinctrl-0 = <&i2c2_pins>;
-			pinctrl-names = "default";
-			reg = <6 0x00103000 0x100>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
-			i2c-sda-hold-time-ns = <300>;
-			clock-frequency = <100000>;
-			clocks = <&ahb_clk>;
 		};
 	};
 };

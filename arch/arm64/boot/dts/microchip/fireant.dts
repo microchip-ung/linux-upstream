@@ -10,6 +10,10 @@
 	model = "FireAnt PCB125 Reference Board";
 	compatible = "mscc,fireant-pcb125", "mscc,fireant";
 
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x00000000 0x0 0x10000000>;
+	};
 };
 
 &uart0 {
