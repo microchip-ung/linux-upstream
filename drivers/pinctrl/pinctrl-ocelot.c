@@ -788,7 +788,7 @@ static int ocelot_pin_function_idx(struct ocelot_pinctrl *info,
 	return -1;
 }
 
-#define REG(r, info, p) (r * info->stride + (4 * (p / 32)))
+#define REG_ALT(msb, info, p) (OCELOT_GPIO_ALT0 * info->stride + 4 * (msb + (info->stride * (p / 32))))
 
 static int ocelot_pinmux_set_mux(struct pinctrl_dev *pctldev,
 				 unsigned int selector, unsigned int group)
@@ -804,18 +804,20 @@ static int ocelot_pinmux_set_mux(struct pinctrl_dev *pctldev,
 
 	/*
 	 * f is encoded on two bits.
-	 * bit 0 of f goes in BIT(pin) of ALT0, bit 1 of f goes in BIT(pin) of
-	 * ALT1
+	 * bit 0 of f goes in BIT(pin) of ALT[0], bit 1 of f goes in BIT(pin) of
+	 * ALT[1]
 	 * This is racy because both registers can't be updated at the same time
 	 * but it doesn't matter much for now.
 	 */
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_ALT0, info, pin->pin),
+	regmap_update_bits(info->map, REG_ALT(0, info, pin->pin),
 			   BIT(p), f << p);
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_ALT1, info, pin->pin),
+	regmap_update_bits(info->map, REG_ALT(1, info, pin->pin),
 			   BIT(p), f << (p - 1));
 
 	return 0;
 }
+
+#define REG(r, info, p) (r * info->stride + (4 * (p / 32)))
 
 static int ocelot_gpio_set_direction(struct pinctrl_dev *pctldev,
 				     struct pinctrl_gpio_range *range,
@@ -824,7 +826,7 @@ static int ocelot_gpio_set_direction(struct pinctrl_dev *pctldev,
 	struct ocelot_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
 	unsigned int p = pin % 32;
 
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_OE, info, p), BIT(p),
+	regmap_update_bits(info->map, REG(OCELOT_GPIO_OE, info, pin), BIT(p),
 			   input ? 0 : BIT(p));
 
 	return 0;
@@ -837,9 +839,9 @@ static int ocelot_gpio_request_enable(struct pinctrl_dev *pctldev,
 	struct ocelot_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
 	unsigned int p = offset % 32;
 
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_ALT0, info, offset),
+	regmap_update_bits(info->map, REG_ALT(0, info, offset),
 			   BIT(p), 0);
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_ALT1, info, offset),
+	regmap_update_bits(info->map, REG_ALT(1, info, offset),
 			   BIT(p), 0);
 
 	return 0;
@@ -1221,6 +1223,7 @@ static int ocelot_pinctrl_probe(struct platform_device *pdev)
 	}
 
 	info->stride = 1 + (info->desc->npins - 1) / 32;
+
 	regmap_config.max_register = OCELOT_GPIO_SD_MAP * info->stride + 15 * 4;
 
 	info->map = devm_regmap_init_mmio(dev, base, &regmap_config);
