@@ -54,3 +54,9 @@
 &i2c1 {
 	status = "okay";
 };
+
+&sdhci0 {
+	status = "okay";
+	bus-width = <8>;
+	non-removable;
+};

@@ -91,6 +91,11 @@
 			#clock-cells = <0>;
 			clock-frequency = <625000000>;
 		};
+		aux1_clk: aux1-clk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <667000000>;
+		};
 	};
 
 	timer1: timer@600105000 {
@@ -235,6 +240,15 @@
 			i2c2_pins: i2c2-pins {
 				pins = "GPIO_28", "GPIO_29";
 				function = "twi2";
+			};
+
+			emmc_pins: emmc-pins {
+				pins = "GPIO_34", "GPIO_35", "GPIO_36",
+					"GPIO_37", "GPIO_38", "GPIO_39",
+					"GPIO_40", "GPIO_41", "GPIO_42",
+					"GPIO_43", "GPIO_44", "GPIO_45",
+					"GPIO_46", "GPIO_47";
+				function = "emmc";
 			};
 		};
 
