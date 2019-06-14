@@ -813,6 +813,7 @@ static int ocelot_pinmux_set_mux(struct pinctrl_dev *pctldev,
 {
 	struct ocelot_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
 	struct ocelot_pin_caps *pin = info->desc->pins[group].drv_data;
+	unsigned int p = pin->pin % 32;
 	int f;
 
 	f = ocelot_pin_function_idx(info, group, selector);
@@ -855,6 +856,7 @@ static int ocelot_gpio_request_enable(struct pinctrl_dev *pctldev,
 				      unsigned int offset)
 {
 	struct ocelot_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
+	unsigned int p = offset % 32;
 
 	regmap_update_bits(info->map, REG_ALT(0, info, offset),
 			   BIT(p), 0);
@@ -1450,6 +1452,7 @@ static int ocelot_pinctrl_probe(struct platform_device *pdev)
 	}
 
 	info->stride = 1 + (info->desc->npins - 1) / 32;
+
 	regmap_config.max_register = OCELOT_GPIO_SD_MAP * info->stride + 15 * 4;
 
 	info->map = devm_regmap_init_mmio(dev, base, &regmap_config);
