@@ -43,8 +43,6 @@ struct dw_spi_mmio {
 #define MSCC_IF_SI_OWNER_SIBM			1
 #define MSCC_IF_SI_OWNER_SIMC			2
 
-#define MSCC_SPI_MST_SW_MODE			0x14
-
 struct dw_spi_mscc_props {
 	const char *syscon_name;
 	u32 general_ctrl_off;
@@ -79,7 +77,7 @@ static const struct dw_spi_mscc_props dw_spi_mscc_props_fireant = {
 
 struct dw_spi_mscc {
 	struct regmap       		*syscon;
-	void __iomem        		*spi_mst;
+	void __iomem        		*sw_mode;
 	const struct dw_spi_mscc_props	*props;
 };
 
@@ -111,7 +109,7 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 			sw_mode = BIT(props->pinctrl_bit_off) | (BIT(cs) << props->cs_bit_off);
 		else
 			sw_mode = 0;
-		writel(sw_mode, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
+		writel(sw_mode, dwsmscc->sw_mode);
 	}
 
 	dw_spi_set_cs(spi, enable);
@@ -171,10 +169,10 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	dwsmscc->spi_mst = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(dwsmscc->spi_mst)) {
-		dev_err(&pdev->dev, "SPI_MST region map failed\n");
-		return PTR_ERR(dwsmscc->spi_mst);
+	dwsmscc->sw_mode = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(dwsmscc->sw_mode)) {
+		dev_err(&pdev->dev, "SW_MODE region map failed\n");
+		return PTR_ERR(dwsmscc->sw_mode);
 	}
 
 	/* See if we have a direct read window */
@@ -194,7 +192,7 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 	dwsmscc->props = props;
 
 	/* Deassert all CS */
-	writel(0, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
+	writel(0, dwsmscc->sw_mode);
 
 	dwsmmio->dws.set_cs = dw_spi_mscc_set_cs;
 	dwsmmio->priv = dwsmscc;
