@@ -15,14 +15,18 @@
 #include <linux/reboot.h>
 #include <linux/regmap.h>
 
+struct reset_mscc_props {
+	const char *syscon_name;
+	u32 protect_reg_off;
+	u32 vcore_protect;
+};
+
 struct ocelot_reset_context {
 	void __iomem *base;
 	struct regmap *cpu_ctrl;
+	const struct reset_mscc_props *props;
 	struct notifier_block restart_handler;
 };
-
-#define ICPU_CFG_CPU_SYSTEM_CTRL_RESET 0x20
-#define CORE_RST_PROTECT BIT(2)
 
 #define SOFT_CHIP_RST BIT(0)
 
@@ -34,8 +38,10 @@ static int ocelot_restart_handle(struct notifier_block *this,
 							restart_handler);
 
 	/* Make sure the core is not protected from reset */
-	regmap_update_bits(ctx->cpu_ctrl, ICPU_CFG_CPU_SYSTEM_CTRL_RESET,
-			   CORE_RST_PROTECT, 0);
+	regmap_update_bits(ctx->cpu_ctrl, ctx->props->protect_reg_off,
+			   ctx->props->vcore_protect, 0);
+
+	pr_emerg("Resetting SoC\n");
 
 	writel(SOFT_CHIP_RST, ctx->base);
 
@@ -61,9 +67,10 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 		return PTR_ERR(ctx->base);
 	}
 
-	ctx->cpu_ctrl = syscon_regmap_lookup_by_compatible("mscc,ocelot-cpu-syscon");
+	ctx->props = device_get_match_data(dev);
+	ctx->cpu_ctrl = syscon_regmap_lookup_by_compatible(ctx->props->syscon_name);
 	if (IS_ERR(ctx->cpu_ctrl)) {
-		dev_err(dev, "No syscon regmap!\n");
+		dev_err(dev, "No syscon regmap named '%s'!\n", ctx->props->syscon_name);
 		return PTR_ERR(ctx->cpu_ctrl);
 	}
 
@@ -76,8 +83,21 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 	return err;
 }
 
+static const struct reset_mscc_props reset_mscc_props_ocelot = {
+	.syscon_name = "mscc,ocelot-cpu-syscon",
+	.protect_reg_off = 0x20,
+	.vcore_protect   = BIT(2),
+};
+
+static const struct reset_mscc_props reset_mscc_props_fireant = {
+	.syscon_name = "mscc,fireant-cpu-syscon",
+	.protect_reg_off = 0x84,
+	.vcore_protect   = BIT(10),
+};
+
 static const struct of_device_id ocelot_reset_of_match[] = {
-	{ .compatible = "mscc,ocelot-chip-reset" },
+	{ .compatible = "mscc,ocelot-chip-reset", .data = &reset_mscc_props_ocelot },
+	{ .compatible = "mscc,fireant-chip-reset", .data = &reset_mscc_props_fireant },
 	{}
 };
 

@@ -109,7 +109,12 @@
 
 		cpu_ctrl: syscon@600000000 {
 			compatible = "mscc,fireant-cpu-syscon", "syscon";
-			reg = <6 0x00000000 0x100>;
+			reg = <6 0x00000000 0xd0>;
+		};
+
+                reset@611010008 {
+			compatible = "mscc,fireant-chip-reset";
+			reg = <0x6 0x11010008 0x4>;
 		};
 
 		uart0: serial@600100000 {
@@ -142,7 +147,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "mscc,fireant-spi", "snps,dw-apb-ssi";
-			reg = <6 0x00104000 0x40>, <6 0x000000d4 0x18>;
+-			reg = <6 0x00104000 0x40>, <6 0x000000d4 0x18>;
 			num-chipselect = <4>;
 			bus-num = <0>;
 			reg-io-width = <4>;
