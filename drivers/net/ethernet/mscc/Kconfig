@@ -27,4 +27,18 @@ config MSCC_OCELOT_SWITCH_OCELOT
 	  This driver supports the Ocelot network switch device as present on
 	  the Ocelot SoCs.
 
+config MSCC_FIREANT_SWITCH
+	tristate "FireAnt switch driver"
+	depends on HAS_IOMEM
+	select PHYLIB
+	select REGMAP_MMIO
+	select OF
+	select OF_EARLY_FLATTREE
+	select CMA
+	select DMA_CMA
+	select OF_RESERVED_MEM
+	select MSCC_FIREANT_FDMA
+	help
+	  This driver supports the FireAnt network switch device.
+
 endif # NET_VENDOR_MICROSEMI
