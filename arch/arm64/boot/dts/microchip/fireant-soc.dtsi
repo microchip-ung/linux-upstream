@@ -319,6 +319,36 @@
 			reg-names = "origin1_2";
 			/* IRQ TBD: Now = PTP_SYNC */
 			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		dma: dma-controller@600000000 {
+			compatible = "mscc,vsc7558-fdma";
+			reg = <6 0x10000000 0x10000000>, /* CSR */
+			      <6 0x00000000 0x10000000>; /* VCore */
+			#dma-cells = <1>;
+			dma-channels = <8>;
+			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		ifh0: ifh_switch_port@0 {
+			compatible = "mscc,vsc7558-fdma-ifh";
+			dmas = <&dma 0>, <&dma 6>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+		};
+
+		ifh1: ifh_switch_port@1 {
+			compatible = "mscc,vsc7558-fdma-ifh";
+			dmas = <&dma 1>, <&dma 7>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+		};
+
+		ifmux: vcoreiii_switch_ifmux@600000000 {
+			compatible = "mscc,fireant-ifmux";
+			status = "disabled";
 		};
 
 	};

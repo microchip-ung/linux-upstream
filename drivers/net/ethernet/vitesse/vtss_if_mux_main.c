@@ -48,85 +48,108 @@ int vtss_if_mux_vlan_up[VLAN_N_VID];
 #define IFH_ENCAP_LEN(x) (12+4+x)    
 
 // Ethernet encapslation
-#define _encap(_x_)					\
-	0xff, 0xff, 0xff, 0xff, 0xff, 0xff,		\
-	0xfe, 0xff, 0xff, 0xff, 0xff, 0xff,		\
-	0x88, 0x80, 0x00, _x_
+#define _encap(_x_)                                        \
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff,                \
+        0xfe, 0xff, 0xff, 0xff, 0xff, 0xff,                \
+        0x88, 0x80, 0x00, _x_
 
 // Vlan tag placeholder
-#define _vlantag				\
+#define _vlantag                                \
     0x00, 0x00, 0x00, 0x00
 
 static const u8 hdr_tmpl_vlan_luton[IFH_ENCAP_LEN(IFH_LEN_LUTON)+4] = {
-	_encap(IFH_ID_LUTON),
-	0x00, 0x00, 0x28, 0x0f, 0x00, 0x40, 0x00, 0x01,
-	_vlantag,
+        _encap(IFH_ID_LUTON),
+        0x00, 0x00, 0x28, 0x0f, 0x00, 0x40, 0x00, 0x01,
+        _vlantag,
 };
 
-#define _ifh_tmpl_serval_family				\
-	0x00, 0x2e, 0xe5, 0x41, 0x16, 0x58, 0x02, 0x00, \
-	0x00, 0x00, 0x28, 0x0f, 0x00, 0x40, 0x00, 0x01
+#define _ifh_tmpl_serval_family                                \
+        0x00, 0x2e, 0xe5, 0x41, 0x16, 0x58, 0x02, 0x00, \
+        0x00, 0x00, 0x28, 0x0f, 0x00, 0x40, 0x00, 0x01
 
 static const u8 hdr_tmpl_vlan_serval1[IFH_ENCAP_LEN(IFH_LEN_SERVAL1)+4] = {
-	_encap(IFH_ID_SERVAL1),
-	_ifh_tmpl_serval_family,
-	_vlantag,
+        _encap(IFH_ID_SERVAL1),
+        _ifh_tmpl_serval_family,
+        _vlantag,
 };
 
 static const u8 hdr_tmpl_vlan_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)+4] = {
-	_encap(IFH_ID_OCELOT),
-	_ifh_tmpl_serval_family,
-	_vlantag,
+        _encap(IFH_ID_OCELOT),
+        _ifh_tmpl_serval_family,
+        _vlantag,
 };
 
 static const u8 hdr_tmpl_vlan_jaguar2[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)+4] = {
-	_encap(IFH_ID_JAGUAR2),
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x80,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x01,
-	0xa9, 0x00, 0x00, 0x00,
-	_vlantag,
+        _encap(IFH_ID_JAGUAR2),
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x80,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x01,
+        0xa9, 0x00, 0x00, 0x00,
+        _vlantag,
+};
+
+static const u8 hdr_tmpl_vlan_fireant[IFH_ENCAP_LEN(IFH_LEN_FIREANT)+4] = {
+        _encap(IFH_ID_FIREANT),
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        /* v-rsv1 = 1 */
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        /* f-update-fcs 1 f-src-port 66 m-pipeline-act 2 */ 
+        0x00, 0x00, 0x00, 0x08, 0x00, 0x10, 0x88, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        _vlantag,
 };
 
 static const u8 hdr_tmpl_port_luton[IFH_ENCAP_LEN(IFH_LEN_LUTON)] = {
-	_encap(IFH_ID_LUTON),
-	0x80, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, /* BYPASS=1, POP_CNT=3 */
+        _encap(IFH_ID_LUTON),
+        0x80, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, /* BYPASS=1, POP_CNT=3 */
 };
 
-#define _ifh_tmpl_port_serval_family					\
-	0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* BYPASS=1 */	\
-	0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00  /* POP_CNT=3 */
+#define _ifh_tmpl_port_serval_family                                        \
+        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* BYPASS=1 */        \
+        0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00  /* POP_CNT=3 */
 
 static const u8 hdr_tmpl_port_serval1[IFH_ENCAP_LEN(IFH_LEN_SERVAL1)] = {
-	_encap(IFH_ID_SERVAL1),
-	_ifh_tmpl_port_serval_family,
+        _encap(IFH_ID_SERVAL1),
+        _ifh_tmpl_port_serval_family,
 };
 
 static const u8 hdr_tmpl_port_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)] = {
-	_encap(IFH_ID_OCELOT),
-	_ifh_tmpl_port_serval_family,
+        _encap(IFH_ID_OCELOT),
+        _ifh_tmpl_port_serval_family,
 };
 
 #define _ifh_tmpl_port_jaguar2_family(b1, b2)           \
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-	/* VS.MUST_BE_1=1, VS.INGR_DROP_MODE=1 */	\
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+        /* VS.MUST_BE_1=1, VS.INGR_DROP_MODE=1 */        \
         0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x80, \
-	/* UPDATE_FCS=1 */			        \
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,       \
-	b1, b1,						\
-	/* PL_ACT=1 (INJ), PL_PT=16 (ANA_DONE) */	\
+        /* UPDATE_FCS=1 */                                \
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,       \
+        b1, b1,                                                \
+        /* PL_ACT=1 (INJ), PL_PT=16 (ANA_DONE) */        \
         0xc0, 0x00, 0x00
 
 static const u8 hdr_tmpl_port_servalt[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)] = {
-	_encap(IFH_ID_JAGUAR2),
-	// DST_MODE=3, SRC_PORT=11 (CPU), DO_NOT_REW=1
-	_ifh_tmpl_port_jaguar2_family(0xc0, 0x5c),
+        _encap(IFH_ID_JAGUAR2),
+        // DST_MODE=3, SRC_PORT=11 (CPU), DO_NOT_REW=1
+        _ifh_tmpl_port_jaguar2_family(0xc0, 0x5c),
 };
 
 static const u8 hdr_tmpl_port_jaguar2[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)] = {
-	_encap(IFH_ID_JAGUAR2),
-	// DST_MODE=3, SRC_PORT=53 (CPU), DO_NOT_REW=1
-	_ifh_tmpl_port_jaguar2_family(0xc1, 0xac),
+        _encap(IFH_ID_JAGUAR2),
+        // DST_MODE=3, SRC_PORT=53 (CPU), DO_NOT_REW=1
+        _ifh_tmpl_port_jaguar2_family(0xc1, 0xac),
+};
+
+static const u8 hdr_tmpl_port_fireant[IFH_ENCAP_LEN(IFH_LEN_FIREANT)] = {
+        _encap(IFH_ID_FIREANT),
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        /* v-rsv1 1 vq-ingr-drop-mode 1 */
+        0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        /* f-update-fcs 1 f-src-port 66 f-do-not-rew m-pipeline-act 1 m-pipeline-pt 17 */
+        0x00, 0x00, 0x00, 0x08, 0x00, 0x10, 0xa6, 0x20,
+        0x00, 0x00, 0x00, 0x00
 };
 
 struct net_device *vtss_if_mux_parent_dev_get(void) {
@@ -143,7 +166,7 @@ struct net_device *vtss_if_mux_parent_dev_get(void) {
     err = netdev_rx_handler_register(vtss_if_mux_parent_dev,
                                      vtss_if_mux_rx_handler, 0);
     if (err) {
-        printk(KERN_INFO "failed to registerer handler\n");
+        pr_info("failed to register handler\n");
         goto exit_unreg;
     }
 
@@ -175,105 +198,113 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb)
     skb = *pskb;
 
 #if 0
-    printk(KERN_INFO "RX %u bytes\n", skb->len);
+    pr_info("RX %u bytes\n", skb->len);
     print_hex_dump(KERN_INFO, "RX: ", DUMP_PREFIX_OFFSET, 16, 1,
                    skb->data, skb->len, false);
 #endif
 
     // Frame layout:
     if (vtss_if_mux_chip->internal_cpu)
-	    // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame, FCS
-	    min_size = 2 + vtss_if_mux_chip->ifh_len + ETH_ZLEN + ETH_FCS_LEN;
+            // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame, FCS
+            min_size = 2 + vtss_if_mux_chip->ifh_len + ETH_ZLEN + ETH_FCS_LEN;
     else
-	    // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame w/o FCS
-	    min_size = 2 + vtss_if_mux_chip->ifh_len + ETH_ZLEN;
+            // 2 bytes IFH_ID, IFH_LEN bytes IFH, original Ethernet frame w/o FCS
+            min_size = 2 + vtss_if_mux_chip->ifh_len + ETH_ZLEN;
 
     if (skb->len < min_size) {
         // Where should this be counted??
-        printk(KERN_ERR "Error: %s#%d: Short frame of %u bytes (minimum expected = %u bytes)\n", __FILE__, __LINE__, skb->len, min_size);
+        pr_err("Error: %s#%d: Short frame of %u bytes (minimum expected = %u bytes)\n", __FILE__, __LINE__, skb->len, min_size);
         print_hex_dump(KERN_ERR, "Rx ", DUMP_PREFIX_ADDRESS, 16, 1, skb->data, skb->len, true);
         return RX_HANDLER_PASS;
     }
 
     if (skb->protocol != htons(0x8880) || skb->data[0] != 0 || skb->data[1] != vtss_if_mux_chip->ifh_id) {
         // TODO, Where should this be counted??
-        printk(KERN_INFO "Not for us: 0x%04x %02hhx %02hhx\n",
+        pr_info("Not for us: 0x%04x %02hhx %02hhx\n",
                skb->protocol, skb->data[0], skb->data[1]);
         return RX_HANDLER_PASS;
     }
 
     // IFH: Check SFLOW/ACL discard and parse the VID/port
     if (vtss_if_mux_chip->soc == SOC_LUTON) {
-	    if ((skb->data[5] & 0x1f) <= 27) {
-		    /* SFLOW discard */
-		    return RX_HANDLER_PASS;
-	    }
-	    vid = (((skb->data[8] << 8) | skb->data[9]) & 0xfff);
-	    chip_port = ((skb->data[2] << 8) | skb->data[3]);
-	    chip_port = ((chip_port >> 3) & 0x1f);
+            if ((skb->data[5] & 0x1f) <= 27) {
+                    /* SFLOW discard */
+                    return RX_HANDLER_PASS;
+            }
+            vid = (((skb->data[8] << 8) | skb->data[9]) & 0xfff);
+            chip_port = ((skb->data[2] << 8) | skb->data[3]);
+            chip_port = ((chip_port >> 3) & 0x1f);
     } else if (vtss_if_mux_chip->soc == SOC_SERVAL1 ||
-	       vtss_if_mux_chip->soc == SOC_OCELOT) {
-	    if ((skb->data[13] & 0xf) <= 12) {
-		    /* SFLOW discard */
-		    return RX_HANDLER_PASS;
-	    }
-	    if (skb->data[13] & 0x20) {
-		    /* ACL discard (ACL_ID, bit 0) */
-		    return RX_HANDLER_PASS;
-	    }
-	    vid = (((skb->data[16] << 8) | skb->data[17]) & 0xfff);
-	    chip_port = ((skb->data[12] >> 3) & 0xf);
+               vtss_if_mux_chip->soc == SOC_OCELOT) {
+            if ((skb->data[13] & 0xf) <= 12) {
+                    /* SFLOW discard */
+                    return RX_HANDLER_PASS;
+            }
+            if (skb->data[13] & 0x20) {
+                    /* ACL discard (ACL_ID, bit 0) */
+                    return RX_HANDLER_PASS;
+            }
+            vid = (((skb->data[16] << 8) | skb->data[17]) & 0xfff);
+            chip_port = ((skb->data[12] >> 3) & 0xf);
     } else if (vtss_if_mux_chip->soc == SOC_JAGUAR2 ||
-	       vtss_if_mux_chip->soc == SOC_SERVALT) {
+               vtss_if_mux_chip->soc == SOC_SERVALT) {
 #define IFH_OFF  2  // We have IFH ID first (2 bytes)
-	    // When using an external CPU along with an NPI port, it may happen that
-	    // frames we send *switched* from the CPU get back to the NPI port.
-	    // These frames must be discarded. They can be detected by the
-	    // IFH.VSTAX.SRC having the following properties (when originally
-	    // injected with IFH.PIPELINE_ACT = INJ_MASQ = 1):
-	    //    SRC_ADDR_MODE == 0
-	    //    SRC_PORT_TYPE == 1
-	    //    SRC_INTPN     == 15
-	    u16 vstax_src = ((skb->data[IFH_OFF + 20] & 0xf) << 8) | skb->data[IFH_OFF + 21];
-	    if (vstax_src == 0x80f) {
-		    printk(KERN_INFO "VSTAX.SRC = 0x%x. Discarding\n", vstax_src);
-		    // Returning RX_HANDLER_CONSUMED makes sure not even to forward this
-		    // on the raw vtss.ifh socket (to the application).
-		    return RX_HANDLER_CONSUMED;
-	    }
+            // When using an external CPU along with an NPI port, it may happen that
+            // frames we send *switched* from the CPU get back to the NPI port.
+            // These frames must be discarded. They can be detected by the
+            // IFH.VSTAX.SRC having the following properties (when originally
+            // injected with IFH.PIPELINE_ACT = INJ_MASQ = 1):
+            //    SRC_ADDR_MODE == 0
+            //    SRC_PORT_TYPE == 1
+            //    SRC_INTPN     == 15
+            u16 vstax_src = ((skb->data[IFH_OFF + 20] & 0xf) << 8) | skb->data[IFH_OFF + 21];
+            if (vstax_src == 0x80f) {
+                    pr_info("VSTAX.SRC = 0x%x. Discarding\n", vstax_src);
+                    // Returning RX_HANDLER_CONSUMED makes sure not even to forward this
+                    // on the raw vtss.ifh socket (to the application).
+                    return RX_HANDLER_CONSUMED;
+            }
 
-	    if ((skb->data[IFH_OFF + 23] >> 5) & 1) {
-		    /* SFLOW discard */
-		    return RX_HANDLER_PASS;
-	    }
-	    if (skb->data[IFH_OFF + 9] & 0x10) {
-		    /* ACL discard (CL_RSLT, bit 1) */
-		    return RX_HANDLER_PASS;
-	    }
-	    if (skb->data[IFH_OFF + 6] & 0x20) {
-		    /* GEN_IDX_MODE is VSI, translate to VID */
-		    vid = vtss_if_mux_vsi2vid(((skb->data[IFH_OFF + 5] << 8) | skb->data[IFH_OFF + 6]) >> 6);
-	    }
-	    if (vid == 0) {
-		    vid = (((skb->data[IFH_OFF + 18] << 8) | skb->data[IFH_OFF + 19]) & 0xfff);
-	    }
-	    chip_port = ((skb->data[IFH_OFF + 23] << 8) | skb->data[IFH_OFF + 24]);
-	    chip_port = ((chip_port >> 3) & 0x3f);
+            if ((skb->data[IFH_OFF + 23] >> 5) & 1) {
+                    /* SFLOW discard */
+                    return RX_HANDLER_PASS;
+            }
+            if (skb->data[IFH_OFF + 9] & 0x10) {
+                    /* ACL discard (CL_RSLT, bit 1) */
+                    return RX_HANDLER_PASS;
+            }
+            if (skb->data[IFH_OFF + 6] & 0x20) {
+                    /* GEN_IDX_MODE is VSI, translate to VID */
+                    vid = vtss_if_mux_vsi2vid(((skb->data[IFH_OFF + 5] << 8) | skb->data[IFH_OFF + 6]) >> 6);
+            }
+            if (vid == 0) {
+                    vid = (((skb->data[IFH_OFF + 18] << 8) | skb->data[IFH_OFF + 19]) & 0xfff);
+            }
+            chip_port = ((skb->data[IFH_OFF + 23] << 8) | skb->data[IFH_OFF + 24]);
+            chip_port = ((chip_port >> 3) & 0x3f);
 
-	    // When using an external CPU along with an NPI port, it may happen that
-	    // frames we send *directed* from the CPU get back to the NPI port. These
-	    // frames must be discarded. They can be detected by the IFH.SRC_PORT being
-	    // that of the CPU.
-	    if (chip_port == vtss_if_mux_chip->cpu_port) {
-		    printk(KERN_INFO "IFH.SRC_PORT == 0x%x. Discarding\n", chip_port);
-		    // Returning RX_HANDLER_CONSUMED makes sure not even to forward this on
-		    // the raw vtss.ifh socket (to the application).
-		    return RX_HANDLER_CONSUMED;
-	    }
+            // When using an external CPU along with an NPI port, it may happen that
+            // frames we send *directed* from the CPU get back to the NPI port. These
+            // frames must be discarded. They can be detected by the IFH.SRC_PORT being
+            // that of the CPU.
+            if (chip_port == vtss_if_mux_chip->cpu_port) {
+                    pr_info("IFH.SRC_PORT == 0x%x. Discarding\n", chip_port);
+                    // Returning RX_HANDLER_CONSUMED makes sure not even to forward this on
+                    // the raw vtss.ifh socket (to the application).
+                    return RX_HANDLER_CONSUMED;
+            }
+    } else if (vtss_if_mux_chip->soc == SOC_FIREANT) {
+        pr_debug("Fireant IFH detected: Now check various IFH flags\n");
+        /* TODO: check for drop conditions */
+        chip_port = ((skb->data[IFH_OFF + 29] << 2) | (skb->data[IFH_OFF + 30] >> 6)) & 0x3f;
+        vid = (((skb->data[IFH_OFF + 23] << 7) | (skb->data[IFH_OFF + 24] >> 1)) & 0xfff);
+        pr_debug("%s:%d %s: chip port: %d, vid: %d\n", 
+                 __FILE__, __LINE__, __func__, 
+                 chip_port, vid);
     } else {
-	    if (printk_ratelimit())
-		    printk("Invalid architecture type\n");
-	    return RX_HANDLER_CONSUMED;
+            if (printk_ratelimit())
+                    printk("Invalid architecture type\n");
+            return RX_HANDLER_CONSUMED;
     }
 
     if (vid < 1 || vid >= VLAN_N_VID) {
@@ -287,7 +318,7 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb)
         // Do nothing if we have no dependent device
         dev = vtss_if_mux_vlan_net_dev[vid];
         if (!dev) {
-            //printk(KERN_INFO "Discard, no dependent device\n");
+            //pr_info("Discard, no dependent device\n");
             return RX_HANDLER_PASS;
         }
     }
@@ -297,25 +328,25 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb)
     ether_type = (u16 *)(skb->data + ether_type_offset);
     pop = vtss_if_mux_filter_vlan_pop(vid, chip_port, ntohs(ether_type[0]), ntohs(ether_type[2]));
     if (pop < 0) {
-        //printk(KERN_ERR "Discard, chip_port: %u, vid: %u\n", chip_port, vid);
+        //pr_err("Discard, chip_port: %u, vid: %u\n", chip_port, vid);
         return RX_HANDLER_PASS;
     }
     etype = ntohs(ether_type[pop/2]);
     if (etype != 0x0800 && etype != 0x0806 && etype != 0x86dd) {
-        //printk(KERN_ERR "Discard, non-IP/ARP frame, port: %u, vid: %u\n", chip_port, vid);
+        //pr_err("Discard, non-IP/ARP frame, port: %u, vid: %u\n", chip_port, vid);
         return RX_HANDLER_PASS;
     }
-    //printk(KERN_ERR "Pop %u bytes, chip_port: %u, vid: %u\n", pop, chip_port, vid);
+    //pr_err("Pop %u bytes, chip_port: %u, vid: %u\n", pop, chip_port, vid);
 
     // Apply IP filter
     if (vtss_if_mux_filter_apply(skb, vid, ether_type_offset + pop)) {
-        //printk(KERN_INFO "Discard, IP filter");
+        //pr_info("Discard, IP filter");
         return RX_HANDLER_PASS;
     }
 
     // Check if SMAC matches our own address
     if (ether_addr_equal(skb->data + ether_type_offset - 6, dev->dev_addr)) {
-        //printk(KERN_ERR "Discard own SMAC, chip_port: %u, vid: %u\n", chip_port, vid);
+        //pr_err("Discard own SMAC, chip_port: %u, vid: %u\n", chip_port, vid);
         return RX_HANDLER_PASS;
     }
 
@@ -329,13 +360,13 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb)
     skb_pull_inline(skb_new, vtss_if_mux_chip->ifh_len + 2);
 
     if (vtss_if_mux_chip->internal_cpu) {
-	    // Back: Discard the FCS, since - on Rx - the VC3FDMA driver includes
-	    // the FCS, because it on some platforms contains meta data (sFlow)
-	    skb_trim(skb_new, skb_new->len - ETH_FCS_LEN);
+            // Back: Discard the FCS, since - on Rx - the VC3FDMA driver includes
+            // the FCS, because it on some platforms contains meta data (sFlow)
+            skb_trim(skb_new, skb_new->len - ETH_FCS_LEN);
     }
 
 #if 0
-    printk(KERN_INFO "RX %u bytes on vlan %u\n", skb_new->len, vid);
+    pr_info("RX %u bytes on vlan %u\n", skb_new->len, vid);
     print_hex_dump(KERN_INFO, "RX: ", DUMP_PREFIX_OFFSET, 16, 1,
                    skb_new->data, skb_new->len, false);
 #endif
@@ -353,7 +384,7 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb)
     if (ether_addr_equal(eth_hdr(skb_new)->h_dest, dev->dev_addr))
         skb_new->pkt_type = PACKET_HOST;
 
-    // printk(KERN_INFO "protocol: 0x%04hx pkt_type: %i\n",
+    // pr_info("protocol: 0x%04hx pkt_type: %i\n",
     //        ntohs(skb_new->protocol), skb_new->pkt_type);
     netif_rx(skb_new);
 
@@ -377,12 +408,28 @@ static int dev_notification(struct notifier_block *unused, unsigned long event,
                             void *ptr) {
     struct net_device *dev = netdev_notifier_info_to_dev(ptr);
 
-    if (dev != vtss_if_mux_parent_dev) return NOTIFY_DONE;
+    pr_debug("%s:%d %s: device: %s, event: %lu\n", __FILE__, __LINE__, __func__, 
+        dev->name, event);
+    if (dev != vtss_if_mux_parent_dev) {
+        int vlan_id;
+
+        if (sscanf(dev->name, "vtss.vlan.%d", &vlan_id) == 1) {
+            if (vlan_id == 1) {
+                switch (event) {
+                case NETDEV_PRE_UP:
+                    vtss_if_mux_vlan_up[1] = 1;
+                    pr_debug("%s:%d %s: set vlan 1 up\n", __FILE__, __LINE__, __func__);
+                    break;
+                }
+            }
+        }
+        return NOTIFY_DONE;
+    }
 
     switch (event) {
         case NETDEV_UNREGISTER:
             if (vtss_if_mux_parent_dev) {
-                printk(KERN_INFO "Releasing reference to parent device\n");
+                pr_info("Releasing reference to parent device\n");
                 netdev_rx_handler_unregister(vtss_if_mux_parent_dev);
                 dev_put(vtss_if_mux_parent_dev);
                 vtss_if_mux_parent_dev = 0;
@@ -404,7 +451,7 @@ static int ifmux_probe(struct platform_device *pdev)
     int err = 0, i;
     vtss_if_mux_parent_dev = 0;
 
-    printk(KERN_INFO "Loading module vtss-if-mux\n");
+    pr_info("Loading module vtss-if-mux\n");
 
     for (i = 0; i < VTSS_IF_MUX_PORT_CNT; ++i)
         vtss_if_mux_port_net_dev[i] = 0;
@@ -414,25 +461,25 @@ static int ifmux_probe(struct platform_device *pdev)
 
     err = register_netdevice_notifier(&dev_notifier_block);
     if (err < 0) {
-        printk(KERN_INFO "Failed: register_netdevice_notifier\n");
+        pr_info("Failed: register_netdevice_notifier\n");
         goto exit;
     }
 
     err = vtss_if_mux_netlink_init();
     if (err < 0) {
-        printk(KERN_INFO "Failed: vtss_if_mux_netlink_init\n");
+        pr_info("Failed: vtss_if_mux_netlink_init\n");
         goto exit_1;
     }
 
     err = vtss_if_mux_genetlink_init();
     if (err < 0) {
-        printk(KERN_INFO "Failed: vtss_if_mux_genetlink_init\n");
+        pr_info("Failed: vtss_if_mux_genetlink_init\n");
         goto exit_2;
     }
 
     err = vtss_if_mux_dev_init();
     if (err < 0) {
-        printk(KERN_INFO "Failed: vtss_if_mux_dev_init\n");
+        pr_info("Failed: vtss_if_mux_dev_init\n");
         goto exit_3;
     }
 
@@ -441,6 +488,9 @@ static int ifmux_probe(struct platform_device *pdev)
     vtss_if_mux_chip->internal_cpu = !device_property_read_bool(&pdev->dev, "external-cpu");
     (void) device_property_read_string(&pdev->dev, "parent-interface", &parent_if_name);
 
+    pr_debug("vtss_if_mux_dev_init: use IFH id: 0x%x\n", vtss_if_mux_chip->ifh_id);
+    pr_debug("vtss_if_mux_dev_init: IFH port template length: %lu\n", vtss_if_mux_chip->ifh_encap_port_len);
+    pr_debug("vtss_if_mux_dev_init: IFH vlan template length: %lu\n", vtss_if_mux_chip->ifh_encap_vlan_len);
     return 0;
 
 exit_3:
@@ -461,7 +511,7 @@ static int ifmux_remove(struct platform_device *pdev)
     int i;
     struct net_device *dev;
 
-    printk(KERN_INFO "Unloading module vtss-if-mux\n");
+    pr_info("Unloading module vtss-if-mux\n");
     unregister_netdevice_notifier(&dev_notifier_block);
     vtss_if_mux_netlink_uninit();
     vtss_if_mux_genetlink_uninit();
@@ -470,7 +520,7 @@ static int ifmux_remove(struct platform_device *pdev)
     for (i = 0; i < VTSS_IF_MUX_PORT_CNT; ++i) {
         dev = vtss_if_mux_port_net_dev[i];
         if (dev) {
-            printk(KERN_INFO "unreg net device port=%d %p\n", i, dev);
+            pr_info("unreg net device port=%d %p\n", i, dev);
             unregister_netdev(dev);
             free_netdev(dev);
             vtss_if_mux_port_net_dev[i] = 0;
@@ -480,7 +530,7 @@ static int ifmux_remove(struct platform_device *pdev)
     for (i = 0; i < VLAN_N_VID; ++i) {
         dev = vtss_if_mux_vlan_net_dev[i];
         if (dev) {
-            printk(KERN_INFO "unreg net device vlan=%d %p\n", i, dev);
+            pr_info("unreg net device vlan=%d %p\n", i, dev);
             unregister_netdev(dev);
             free_netdev(dev);
             vtss_if_mux_vlan_net_dev[i] = 0;
@@ -488,7 +538,7 @@ static int ifmux_remove(struct platform_device *pdev)
     }
 
     if (vtss_if_mux_parent_dev) {
-        printk(KERN_INFO "unreg\n");
+        pr_info("unreg\n");
         rtnl_lock();
         netdev_rx_handler_unregister(vtss_if_mux_parent_dev);
         rtnl_unlock();
@@ -502,97 +552,213 @@ static int ifmux_remove(struct platform_device *pdev)
 /****************************************************************************/
 /****************************************************************************/
 
+static void set_bitmapped_port(struct ifmux_chip *cfg, u8 *hdr, u16 port)
+{
+    unsigned int offset;
+
+    // Write the template header
+    memcpy(hdr, cfg->hdr_tmpl_port, cfg->ifh_encap_port_len);
+
+    // Set the destination port bit
+    offset = (cfg->ifh_offs_port_mask + port);
+    hdr[cfg->ifh_encap_port_len - 1 - (offset / 8)] |= (1 << (offset % 8));
+}
+
+static void set_numbered_port(struct ifmux_chip *cfg, u8 *hdr, u16 port)
+{
+    unsigned int offset;
+
+    // Write the template header
+    memcpy(hdr, cfg->hdr_tmpl_port, cfg->ifh_encap_port_len);
+
+    // The source port value is hardcoded in the template
+    // Set the destination port value: the port mask offset is LSB
+    offset = cfg->ifh_offs_port_mask / 8;
+    hdr[offset] = (port << 5) & 0xe0;
+    hdr[offset-1] = (port >>  3) & 0x1f;
+
+}
+
+
+static void set_vlan_id(struct ifmux_chip *cfg, u8 *hdr, struct sk_buff *skb, 
+    u16 vlan_id)
+{
+    int i;
+
+    // Make room for the VTSS-IFH
+    hdr = skb_push(skb, cfg->ifh_encap_vlan_len);
+
+    // Write the template header
+    memcpy(hdr, cfg->hdr_tmpl_vlan, cfg->ifh_encap_vlan_len);
+
+    // move the da/sa to make room for vlan tag (dummy tag is last in template)
+    for (i = 0; i < 12; ++i) {
+        skb->data[i + cfg->ifh_encap_vlan_len] = skb->data[i + cfg->ifh_encap_vlan_len + 4];
+    }
+
+    // Write the vlan tag
+    skb->data[cfg->ifh_encap_vlan_len + 12 + 0] = 0x81;
+    skb->data[cfg->ifh_encap_vlan_len + 12 + 1] = 0x00;
+    skb->data[cfg->ifh_encap_vlan_len + 12 + 2] = (vlan_id >> 8) & 0x0f;
+    skb->data[cfg->ifh_encap_vlan_len + 12 + 3] = vlan_id & 0xff;
+
+    // update the placement of the mac-header
+    skb->mac_header = cfg->ifh_encap_vlan_len;
+}
+
+
+static void set_vlan_id_fireant(struct ifmux_chip *cfg, u8 *hdr, struct sk_buff *skb, 
+    u16 vlan_id)
+{
+    int i;
+
+    // Write the template header
+    memcpy(hdr, cfg->hdr_tmpl_vlan, cfg->ifh_encap_vlan_len);
+
+#if 0
+    pr_debug("Template: %lu bytes\n", cfg->ifh_encap_vlan_len);
+    print_hex_dump(KERN_INFO, "template: ", DUMP_PREFIX_OFFSET, 16, 1,
+                   vtss_if_mux_chip->hdr_tmpl_vlan, cfg->ifh_encap_vlan_len, false);
+
+    pr_info("TX2 %u bytes on vlan: %u\n", skb->len, vlan_id);
+    print_hex_dump(KERN_INFO, "TX2: ", DUMP_PREFIX_OFFSET, 16, 1,
+                   skb->data, skb->len, false);
+#endif
+    // move the da/sa to make room for vlan tag (dummy tag is last in template)
+    for (i = 0; i < 12; ++i) {
+
+        skb->data[i + cfg->ifh_encap_vlan_len - 4] = skb->data[i + cfg->ifh_encap_vlan_len];
+    }
+
+    // Write the vlan tag
+    skb->data[cfg->ifh_encap_vlan_len + 12 - 4 + 0] = 0x81;
+    skb->data[cfg->ifh_encap_vlan_len + 12 - 4 + 1] = 0x00;
+    skb->data[cfg->ifh_encap_vlan_len + 12 - 4 + 2] = (vlan_id >> 8) & 0x0f;
+    skb->data[cfg->ifh_encap_vlan_len + 12 - 4 + 3] = vlan_id & 0xff;
+
+    // update the placement of the mac-header
+    skb->mac_header = cfg->ifh_encap_vlan_len;
+}
+
 static const struct ifmux_chip luton_chip = {
-	.soc		    = SOC_LUTON,
-	.ifh_id             = IFH_ID_LUTON,
-	.ifh_len            = IFH_LEN_LUTON,
-	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_LUTON,
-	.cpu_port	    = 0,	/* Unused */
-	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_luton,
-	.hdr_tmpl_port	    = hdr_tmpl_port_luton,
-	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_luton),
-	.ifh_encap_port_len = sizeof(hdr_tmpl_port_luton),
+        .soc                    = SOC_LUTON,
+        .ifh_id             = IFH_ID_LUTON,
+        .ifh_len            = IFH_LEN_LUTON,
+        .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_LUTON,
+        .cpu_port            = 0,        /* Unused */
+        .hdr_tmpl_vlan            = hdr_tmpl_vlan_luton,
+        .hdr_tmpl_port            = hdr_tmpl_port_luton,
+        .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_luton),
+        .ifh_encap_port_len = sizeof(hdr_tmpl_port_luton),
+        .set_port_value     = set_bitmapped_port,
+        .set_vlan_value     = set_vlan_id,
 };
 
 static const struct ifmux_chip serval1_chip = {
-	.soc		    = SOC_SERVAL1,
-	.ifh_id             = IFH_ID_SERVAL1,
-	.ifh_len            = IFH_LEN_SERVAL1,
-	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_SERVAL1,
-	.cpu_port	    = 0,	/* Unused */
-	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_serval1,
-	.hdr_tmpl_port	    = hdr_tmpl_port_serval1,
-	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_serval1),
-	.ifh_encap_port_len = sizeof(hdr_tmpl_port_serval1),
+        .soc                    = SOC_SERVAL1,
+        .ifh_id             = IFH_ID_SERVAL1,
+        .ifh_len            = IFH_LEN_SERVAL1,
+        .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_SERVAL1,
+        .cpu_port            = 0,        /* Unused */
+        .hdr_tmpl_vlan            = hdr_tmpl_vlan_serval1,
+        .hdr_tmpl_port            = hdr_tmpl_port_serval1,
+        .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_serval1),
+        .ifh_encap_port_len = sizeof(hdr_tmpl_port_serval1),
+        .set_port_value     = set_bitmapped_port,
+        .set_vlan_value     = set_vlan_id,
 };
 
 static const struct ifmux_chip ocelot_chip = {
-	.soc		    = SOC_OCELOT,
-	.ifh_id             = IFH_ID_OCELOT,
-	.ifh_len            = IFH_LEN_OCELOT,
-	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_OCELOT,
-	.cpu_port	    = 0,	/* Unused */
-	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_ocelot,
-	.hdr_tmpl_port	    = hdr_tmpl_port_ocelot,
-	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_ocelot),
-	.ifh_encap_port_len = sizeof(hdr_tmpl_port_ocelot),
+        .soc                    = SOC_OCELOT,
+        .ifh_id             = IFH_ID_OCELOT,
+        .ifh_len            = IFH_LEN_OCELOT,
+        .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_OCELOT,
+        .cpu_port            = 0,        /* Unused */
+        .hdr_tmpl_vlan            = hdr_tmpl_vlan_ocelot,
+        .hdr_tmpl_port            = hdr_tmpl_port_ocelot,
+        .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_ocelot),
+        .ifh_encap_port_len = sizeof(hdr_tmpl_port_ocelot),
+        .set_port_value     = set_bitmapped_port,
+        .set_vlan_value     = set_vlan_id,
 };
 
 static const struct ifmux_chip servalt_chip = {
-	.soc		    = SOC_SERVALT,
-	.ifh_id             = IFH_ID_JAGUAR2,
-	.ifh_len            = IFH_LEN_JAGUAR2,
-	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
-	.cpu_port	    = 11, /* CPU port == 11 on ServalT */
-	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_jaguar2,
-	.hdr_tmpl_port	    = hdr_tmpl_port_servalt,
-	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_jaguar2),
-	.ifh_encap_port_len = sizeof(hdr_tmpl_port_servalt),
+        .soc                    = SOC_SERVALT,
+        .ifh_id             = IFH_ID_JAGUAR2,
+        .ifh_len            = IFH_LEN_JAGUAR2,
+        .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
+        .cpu_port            = 11, /* CPU port == 11 on ServalT */
+        .hdr_tmpl_vlan            = hdr_tmpl_vlan_jaguar2,
+        .hdr_tmpl_port            = hdr_tmpl_port_servalt,
+        .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_jaguar2),
+        .ifh_encap_port_len = sizeof(hdr_tmpl_port_servalt),
+        .set_port_value     = set_bitmapped_port,
+        .set_vlan_value     = set_vlan_id,
 };
 
 static const struct ifmux_chip jaguar2_chip = {
-	.soc		    = SOC_JAGUAR2,
-	.ifh_id             = IFH_ID_JAGUAR2,
-	.ifh_len            = IFH_LEN_JAGUAR2,
-	.ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
-	.cpu_port	    = 53, /* CPU port == 53 on JR2 */
-	.hdr_tmpl_vlan	    = hdr_tmpl_vlan_jaguar2,
-	.hdr_tmpl_port	    = hdr_tmpl_port_jaguar2,
-	.ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_jaguar2),
-	.ifh_encap_port_len = sizeof(hdr_tmpl_port_jaguar2),
+        .soc                    = SOC_JAGUAR2,
+        .ifh_id             = IFH_ID_JAGUAR2,
+        .ifh_len            = IFH_LEN_JAGUAR2,
+        .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
+        .cpu_port            = 53, /* CPU port == 53 on JR2 */
+        .hdr_tmpl_vlan            = hdr_tmpl_vlan_jaguar2,
+        .hdr_tmpl_port            = hdr_tmpl_port_jaguar2,
+        .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_jaguar2),
+        .ifh_encap_port_len = sizeof(hdr_tmpl_port_jaguar2),
+        .set_port_value     = set_bitmapped_port,
+        .set_vlan_value     = set_vlan_id,
+};
+
+static const struct ifmux_chip fireant_chip = {
+        .soc                    = SOC_FIREANT,
+        .ifh_id             = IFH_ID_FIREANT,
+        .ifh_len            = IFH_LEN_FIREANT,
+        .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_FIREANT,
+        .cpu_port            = 66, /* CPU port 1 == chipport 66 on FA */
+        .hdr_tmpl_vlan            = hdr_tmpl_vlan_fireant,
+        .hdr_tmpl_port            = hdr_tmpl_port_fireant,
+        .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_fireant),
+        .ifh_encap_port_len = sizeof(hdr_tmpl_port_fireant),
+        .set_port_value     = set_numbered_port,
+        .set_vlan_value     = set_vlan_id_fireant,
 };
 
 static const struct of_device_id mscc_ifmux_id_table[] = {
-	{
-		.compatible = "mscc,luton-ifmux",
-		.data = &luton_chip,
-	},
-	{
-		.compatible = "mscc,serval-ifmux",
-		.data = &serval1_chip,
-	},
-	{
-		.compatible = "mscc,ocelot-ifmux",
-		.data = &ocelot_chip,
-	},
-	{
-		.compatible = "mscc,servalt-ifmux",
-		.data = &servalt_chip,
-	},
-	{
-		.compatible = "mscc,jaguar2-ifmux",
-		.data = &jaguar2_chip,
-	},
-	{}
+        {
+                .compatible = "mscc,luton-ifmux",
+                .data = &luton_chip,
+        },
+        {
+                .compatible = "mscc,serval-ifmux",
+                .data = &serval1_chip,
+        },
+        {
+                .compatible = "mscc,ocelot-ifmux",
+                .data = &ocelot_chip,
+        },
+        {
+                .compatible = "mscc,servalt-ifmux",
+                .data = &servalt_chip,
+        },
+        {
+                .compatible = "mscc,jaguar2-ifmux",
+                .data = &jaguar2_chip,
+        },
+        {
+                .compatible = "mscc,fireant-ifmux",
+                .data = &fireant_chip,
+        },
+        {}
 };
 MODULE_DEVICE_TABLE(of, mscc_ifmux_id_table);
 
 static struct platform_driver mscc_ifmux_driver = {
-	.remove      = ifmux_remove,
-	.driver = {
-		.name = "mscc_ifmux",
-		.of_match_table = mscc_ifmux_id_table,
-	},
+        .remove      = ifmux_remove,
+        .driver = {
+                .name = "mscc_ifmux",
+                .of_match_table = mscc_ifmux_id_table,
+        },
 };
 
 module_platform_driver_probe(mscc_ifmux_driver, ifmux_probe);

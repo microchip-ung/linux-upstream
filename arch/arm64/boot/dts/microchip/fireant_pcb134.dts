@@ -282,3 +282,20 @@
 		#size-cells = <0>;
 	};
 };
+
+&dma {
+	status = "okay";
+};
+
+&ifh1 {
+	status = "okay";
+};
+
+&ifmux {
+	status = "okay";
+};
+
+&uio0 {
+	status = "okay";
+};
+

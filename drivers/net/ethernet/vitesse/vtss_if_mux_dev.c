@@ -57,7 +57,7 @@ static int debug_dump_ifh_(struct seq_file *s, void *v)
 
 static int debug_dump_ifh(struct inode *inode, struct file *f)
 {
-	return single_open(f, debug_dump_ifh_, NULL);
+        return single_open(f, debug_dump_ifh_, NULL);
 }
 
 static const struct file_operations dump_ifh_fops = {
@@ -71,9 +71,9 @@ static int internal_dev_open(struct net_device *netdev) {
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(netdev);
 
     if (priv->port_if) {
-        //printk(KERN_INFO "internal_dev_open, dev: %p, port: %u\n", netdev, priv->port);
+        //pr_info("internal_dev_open, dev: %p, port: %u\n", netdev, priv->port);
     } else {
-        //printk(KERN_INFO "internal_dev_open, dev: %p, vlan_id: %u\n", netdev, priv->vlan_id);
+        //pr_info("internal_dev_open, dev: %p, vlan_id: %u\n", netdev, priv->vlan_id);
         if (vtss_if_mux_vlan_up[priv->vlan_id]) {
             netif_carrier_on(netdev);
         } else {
@@ -86,86 +86,60 @@ static int internal_dev_open(struct net_device *netdev) {
 static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev) {
     int tx_ok = 1;
     unsigned char *hdr;
-    unsigned int i, ret, len, vlan_id, offset;
+    unsigned int ret, len;
     struct vtss_if_mux_pcpu_stats *stats;
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(netdev);
     int ifh_encap_len = (priv->port_if ?
-			 vtss_if_mux_chip->ifh_encap_port_len :
-			 vtss_if_mux_chip->ifh_encap_vlan_len);
+                         vtss_if_mux_chip->ifh_encap_port_len :
+                         vtss_if_mux_chip->ifh_encap_vlan_len);
 
     if (!vtss_if_mux_parent_dev) {
         tx_ok = 0;
-        //printk(KERN_INFO "No parent device\n");
+        //pr_info("No parent device\n");
         goto DO_CNT;
     }
 
     if (skb_headroom(skb) < ifh_encap_len) {
         tx_ok = 0;
-        printk(KERN_INFO "Not enough room for VTSS-header: %u\n",
+        pr_info("Not enough room for VTSS-header: %u\n",
                skb_headroom(skb));
         goto DO_CNT;
     }
 
     if (!vtss_if_mux_chip->internal_cpu) {
-	    // Make sure the original frame is at least 60 bytes long (w/o FCS), because
-	    // the NIC driver cannot see if we are transmitting an undersize frame,
-	    // once we have added the NPI encapsulation header, so it's not able to pad
-	    // it itself. When the frame arrives on the switch's NPI-port, the switch
-	    // strips the NPI header and IFH, and - bam - possible continues working
-	    // with an undersized frame.
-	    if (skb->len < ETH_ZLEN) {
-		    u32 missing = ETH_ZLEN - skb->len;
-		    // Add IFH ethernet encapsulation header
-		    memset(skb_put(skb, missing), 0, missing);
-	    }
+            // Make sure the original frame is at least 60 bytes long (w/o FCS), because
+            // the NIC driver cannot see if we are transmitting an undersize frame,
+            // once we have added the NPI encapsulation header, so it's not able to pad
+            // it itself. When the frame arrives on the switch's NPI-port, the switch
+            // strips the NPI header and IFH, and - bam - possible continues working
+            // with an undersized frame.
+            if (skb->len < ETH_ZLEN) {
+                    u32 missing = ETH_ZLEN - skb->len;
+                    // Add IFH ethernet encapsulation header
+                    memset(skb_put(skb, missing), 0, missing);
+            }
     }
 
 #if 0
-    printk(KERN_INFO "TX %u bytes on %s %u\n", skb->len, priv->port_if ? "port" : "vlan", priv->port_if ? priv->port : priv->vlan_id);
-    print_hex_dump(KERN_INFO, "TX: ", DUMP_PREFIX_OFFSET, 16, 1,
+    pr_info("TX1 %u bytes on %s %u\n", skb->len, priv->port_if ? "port" : "vlan", priv->port_if ? priv->port : priv->vlan_id);
+    print_hex_dump(KERN_INFO, "TX1: ", DUMP_PREFIX_OFFSET, 16, 1,
                    skb->data, skb->len, false);
 #endif
 
+    // Make room for the VTSS-IFH
+    hdr = skb_push(skb, ifh_encap_len);
     if (priv->port_if) {
-        // Make room for the VTSS-IFH
-        hdr = skb_push(skb, ifh_encap_len);
-
-        // Write the template header
-        memcpy(hdr, vtss_if_mux_chip->hdr_tmpl_port, ifh_encap_len);
-
-        // Set the destination port bit
-        offset = (vtss_if_mux_chip->ifh_offs_port_mask + priv->port);
-        hdr[ifh_encap_len - 1 - (offset / 8)] |= (1 << (offset % 8));
+        vtss_if_mux_chip->set_port_value(vtss_if_mux_chip, hdr, priv->port);
     } else {
-        vlan_id = priv->vlan_id;
-
-        // Make room for the VTSS-IFH
-        hdr = skb_push(skb, ifh_encap_len);
-
-        // Write the template header
-        memcpy(hdr, vtss_if_mux_chip->hdr_tmpl_vlan, ifh_encap_len);
-
-        // move the da/sa to make room for vlan tag (dummy tag is last in temoplate)
-        for (i = 0; i < 12; ++i) {
-            skb->data[i + ifh_encap_len] = skb->data[i + ifh_encap_len + 4];
-        }
-
-        // Write the vlan tag
-        skb->data[ifh_encap_len + 12 + 0] = 0x81;
-        skb->data[ifh_encap_len + 12 + 1] = 0x00;
-        skb->data[ifh_encap_len + 12 + 2] = (vlan_id >> 8) & 0x0f;
-        skb->data[ifh_encap_len + 12 + 3] = vlan_id & 0xff;
-
-        // update the placement of the mac-header
-        skb->mac_header = ifh_encap_len;
+        vtss_if_mux_chip->set_vlan_value(vtss_if_mux_chip, hdr, skb, priv->vlan_id);
     }
 
     len = skb->len;
     skb->dev = vtss_if_mux_parent_dev;
 
 #if 0
-    printk(KERN_INFO "TX %u bytes on %s %u\n", len, priv->port_if ? "port" : "vlan", priv->port_if ? priv->port : priv->vlan_id);
-    print_hex_dump(KERN_INFO, "TX: ", DUMP_PREFIX_OFFSET, 16, 1,
+    pr_info("TX3 %u bytes on %s %u\n", len, priv->port_if ? "port" : "vlan", priv->port_if ? priv->port : priv->vlan_id);
+    print_hex_dump(KERN_INFO, "TX3: ", DUMP_PREFIX_OFFSET, 16, 1,
                    skb->data, skb->len, false);
 #endif
 
@@ -231,7 +205,7 @@ static void internal_dev_get_stats(struct net_device *netdev, struct rtnl_link_s
 
 static int internal_dev_change_mtu(struct net_device *netdev, int new_mtu)
 {
-    printk(KERN_INFO "internal_dev_change_mtu\n");
+    pr_info("internal_dev_change_mtu\n");
     if (new_mtu < 68)
         return -EINVAL;
 

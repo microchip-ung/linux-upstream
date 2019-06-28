@@ -30,12 +30,14 @@ struct ifmux_chip {
 	u8 soc;
 	u8 ifh_id;
 	u8 ifh_len;
-	u8 ifh_offs_port_mask;
 	u8 cpu_port;
+	u16 ifh_offs_port_mask;
 	const u8 *hdr_tmpl_vlan;
 	const u8 *hdr_tmpl_port;
 	size_t ifh_encap_vlan_len;
 	size_t ifh_encap_port_len;
+	void (*set_port_value)(struct ifmux_chip *cfg, u8 *hdr, u16 port);
+	void (*set_vlan_value)(struct ifmux_chip *cfg, u8 *hdr, struct sk_buff *skb, u16 vlan);
 	bool internal_cpu;
 };
 
@@ -68,7 +70,7 @@ static inline struct vtss_if_mux_dev_priv *vtss_if_mux_dev_priv(
 }
 
 // Number of chip ports
-#define VTSS_IF_MUX_PORT_CNT 64
+#define VTSS_IF_MUX_PORT_CNT 66
 
 extern bool vtss_if_mux_nl_notify_pending;
 extern struct ifmux_chip *vtss_if_mux_chip;

@@ -23,18 +23,24 @@
 #define FDMA_XTR_BUFFER_COUNT      SGL_MAX
 #define FDMA_XTR_BUFFER_SIZE       2048
 
+#define VITESSE_ENCAP_SIZE     16
+#define VITESSE_ETHTYPE_OFFSET 12
+#define VITESSE_IFH_ID_OFFSET  15
+#define VITESSE_ETHTYPE_MSB    0x88
+#define VITESSE_ETHTYPE_LSB    0x80
+
 #define use_fdma(p)                (p->rxdma && p->txdma)
 
 /* Logging options */
 
 /* Testing options */
-#define PORT_TESTING
+// #define PORT_TESTING
+// #define DEBUG_RX
 
 struct fdma_config {
-	bool add_ifh;
-	u8 prefix_size;
 	u8 ifh_id;
-	u16 ifh_size;
+	u16 ifh_len;
+	u16 ifh_encap_len;
 };
 
 struct fdma_ifh_priv;
@@ -78,7 +84,7 @@ struct fdma_ifh_priv {
 #endif
 };
 
-#ifdef DEBUG
+#ifdef DEBUG_RX
 static void dump_byte_array(const char *name, const u8 *buf, size_t len)
 {
 	char prefix[64];
@@ -98,10 +104,41 @@ static void open_port(struct timer_list *tmr)
 	struct fdma_ifh_priv *priv =
 		from_timer(priv, tmr, open_timer);
 
-	pr_info("%s +%d %s\n", __FILE__, __LINE__, __func__);
+	pr_debug("%s:%d %s\n", __FILE__, __LINE__, __func__);
 	rtnl_lock();
 	dev_change_flags(priv->netdev, IFF_UP);
 	rtnl_unlock();
+}
+
+static const u8 packet_template[] = {
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  /* Any DMAC */
+	0xfe, 0xff, 0xff, 0xff, 0xff, 0xff,  /* Any SMAC */
+	0x88, 0x80, /* Ethertype Vitesse */
+	0x00, 0x0b, /* IFH ID */
+	/* IFH for Fireant */
+	0x00, 0x00, 0x11, 0x0c, 0xd2, 0x40, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x01, 0x00, 0x02, 0x00, 0x7e, 0x00, 0x00, 0x00, 0x02, 0x00, 0x6c, 0x08, 0xfe, 0x0d, 0x90, 0x88,
+	0x00, 0x00, 0x00, 0x00, 
+	/* Frame data */
+	0x01, 0x80, 0xc2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+	0x08, 0x00, 0x45, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00, 0x00, 0x1f, 0x11, 0x9b, 0xd9, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	/* FCS */
+	0x6b, 0x9a, 0xec, 0x88,
+};
+
+static void fdma_ifh_destruct_test_skb(struct sk_buff *skb)
+{
+	struct fdma_ifh_priv *priv;
+
+	pr_debug("%s:%d %s: skb head: 0x%px, dev: 0x%px\n", 
+		__FILE__, __LINE__, __func__, skb->head, skb->dev);
+	priv = netdev_priv(skb->dev);
+	priv->allocations--;
+	pr_debug("%s:%d %s: allocations: %d\n",
+		__FILE__, __LINE__, __func__, priv->allocations);
+	kfree(skb->head);
 }
 #endif
 
@@ -120,21 +157,6 @@ static void fdma_ifh_destruct_skb(struct sk_buff *skb)
 	priv->allocations--;
 	pr_debug("%s:%d %s: allocations: %d\n",
 		__FILE__, __LINE__, __func__, priv->allocations);
-}
-
-static void fireant_add_ifh(struct fdma_ifh_priv *priv, struct sk_buff *skb)
-{
-	u32 *ifh;
-	u32 length = skb->len;
-
-	if (skb_shinfo(skb)->nr_frags != 0) {
-		length = skb_headlen(skb);
-	}
-	pr_debug("%s:%d %s: length: %u\n", __FILE__, __LINE__, __func__, length);
-	ifh = skb_push(skb, priv->config->ifh_size);
-	skb_put(skb, ETH_FCS_LEN);
-	ifh[0] = 0; /* Port */
-	ifh[1] = length; /* Size of packet */
 }
 
 static struct fdma_ifh_request *fdma_ifh_prepare_tx_request(
@@ -176,15 +198,26 @@ static struct fdma_ifh_request *fdma_ifh_prepare_tx_request(
 	req->blocks = blocks;
 	sg_init_table(req->sgl, blocks);
 	sg = req->sgl;
-	if (priv->config->add_ifh) {
-		if (skb_headroom(skb) < priv->config->ifh_size ||
-		    skb_tailroom(skb) < ETH_FCS_LEN) {
-			// TODO: skb_copy_expand or fallback on register based TX
-			dev_err(priv->dev, "Not enough space for IFH or FCS\n");
-			goto out;
-		}
-		fireant_add_ifh(priv, skb);
+
+	/* Check encapsulation header (MAC + VLAN Tag) */
+	if (!(skb->data[VITESSE_ETHTYPE_OFFSET] == VITESSE_ETHTYPE_MSB &&
+		skb->data[VITESSE_ETHTYPE_OFFSET+1] == VITESSE_ETHTYPE_LSB &&
+		skb->data[VITESSE_IFH_ID_OFFSET] == priv->config->ifh_id)) {
+		pr_debug("%s:%d %s: encapsulation check failed: %d, %d, %d\n",
+		       __FILE__, __LINE__, __func__,
+		       skb->data[VITESSE_ETHTYPE_OFFSET] == VITESSE_ETHTYPE_MSB,
+		       skb->data[VITESSE_ETHTYPE_OFFSET+1] == VITESSE_ETHTYPE_LSB,
+		       skb->data[VITESSE_IFH_ID_OFFSET] == priv->config->ifh_id);
+		/* Count as dropped */
+		priv->netdev->stats.tx_dropped++;
+		kfree_skb(skb);
+		return NULL;
 	}
+	/* Skip past the encapsulation header */
+	skb_pull_inline(skb, VITESSE_ENCAP_SIZE);
+	/* Add room for the FCS  needed_tailroom = ETH_FCS_LEN? */
+	skb_put(skb, ETH_FCS_LEN);
+
 	data = skb->data;
 	size = skb_headlen(skb); /* Includes the IFH and FCS */
 	addr = dma_map_single(priv->dev, data, size, dir);
@@ -388,11 +421,10 @@ static struct sk_buff *create_receive_skb(
 	struct fdma_ifh_priv *priv,
 	struct request_iterator *iter,
 	struct request_iterator *max,
-	int *blks)
+	int *blks,
+	u32 size)
 {
 	struct sk_buff *skb = 0;
-	int port;
-	unsigned int bytes;
 	u32 *packet;
 	void *data;
 	unsigned int blocks;
@@ -408,15 +440,12 @@ static struct sk_buff *create_receive_skb(
 
 	packet = data = get_block_data(priv, iter);
 	/* Get the packet size (includes IFH and FCS) */
-	port =  packet[0];
-	bytes = packet[1];
-	blocks = DIV_ROUND_UP(bytes, iter->req->size);
+	blocks = DIV_ROUND_UP(size, iter->req->size);
 	block_bytes = blocks * iter->req->size;
-	pr_debug("%s:%d %s: port: %u, data: 0x%px, bytes: %u, size: %u, blocks: %u, block_bytes: %u\n",
+	pr_debug("%s:%d %s: data: 0x%px, bytes: %u, size: %u, blocks: %u, block_bytes: %u\n",
 		 __FILE__, __LINE__, __func__, 
-		 port,
 		 data,
-		 bytes,
+		 size,
 		 iter->req->size,
 		 blocks,
 		 block_bytes);
@@ -431,15 +460,14 @@ static struct sk_buff *create_receive_skb(
 			goto out;
 		}
 
-#ifdef DEBUG
-		dump_byte_array("RxData", data, min(bytes, iter->req->size));
+#ifdef DEBUG_RX
+		dump_byte_array("IFH RxData", data, min(size, iter->req->size));
 #endif
 		skb->dev = priv->netdev;
 		skb->destructor = fdma_ifh_destruct_skb;
-		skb_reserve(skb, priv->config->ifh_size);
 		pr_debug("%s:%d %s: skb: len: %d, data: 0x%px\n",
 			 __FILE__, __LINE__, __func__, skb->len, skb->data);
-		skb_put(skb, bytes);
+		skb_put(skb, size);
 		pr_debug("%s:%d %s: skb: len: %d, data: 0x%px\n", 
 			 __FILE__, __LINE__, __func__, skb->len, skb->data);
 		done_req = next_block(iter);
@@ -459,10 +487,9 @@ static struct sk_buff *create_receive_skb(
 		}
 
 		ptr = skb->data;
-		skb_reserve(skb, priv->config->ifh_size);
 		pr_debug("%s:%d %s: skb: len: %d, data: 0x%px\n",
 			 __FILE__, __LINE__, __func__, skb->len, skb->data);
-		skb_put(skb, bytes);
+		skb_put(skb, size);
 		pr_debug("%s:%d %s: skb: len: %d, data: 0x%px\n", 
 			 __FILE__, __LINE__, __func__, skb->len, skb->data);
 		while (!reached(iter, max)) {
@@ -535,9 +562,9 @@ static void fdma_ifh_receive_blocks_cb(void *data,
 	}
 	priv = req->priv;
 	status = dmaengine_tx_status(priv->rxdma, req->cookie, &state);
-	next_sof = req->blocks - (result->residue / req->size);
+	next_sof = req->blocks - (state.residue / req->size);
 	init_iterator(&next, next_sof, req);
-	pr_debug("%s:%d %s: status: %u, state: (L%u, U%u), residue: %u, [C%u,I%u]\n", 
+	pr_debug("%s:%d %s: status: %u, state: (L%u, U%u), size: %u, [C%u,I%u]\n", 
 		__FILE__, __LINE__, __func__, 
 		status,
 		state.last, state.used, state.residue,
@@ -545,7 +572,8 @@ static void fdma_ifh_receive_blocks_cb(void *data,
 		next_sof);
 
 	if (result->result == DMA_TRANS_NOERROR) {
-		skb = create_receive_skb(priv, &priv->curiter, &next, &used_blocks);
+		skb = create_receive_skb(priv, &priv->curiter, &next, 
+			&used_blocks, result->residue);
 		if (!skb) {
 			pr_err("%s:%d %s: could not create skb: [C%u,I%u]\n", 
 				__FILE__, __LINE__, __func__, 
@@ -564,7 +592,7 @@ static void fdma_ifh_receive_blocks_cb(void *data,
 	priv->rx_packets++;
 	priv->rx_bytes += skb->len;
 
-	pr_info("%s:%d %s: RX Done: packets: %lu, bytes: %lu, allocations: %d\n", 
+	pr_debug("%s:%d %s: RX Done: packets: %lu, bytes: %lu, allocations: %d\n", 
 		__FILE__, __LINE__, __func__, 
 		priv->rx_packets,
 		priv->rx_bytes,
@@ -675,7 +703,7 @@ static void fdma_ifh_transmit_cb(void *data,
 	fdma_ifh_close_request(priv, req, 1, 0);
 	dev_consume_skb_any(req->skb);
 
-	pr_info("%s:%d %s: TX Done: packets: %lu, bytes: %lu, allocations: %d\n", 
+	pr_debug("%s:%d %s: TX Done: packets: %lu, bytes: %lu, allocations: %d\n", 
 		__FILE__, __LINE__, __func__, 
 		priv->tx_packets,
 		priv->tx_bytes,
@@ -689,7 +717,7 @@ static int fdma_ifh_transmit(struct fdma_ifh_priv *priv, struct sk_buff *skb)
 
 	req = fdma_ifh_prepare_tx_request(priv, DMA_TO_DEVICE, skb);
 	if (!req) {
-		pr_err("%s:%d %s: no more requests\n",
+		pr_debug("%s:%d %s: request prepare error\n",
 			__FILE__, __LINE__, __func__);
 		return 0;
 	}
@@ -753,7 +781,7 @@ static int mscc_fdma_ifh_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_OK;
 	}
 
-	pr_info("%s: Transmit %d bytes: 0x%px\n", dev->name, skb->len, skb->data);
+	pr_debug("%s: Transmit %d bytes: 0x%px\n", dev->name, skb->len, skb->data);
 
 #ifdef DEBUG
 	dump_byte_array("TxSkb", skb->data, skb->len);
@@ -769,7 +797,7 @@ static int mscc_fdma_ifh_change_mtu(struct net_device *dev, int new_mtu)
 	struct fdma_ifh_priv *priv = netdev_priv(dev);
 
 	if (new_mtu < (RX_MTU_MIN + ETH_VLAN_TAGSZ + ETH_FCS_LEN + 
-		       priv->config->ifh_size) || new_mtu > IF_BUFSIZE_JUMBO) {
+		       priv->config->ifh_len) || new_mtu > IF_BUFSIZE_JUMBO) {
 		return -EINVAL;
 	}
 	dev->mtu = new_mtu;
@@ -861,13 +889,12 @@ static int mscc_fdma_ifh_probe(struct platform_device *pdev)
 	}
 
 	if (use_fdma(priv)) {
-		if (priv->config->add_ifh) {
-			dev->needed_headroom = priv->config->ifh_size;
-			dev->needed_tailroom = ETH_FCS_LEN;
-		}
 		fdma_ifh_provide_blocks(priv, FDMA_XTR_BUFFER_COUNT, 
 					  FDMA_XTR_BUFFER_SIZE);
 	}
+
+	dev->needed_headroom = priv->config->ifh_encap_len + priv->config->ifh_len;
+	dev->needed_tailroom = ETH_FCS_LEN;
 
 	ret = register_netdev(dev);
 	if (ret < 0) {
@@ -881,7 +908,7 @@ static int mscc_fdma_ifh_probe(struct platform_device *pdev)
 #ifdef PORT_TESTING
 	/* For test purposes: Open the port in 5s */
 	timer_setup(&priv->open_timer, open_port, 0);
-	priv->open_timer.expires = jiffies + msecs_to_jiffies(5000);
+	priv->open_timer.expires = jiffies + msecs_to_jiffies(10000);
 	add_timer(&priv->open_timer);
 #endif
 	return 0;
@@ -909,14 +936,13 @@ static int mscc_fdma_ifh_remove(struct platform_device *pdev)
 }
 
 static const struct fdma_config fireant_data = {
-	.add_ifh = 1,
-	.prefix_size = 16,
-	.ifh_id = 0x10,
-	.ifh_size = 8,
+	.ifh_id = 0xb,
+	.ifh_len = 36,
+	.ifh_encap_len = 16,
 };
 
 static const struct of_device_id mscc_fdma_ifh_match[] = {
-	{ .compatible = "mscc,fireant-fdma-ifh", .data = &fireant_data },
+	{ .compatible = "mscc,vsc7558-fdma-ifh", .data = &fireant_data },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mscc_fdma_ifh_match);

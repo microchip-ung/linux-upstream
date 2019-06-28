@@ -41,7 +41,7 @@ static int vlan_id_from_ifname(struct nlattr *tb[]) {
         return -1;
 
     if (nla_len(tb[IFLA_IFNAME]) > IFNAMSIZ) {
-        printk(KERN_INFO "err 1\n");
+        pr_info("err 1\n");
         return -1;
     }
 
@@ -61,7 +61,7 @@ static int port_from_ifname(struct nlattr *tb[]) {
         return -1;
 
     if (nla_len(tb[IFLA_IFNAME]) > IFNAMSIZ) {
-        printk(KERN_INFO "err 1\n");
+        pr_info("err 1\n");
         return -1;
     }
 
@@ -75,9 +75,10 @@ static int port_from_ifname(struct nlattr *tb[]) {
 }
 
 static int vtss_if_mux_validate(struct nlattr *tb[], struct nlattr *data[],
-				struct netlink_ext_ack *extack) {
+                                struct netlink_ext_ack *extack) {
     if (vlan_id_from_ifname(tb) == -1 &&
         port_from_ifname(tb) == -1) {
+        pr_err("vtss_if_mux_validate: vlan_id_from_ifname or port_from_ifname failed\n");
         return -EINVAL;
     }
 
@@ -86,56 +87,56 @@ static int vtss_if_mux_validate(struct nlattr *tb[], struct nlattr *data[],
 
 static int vtss_if_mux_changelink(struct net_device *dev,
                                   struct nlattr *tb[], struct nlattr *data[],
-				  struct netlink_ext_ack *extack) {
-    printk(KERN_INFO "vtss_if_mux_changelink\n");
+                                  struct netlink_ext_ack *extack) {
+    pr_info("vtss_if_mux_changelink\n");
 
     return 0;
 }
 
 static int vtss_if_mux_newlink(struct net *src_net, struct net_device *dev,
                                struct nlattr *tb[], struct nlattr *data[],
-			       struct netlink_ext_ack *extack) {
+                               struct netlink_ext_ack *extack) {
     int err;
     int vlan_id;
     int port;
     struct net_device *parent_dev;
     struct vtss_if_mux_dev_priv *priv = vtss_if_mux_dev_priv(dev);
 
-    //printk(KERN_INFO "vtss_if_mux_newlink %p\n", dev);
+    //pr_info("vtss_if_mux_newlink %p\n", dev);
     port = port_from_ifname(tb);
     vlan_id = vlan_id_from_ifname(tb);
 
     if (port >= 0) {
-        //printk(KERN_INFO "port = %d\n", port);
+        //pr_info("port = %d\n", port);
         if (vtss_if_mux_port_net_dev[port]) {
-            printk(KERN_INFO "port exists already: %d\n", port);
+            pr_info("port exists already: %d\n", port);
             return -EEXIST;
         }
         priv->port_if = 1;
 
     } else if (vlan_id >= 0) {
         if (vtss_if_mux_vlan_net_dev[vlan_id]) {
-            printk(KERN_INFO "vlan exists already: %d\n", vlan_id);
+            pr_info("vlan exists already: %d\n", vlan_id);
             return -EEXIST;
         }
         priv->port_if = 0;
 
     } else {
-        printk(KERN_INFO "No ID found\n");
+        pr_info("No ID found\n");
         return -ENODEV;
     }
 
 
     parent_dev = vtss_if_mux_parent_dev_get();
     if (!parent_dev) {
-        printk(KERN_INFO "No parent device\n");
+        pr_info("No parent device\n");
         return -ENODEV;
     }
 
-    //printk(KERN_INFO "reg new device\n");
+    //pr_info("reg new device\n");
     err = register_netdevice(dev);
     if (err != 0) {
-        printk(KERN_INFO "Failed to register device\n");
+        pr_info("Failed to register device\n");
         goto exit_rx_unreg;
     }
 
@@ -143,7 +144,7 @@ static int vtss_if_mux_newlink(struct net *src_net, struct net_device *dev,
         priv->port = port;
         vtss_if_mux_port_net_dev[port] = dev;
         netif_carrier_on(dev);
-        printk(KERN_INFO "vtss_if_mux_newlink port=%u, addr=%p\n", port, dev);
+        pr_info("vtss_if_mux_newlink port=%u, addr=%p\n", port, dev);
     } else {
         priv->vlan_id = vlan_id;
         vtss_if_mux_vlan_net_dev[vlan_id] = dev;
@@ -152,7 +153,7 @@ static int vtss_if_mux_newlink(struct net *src_net, struct net_device *dev,
         if (vtss_if_mux_vlan_up[vlan_id]) {
             netif_carrier_on(dev);
         }
-        printk(KERN_INFO "vtss_if_mux_newlink vlan=%u, addr=%p\n", vlan_id, dev);
+        pr_info("vtss_if_mux_newlink vlan=%u, addr=%p\n", vlan_id, dev);
     }
 
     return 0;
@@ -173,7 +174,7 @@ static size_t vtss_if_mux_get_size(const struct net_device *dev) {
 /*
 static int vtss_if_mux_fill_info(struct sk_buff *skb,
                                  const struct net_device *dev) {
-    //printk(KERN_INFO "vtss_if_mux_fill_info\n");
+    //pr_info("vtss_if_mux_fill_info\n");
     return 0;
 }
 */
@@ -208,14 +209,14 @@ void vtss_if_mux_rt_notify(struct net_device *dev) {
 
     skb = nlmsg_new(1024, GFP_KERNEL); // TODO
     if (skb == NULL) {
-        printk(KERN_INFO "ALLOC ERROR\n");
+        pr_info("ALLOC ERROR\n");
         return;
     }
 
     err = vtss_if_mux_rt_notify_fill(skb, dev);
 
     if (err < 0) {
-        printk(KERN_INFO "vtss_if_mux_rt_notify_fill ERROR\n");
+        pr_info("vtss_if_mux_rt_notify_fill ERROR\n");
         kfree_skb(skb);
         goto errout;
     }
@@ -242,7 +243,7 @@ static void vtss_if_mux_dellink(struct net_device *dev, struct list_head *head) 
         }
     }
 
-    printk(KERN_INFO "unregister_vlan_dev\n");
+    pr_info("unregister_vlan_dev\n");
     unregister_netdevice_queue(dev, head);
 }
 

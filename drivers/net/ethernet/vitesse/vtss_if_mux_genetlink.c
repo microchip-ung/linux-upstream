@@ -194,7 +194,7 @@ struct port_conf {
     u8  vlan_filter[VLAN_MASK_LEN];
 };
 
-#define PORT_CNT 64
+#define PORT_CNT 67
 static struct port_conf *if_mux_port_conf[PORT_CNT];
 
 static DEFINE_MUTEX(vtss_if_mux_genl_sem);

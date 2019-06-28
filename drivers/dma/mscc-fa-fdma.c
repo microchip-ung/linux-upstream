@@ -23,6 +23,7 @@
 #include "dmaengine.h"
 
 #define DEVICE_NAME "fireant-fdma"
+#define CHIP_ID 0x07558445
 
 /* Register offsets */
 
@@ -38,7 +39,9 @@ enum fireant_top {
 
 #define AMBA_TOP_SPACE                             0x600000000
 #define VCORE_CSR_SPACE                            0x610000000
-#define FDMA_ATU_TARGET_SPACE                      0x900000000
+#define DDR_OFFSET                                 0x700000000
+#define PCIE_TARGET_OFFSET                         0x900000000
+#define FDMA_ATU_TARGET_SPACE                      0x0
 
 
 /* ASM:CFG:PORT_CFG[67] */
@@ -66,6 +69,12 @@ enum fireant_top {
 #define DEVCPU_QS_INJ_GRP_CFG_R_OFF(ridx)          (0x01030024 + (ridx*4))
 /* DEVCPU_QS:INJ:INJ_CTRL[2] */
 #define DEVCPU_QS_INJ_CTRL_R_OFF(ridx)             (0x01030034 + (ridx*4))
+
+/* DSM:CFG:DEV_TX_STOP_WM_CFG[67] */
+#define DSM_CFG_DEV_TX_STOP_WM_R_OFF(ridx)         (0x00504564 + (ridx*4))
+
+/* REW:COMMON:IFH_CTRL_CPUVD */
+#define REW_COMMON_IFH_CTRL_CPUVD_OFF              0x0165e9d4
 
 /* FDMA:FDMA:FDMA_CH_ACTIVATE */
 #define FDMA_CH_ACTIVATE_OFF                       0x10080008
@@ -159,6 +168,7 @@ enum fireant_top {
 #define ASM_CFG_PORT_INJ_FORMAT(x)               (((x) << 2) & GENMASK(3, 2))
 #define ASM_CFG_PORT_INJ_FORMAT_M                GENMASK(3, 2)
 #define ASM_CFG_PORT_INJ_FORMAT_X(x)             (((x) & GENMASK(3, 2)) >> 2)
+#define ASM_CFG_PORT_VSTAX2_AWR_ENA              BIT(1)
 
 
 /* DEVCPU_GCB:VCORE_ACCESS:VA_CTRL */
@@ -187,6 +197,11 @@ enum fireant_top {
 #define DEVCPU_QS_INJ_CTRL_GAP_SIZE(x)           (((x) << 21) & GENMASK(24, 21))
 #define DEVCPU_QS_INJ_CTRL_GAP_SIZE_M            GENMASK(24, 21)
 #define DEVCPU_QS_INJ_CTRL_GAP_SIZE_X(x)         (((x) & GENMASK(24, 21)) >> 21)
+
+/* DSM:CFG:DEV_TX_STOP_WM_CFG[67] */
+#define DSM_CFG_DEV_TX_STOP_WM(x)                (((x) << 1) & GENMASK(7, 1))
+#define DSM_CFG_DEV_TX_STOP_WM_M                 GENMASK(7, 1)
+#define DSM_CFG_DEV_TX_STOP_WM_X(x)              (((x) & GENMASK(7, 1)) >> 1)
 
 /* FDMA:FDMA:FDMA_CH_CFG[8] */
 #define FDMA_CH_CFG_INTR_DB_EOF_ONLY             BIT(6)
@@ -267,14 +282,15 @@ enum fireant_top {
 #define FDMA_BUFFER_MASK                         127
 #define XTR_BUFFER_SIZE                          (XTR_CHUNK_SIZE*12)
 #define DMA_RX_CHANNEL                           6
-#define FDMA_DCB_MAX                             200
+#define FDMA_DCB_MAX                             40
 #define VCORE_ACCESS_TIMEOUT_MS                  5
 #define FDMA_DISABLE_TIMEOUT_MS                  5
 
 /* Debugging flags */
-// #define FDMA_LOG
+#define FDMA_LOG
 // #define FDMA_DCB_LOG
 // #define FDMA_DCB_ERROR_LOG
+// #define FDMA_DCB_VCORE_LOG
 
 
 struct mscc_fa_fdma;
@@ -313,7 +329,6 @@ struct mscc_fa_fdma_dcb {
 	struct  mscc_fa_fdma_dcb_hw hw;
 	struct dma_async_tx_descriptor txd;
 	dma_addr_t phys;
-	dma_addr_t offset;
 	enum mscc_fa_fdma_dcb_state state;
 	int valid_blocks;
 	struct mscc_fa_fdma_dcb *first_dcb;
@@ -343,9 +358,11 @@ struct mscc_fa_fdma {
 	struct mscc_fa_region regions[FIREANT_REGIONS];
 	spinlock_t lock;
 	struct dma_pool *dcb_pool;
+	dma_addr_t dcb_offset;
 	int irq;
 	struct tasklet_struct tasklet;
 	struct list_head free_dcbs;
+	bool using_pcie;
 
 	unsigned int nr_pchans;
 	struct mscc_fa_fdma_channel chans[0];
@@ -401,6 +418,15 @@ static u32 mscc_fa_vcore_readl(struct mscc_fa_fdma *priv, u64 vcore_addr) {
 	u32 value;
 	u32 status;
 
+	pr_debug("%s:%d %s: VCore Access Read Begin at 0x%llx", 
+		__FILE__, __LINE__, __func__, vcore_addr);
+	/* Wait for not busy */
+	deadline = jiffies + msecs_to_jiffies(VCORE_ACCESS_TIMEOUT_MS);
+	do {
+		status = mscc_fa_readl(priv, 
+				       DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF);
+	} while (time_before(jiffies, deadline) &&
+		 (status & DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_BUSY));
 	/* Set VA_SIZE = 0 (32 bit access) */
 	mscc_fa_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF, 0);
 	/* Set LS Word */
@@ -433,7 +459,7 @@ static u32 mscc_fa_vcore_readl(struct mscc_fa_fdma *priv, u64 vcore_addr) {
 	return value;
 }
 
-#ifdef FDMA_DCB_LOG
+#ifdef FDMA_DCB_VCORE_LOG
 
 static u64 mscc_fa_vcore_readll(struct mscc_fa_fdma *priv, u64 vcore_addr)
 {
@@ -449,6 +475,8 @@ static void mscc_fa_vcore_writel(struct mscc_fa_fdma *priv, u64 vcore_addr,
 	unsigned long deadline;
 	u32 status;
 
+	pr_debug("%s:%d %s: VCore Access Write Begin at 0x%llx", 
+		__FILE__, __LINE__, __func__, vcore_addr);
 	/* Wait for not busy */
 	deadline = jiffies + msecs_to_jiffies(VCORE_ACCESS_TIMEOUT_MS);
 	do {
@@ -501,19 +529,17 @@ static void mscc_fa_vcore_write_reg(struct mscc_fa_fdma *priv,
 	mscc_fa_vcore_writel(priv, vcore_addr, value);
 }
 
-#ifdef FDMA_DCB_LOG
-static void mscc_fa_fdma_show_dcb_via_vcore(struct mscc_fa_fdma *priv, 
-	struct mscc_fa_fdma_dcb *dcb)
+#ifdef FDMA_DCB_VCORE_LOG
+static void mscc_fa_fdma_show_dcb_via_vcore(struct mscc_fa_fdma *priv, u64 phys)
 {
-	u64 vcore_addr = dcb->phys + dcb->offset;
+	u64 vcore_addr = phys;
 	u64 val;
 	int idx;
 
-	pr_debug("%s:%d %s, txd: 0x%px\n", 
+	pr_debug("%s:%d %s, dcb phys: 0x%09llx\n",
 		__FILE__, __LINE__, __func__, 
-		&dcb->txd);
-	pr_debug("   dcb_phys: 0x%09llx\n", dcb->txd.phys);
-	val = mscc_fa_vcore_readll(priv, vcore_addr); 
+		phys);
+	val = mscc_fa_vcore_readll(priv, vcore_addr);
 	vcore_addr += 8;
 	pr_debug("    nextptr: 0x%09llx\n", val);
 	val = mscc_fa_vcore_readll(priv, vcore_addr); 
@@ -555,15 +581,15 @@ static struct mscc_fa_fdma_dcb *mscc_fa_fdma_get_previous_dcb(
 static void mscc_fa_fdma_follow_queued_dcb_chain(
 	struct mscc_fa_fdma_dcb *first, u32 chan)
 {
-	struct mscc_fa_fdma_dcb *dcb;
 	struct dma_async_tx_descriptor *txd;
 	u64 dcb_phys = virt_to_phys(first) + FDMA_ATU_TARGET_SPACE;
+	struct mscc_fa_fdma_dcb *dcb = phys_to_virt(dcb_phys) - FDMA_ATU_TARGET_SPACE;
 	int idx = 0;
 	int jdx;
 
-	pr_debug("%s:%d %s, Channel: %d\n", 
+	pr_debug("%s:%d %s, Channel: %d, first: 0x%px, phys: 0x%09llx, dcb: 0x%px\n", 
 		__FILE__, __LINE__, __func__, 
-		chan);
+		chan, first, dcb_phys, dcb);
 	while (dcb_phys > 1 && dcb_phys != -1) {
 		dcb = phys_to_virt(dcb_phys) - FDMA_ATU_TARGET_SPACE;
 		txd = &dcb->txd;
@@ -587,6 +613,68 @@ static void mscc_fa_fdma_follow_queued_dcb_chain(
 		__FILE__, __LINE__, __func__, chan, idx);
 }
 #endif
+
+static int mscc_fa_fdma_cpuport_config(struct mscc_fa_fdma *priv, int channel)
+{
+	u32 value = 0;
+	u32 mask;
+	unsigned int cpuport = channel % 2;
+	unsigned int chipport = cpuport + 65; /* Fireant specific mapping to chipport */
+
+	pr_debug("%s:%d %s, Channel: %d, cpuport: %d, chipport: %d\n", 
+		__FILE__, __LINE__, __func__, channel, cpuport, chipport);
+
+	/* Channel: 
+	* INJ_PORT is set to cpuport
+	* DCB_DB_CNT = 15 for number of DCBs
+	* INTR_DB_EOF_ONLY = 1 for intr on EOF only 
+	* CFG_MEM = 1 (is no longer used)
+	*/
+	mscc_fa_writel(priv, FDMA_CH_CFG_R_OFF(channel), 
+		       /* Use all data blocks */
+		       FDMA_CH_CFG_DCB_DB_CNT(FDMA_DCB_MAX_DBS) | 
+		       FDMA_CH_CFG_INTR_DB_EOF_ONLY |
+		       (cpuport ? FDMA_CH_CFG_INJ_PORT : 0) |
+		       FDMA_CH_CFG_MEM);
+
+	/* CPU Port: Enable FDMA Injection (mode 2) */
+	value = mscc_fa_readl(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(cpuport));
+	value &= ~DEVCPU_QS_INJ_GRP_CFG_MODE_M;
+	value |= DEVCPU_QS_INJ_GRP_CFG_MODE(2);
+	mscc_fa_writel(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(cpuport), value);
+
+	/* CPU Port: Set gap using IFH (gap 0) */
+	mscc_fa_writel(priv, DEVCPU_QS_INJ_CTRL_R_OFF(cpuport),
+		DEVCPU_QS_INJ_CTRL_GAP_SIZE(0));
+
+	/* CPU Port: Enable FDMA Extraction (mode 2) */
+	value = mscc_fa_readl(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(cpuport));
+	value &= ~DEVCPU_QS_XTR_GRP_CFG_MODE_M;
+	value |= DEVCPU_QS_XTR_GRP_CFG_MODE(2);
+	mscc_fa_writel(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(cpuport), value);
+
+	/* INJ CPU Port Format: IFH with no prefix, no preamble, no VSTAX2 aware */
+	value = mscc_fa_readl(priv, ASM_CFG_PORT_R_OFF(chipport));
+	value &= ~ASM_CFG_PORT_VSTAX2_AWR_ENA;
+	value |= ASM_CFG_PORT_INJ_FORMAT(1);
+	value |= ASM_CFG_PORT_NO_PREAMBLE_ENA;
+	mscc_fa_writel(priv, ASM_CFG_PORT_R_OFF(chipport), value);
+
+	/* XTR CPU Port Format: IFH with prefix */
+	value = mscc_fa_readl(priv, REW_COMMON_IFH_CTRL_CPUVD_OFF);
+	mask = ~(0x3 << (cpuport << 1));
+	value &= mask;
+	value |= 2 << (cpuport << 1);
+	mscc_fa_writel(priv, REW_COMMON_IFH_CTRL_CPUVD_OFF, value);
+
+	/* Set Disassembler Stop Watermark level */
+	value = mscc_fa_readl(priv, DSM_CFG_DEV_TX_STOP_WM_R_OFF(chipport));
+	value &= ~DSM_CFG_DEV_TX_STOP_WM_M;
+	value |= DSM_CFG_DEV_TX_STOP_WM(100);  /* Watermark at 100 packets */
+	mscc_fa_writel(priv, DSM_CFG_DEV_TX_STOP_WM_R_OFF(chipport), value);
+
+	return 0;
+}
 
 static inline struct mscc_fa_fdma *to_mscc_fa_fdma(struct dma_device *dd)
 {
@@ -617,10 +705,11 @@ static void mscc_fa_fdma_free_dcb_list(struct dma_chan *chan)
 	}
 }
 
-static int mscc_fa_fdma_wait_for_xtr_buffer_empty(struct mscc_fa_fdma *priv)
+static int mscc_fa_fdma_wait_for_xtr_buffer_empty(struct mscc_fa_fdma *priv,
+						  int channel)
 {
 	unsigned long deadline;
-	int cpuport = 0; /* Using CPU port 0 */
+	int cpuport = channel % 2;
 	int empty;
 
 	pr_debug("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -640,7 +729,7 @@ static int mscc_fa_fdma_wait_for_xtr_buffer_empty(struct mscc_fa_fdma *priv)
 static void mscc_fa_fdma_start(struct dma_chan *chan)
 {
 	struct mscc_fa_fdma *priv = to_mscc_fa_fdma(chan->device);
-	int cpuport = 0; /* Using CPU port 0 */
+	int cpuport = chan->chan_id % 2;
 	u32 control;
 
 	pr_debug("%s:%d %s: Channel: %u\n", __FILE__, __LINE__, __func__, 
@@ -665,7 +754,7 @@ static void mscc_fa_fdma_start(struct dma_chan *chan)
 static int mscc_fa_fdma_stop(struct dma_chan *chan)
 {
 	struct mscc_fa_fdma *priv = to_mscc_fa_fdma(chan->device);
-	int cpuport = 0; /* Using CPU port 0 */
+	int cpuport = chan->chan_id % 2;
 	int stopped = 0;
 	u32 control, empty;
 
@@ -673,7 +762,7 @@ static int mscc_fa_fdma_stop(struct dma_chan *chan)
 		chan->chan_id);
 	priv->chans[chan->chan_id].state = DCS_STOPPING;
 	if (chan->chan_id >= DMA_RX_CHANNEL) {
-		empty = mscc_fa_fdma_wait_for_xtr_buffer_empty(priv);
+		empty = mscc_fa_fdma_wait_for_xtr_buffer_empty(priv, chan->chan_id);
 		if (!empty) {
 			return stopped;
 		}
@@ -682,7 +771,7 @@ static int mscc_fa_fdma_stop(struct dma_chan *chan)
 					FDMA_PORT_CTRL_R_OFF(cpuport));
 		control |= FDMA_PORT_CTRL_XTR_STOP;
 		mscc_fa_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
-		stopped = mscc_fa_fdma_wait_for_xtr_buffer_empty(priv);
+		stopped = mscc_fa_fdma_wait_for_xtr_buffer_empty(priv, chan->chan_id);
 	} else {
 		/* Stop injection */
 		control = mscc_fa_readl(priv, 
@@ -703,6 +792,7 @@ static int mscc_fa_fdma_alloc_chan_resources(struct dma_chan *chan)
 	pr_debug("%s:%d %s: Channel: %u\n", __FILE__, __LINE__, __func__, 
 		chan->chan_id);
 	
+	mscc_fa_fdma_cpuport_config(priv, chan->chan_id);
 	mscc_fa_fdma_start(chan);
 
 	dma_cookie_init(chan);
@@ -804,6 +894,7 @@ mscc_fa_fdma_prep_slave_sg(struct dma_chan *chan,
 			if (list_empty(&priv->free_dcbs)) {
 				pr_err("%s:%d %s: no more DCBs\n", 
 					__FILE__, __LINE__, __func__);
+				spin_unlock(&priv->lock);
 				return NULL;
 			}
 			dcb = list_first_entry(&priv->free_dcbs, 
@@ -822,14 +913,14 @@ mscc_fa_fdma_prep_slave_sg(struct dma_chan *chan,
 			}
 			dma_async_tx_descriptor_init(&dcb->txd, chan);
 			dcb->txd.tx_submit = mscc_fa_fdma_tx_submit;
-			/* Convert to PCIE address space */
-			dcb->txd.phys = dcb->phys + dcb->offset;
+			/* Convert to VCORE address space */
+			dcb->txd.phys = dcb->phys + priv->dcb_offset;
 			/* Move item into the channel */
 			list_move_tail(&dcb->node, &fdma_chan->queued_dcbs);
 		}
 		db_phys = sg_dma_address(sg);
-		/* Convert to PCIe address space */
-		db_phys += dcb->offset;
+		/* Convert to VCORE address space */
+		db_phys += priv->dcb_offset;
 		off = db_phys & 0x7;
 		db_phys &= ~0x7;
 		len = sg_dma_len(sg);
@@ -982,6 +1073,9 @@ static void mscc_fa_fdma_issue_pending(struct dma_chan *chan)
 		}
 #ifdef FDMA_DCB_LOG
 		mscc_fa_fdma_follow_queued_dcb_chain(first, chan->chan_id);
+#endif
+#ifdef FDMA_DCB_VCORE_LOG
+		mscc_fa_fdma_show_dcb_via_vcore(priv, first->txd.phys);
 #endif
 		spin_unlock(&priv->lock);
 		/* Write the DCB address */
@@ -1273,7 +1367,7 @@ static u32 mscc_fa_fdma_update_completion(
 	return residue;
 }
 
-static void mscc_fa_fdma_notify_clients(struct mscc_fa_fdma_channel *fdma_chan)
+static int mscc_fa_fdma_notify_clients(struct mscc_fa_fdma_channel *fdma_chan)
 {
 	struct mscc_fa_fdma_dcb *request = 0;
 	struct mscc_fa_fdma_dcb *iter, *first = 0;
@@ -1282,6 +1376,8 @@ static void mscc_fa_fdma_notify_clients(struct mscc_fa_fdma_channel *fdma_chan)
 		.result = DMA_TRANS_ABORTED,
 		.residue = 0
 	};
+	u32 size = 0;
+	int notifications = 0;
 
 	pr_debug("%s:%d %s: Channel: %d, begin\n", 
 		__FILE__, __LINE__, __func__,
@@ -1323,6 +1419,7 @@ static void mscc_fa_fdma_notify_clients(struct mscc_fa_fdma_channel *fdma_chan)
 			      FDMA_DCB_STATUS_DONE)) {
 				break;
 			}
+			size += FDMA_DCB_STATUS_BLOCKL(iter->hw.block[idx].status);
 			if (iter->hw.block[idx].status & FDMA_DCB_STATUS_SOF) {
 				first = iter;
 				first_block = idx;
@@ -1342,18 +1439,25 @@ static void mscc_fa_fdma_notify_clients(struct mscc_fa_fdma_channel *fdma_chan)
 			dma_result.residue = residue;
 			dma_result.result = DMA_TRANS_NOERROR;
 			pr_debug("%s:%d %s: Channel: %d, notify client:"
-				" txd: 0x%px, residue: %u\n", 
+				" txd: 0x%px, residue: %u, size: %u\n", 
 				__FILE__, __LINE__, __func__,
 				fdma_chan->chan.chan_id,
 				&request->txd,
-				residue);
+				residue,
+				size);
+			if (fdma_chan->chan.chan_id >= DMA_RX_CHANNEL) {
+				dma_result.residue = size;
+			}
 			dmaengine_desc_get_callback_invoke(
 				&request->txd, &dma_result);
+			++notifications;
+			size = 0;
 		}
 	}
 	pr_debug("%s:%d %s: Channel: %d, end\n", 
 		__FILE__, __LINE__, __func__,
 		fdma_chan->chan.chan_id);
+	return notifications;
 }
 
 static void mscc_fa_fdma_tasklet(unsigned long data)
@@ -1363,6 +1467,7 @@ static void mscc_fa_fdma_tasklet(unsigned long data)
 	struct mscc_fa_fdma_channel *fdma_chan;
 	struct dma_async_tx_descriptor *txd;
 	u32 chan;
+	int notifications = 0;
 
 	pr_debug("%s:%d %s: begin\n", __FILE__, __LINE__, __func__);
 	for (chan = 0; chan < priv->nr_pchans; ++chan) {
@@ -1377,7 +1482,7 @@ static void mscc_fa_fdma_tasklet(unsigned long data)
 		}
 		fdma_chan->completed_dcbs = 0;
 		fdma_chan->queue_state_dcbs = 0;
-		mscc_fa_fdma_notify_clients(fdma_chan);
+		notifications = mscc_fa_fdma_notify_clients(fdma_chan);
 		list_for_each_entry_safe(dcb, tmp, 
 					 &fdma_chan->queued_dcbs, node) {
 			txd = &dcb->txd;
@@ -1446,6 +1551,10 @@ static void mscc_fa_fdma_tasklet(unsigned long data)
 		pr_debug("%s:%d %s: end: free dcbs: %d\n", 
 			__FILE__, __LINE__, __func__, count);
 	}
+	if (notifications == 0) {
+		pr_debug("%s:%d %s: no notifications: check again later\n", 
+			__FILE__, __LINE__, __func__);
+	}
 }
 
 
@@ -1489,21 +1598,29 @@ static irqreturn_t mscc_fa_fdma_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int mscc_fa_access_test(struct mscc_fa_fdma *priv)
+static int mscc_fa_access_test(struct platform_device *pdev, 
+			       struct mscc_fa_fdma *priv)
 {
 	/* Check VCore Access functionality by reading chip id */
 	u32 test0 = 0x12345678;
 	u32 test1 = 0xabcdef;
 	u32 value = 0;
-	struct mscc_fa_fdma_dcb_hw *dcb;
-	void *dma_buffer;
-	phys_addr_t phys = 0;
-	u64 vcore_addr = FDMA_ATU_TARGET_SPACE;
+	u32 vcore_chip_id;
+	u32 vaccess_chip_id;
 
-	u32 chip_id = mscc_fa_vcore_read_reg(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
-	if (chip_id != 0x07568445) {
-		pr_err("%s:%d %s: VCore access error: CSR space\n",
-			__FILE__, __LINE__, __func__);
+	vcore_chip_id = mscc_fa_readl(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
+	dev_info(&pdev->dev, "Chip ID: %08x\n", vcore_chip_id);
+	if (vcore_chip_id != CHIP_ID) {
+		dev_err(&pdev->dev, "Chip ID error: 0x%08x != 0x%08x \n", 
+			vcore_chip_id, CHIP_ID);
+		return -1;
+	}
+
+	vaccess_chip_id = mscc_fa_vcore_read_reg(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
+	if (vaccess_chip_id != vcore_chip_id) {
+		dev_err(&pdev->dev, "VCore access error: CSR space: chip_id: 0x%08x\n",
+			vaccess_chip_id);
+		return -1;
 	}
 	/* Write value to General CPU reg 0 */
 	mscc_fa_vcore_write_reg(priv, CPU_REGS_GPR_R_OFF(0), test0);
@@ -1523,32 +1640,34 @@ static int mscc_fa_access_test(struct mscc_fa_fdma *priv)
 			__FILE__, __LINE__, __func__);
 		return -1;
 	}
-
-	dma_buffer = devm_kmalloc(priv->dma.dev, 1024, GFP_KERNEL);
-	phys = virt_to_phys(dma_buffer);
-	dcb = dma_buffer;
-	dcb->nextptr = 0x12345678abcdef;
-	pr_debug("%s:%d %s: Allocation 0x%px at phys: 0x%px\n", 
-		__FILE__, __LINE__, __func__, dma_buffer, (void *)phys);
-	vcore_addr += phys;
-	pr_debug("%s:%d %s: Address in VCore Space: 0x%px\n", 
-		__FILE__, __LINE__, __func__, (void *)vcore_addr);
-
-	value = mscc_fa_vcore_readl(priv, vcore_addr);
-	if (0x78abcdef != value) {
-		pr_err("%s:%d %s: VCore PCIe space access error:"
-		       " AMBA_TOP space\n", 
-			__FILE__, __LINE__, __func__);
-		return -1;
+	{
+		u64 phys;
+		u32 *buffer = dma_pool_zalloc(priv->dcb_pool, GFP_ATOMIC, &phys);
+		u32 value;
+		phys += DDR_OFFSET;
+		*buffer = 0xdeadbeef;
+		value = mscc_fa_vcore_readl(priv, phys);
+		pr_debug("1a Reading from vcore buffer: 0x%px, phys: 0x%09llx, value: 0x%08x", buffer, phys, value);
+		mscc_fa_vcore_writel(priv, phys, 0x12345678);
+		pr_debug("1b Reading from buffer: 0x%px, in buffer: 0x%08x", buffer, *buffer);
+		value = mscc_fa_vcore_readl(priv, phys);
+		pr_debug("1c Reading from buffer: 0x%px, value: 0x%08x, in buffer: 0x%08x", buffer, value, *buffer);
 	}
-	value = mscc_fa_vcore_readl(priv, vcore_addr + 4);
-	if (0x00123456 != value) {
-		pr_err("%s:%d %s: VCore PCIe space access error:"
-		       " AMBA_TOP space\n",
-			__FILE__, __LINE__, __func__);
-		return -1;
+	{
+		u32 *buffer = kmalloc(256, GFP_KERNEL);
+		u64 phys = virt_to_phys(buffer) + DDR_OFFSET;
+		u32 value;
+		*buffer = 0xdeadbeef;
+		wmb();
+		value = mscc_fa_vcore_readl(priv, phys);
+		pr_debug("2a Reading from vcore buffer: 0x%px, phys: 0x%09llx, value: 0x%08x", buffer, phys, value);
+		mscc_fa_vcore_writel(priv, phys, 0x12345678);
+		pr_debug("2b Reading from buffer: 0x%px, in buffer: 0x%08x", buffer, *buffer);
+		value = mscc_fa_vcore_readl(priv, phys);
+		pr_debug("2c Reading from buffer: 0x%px, value: 0x%08x, in buffer: 0x%08x", buffer, value, *buffer);
+		kfree(buffer);
 	}
-	pr_debug("%s:%d %s: Successfully accessed host memory\n", 
+	pr_debug("%s:%d %s: Successfully accessed vcore via vcore access\n", 
 		__FILE__, __LINE__, __func__);
 	return 0;
 }
@@ -1568,16 +1687,16 @@ static void mscc_fa_setup_pcie_atu(struct mscc_fa_fdma *priv)
 
 	mscc_fa_vcore_write_reg(priv, 
 		PCIE_DM_EP_PF0_ATU_LWR_BASE_ADDR_OFF_OUTBOUND_0_OFF,
-		(u32)FDMA_ATU_TARGET_SPACE);
+		(u32)PCIE_TARGET_OFFSET);
 	mscc_fa_vcore_write_reg(priv, 
 		PCIE_DM_EP_PF0_ATU_UPPER_BASE_ADDR_OFF_OUTBOUND_0_OFF,
-		(u32)(FDMA_ATU_TARGET_SPACE >> 32));
+		(u32)(PCIE_TARGET_OFFSET >> 32));
 	mscc_fa_vcore_write_reg(priv, 
 		PCIE_DM_EP_PF0_ATU_LIMIT_ADDR_OFF_OUTBOUND_0_OFF,
 		~0x0);
 	mscc_fa_vcore_write_reg(priv, 
 		PCIE_DM_EP_PF0_ATU_UPPR_LIMIT_ADDR_OFF_OUTBOUND_0_OFF,
-		(u32)(FDMA_ATU_TARGET_SPACE >> 32));
+		(u32)(PCIE_TARGET_OFFSET >> 32));
 	mscc_fa_vcore_write_reg(priv, 
 		PCIE_DM_EP_PF0_ATU_LWR_TARGET_ADDR_OFF_OUTBOUND_0_OFF,
 		0);
@@ -1586,76 +1705,31 @@ static void mscc_fa_setup_pcie_atu(struct mscc_fa_fdma *priv)
 		0);
 }
 
-static int mscc_fa_configure_fdma(struct mscc_fa_fdma *priv, bool use_pcie)
+static void mscc_fa_reset_fdma(struct mscc_fa_fdma *priv)
 {
-	int group = 0;
-	int port = 0;
-	int channel = 0;
-	u32 value = 0;
-
 	pr_debug("%s:%d %s\n", __FILE__, __LINE__, __func__);
 	mscc_fa_writel(priv, FDMA_CTRL_OFF, 0);
 	wmb();
 	mscc_fa_writel(priv, FDMA_CTRL_OFF, FDMA_CTRL_NRESET);
-
-	/* Group: Enable FDMA Injection (mode 2) */
-	value = mscc_fa_readl(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(group));
-	value &= ~DEVCPU_QS_INJ_GRP_CFG_MODE_M;
-	value |= DEVCPU_QS_INJ_GRP_CFG_MODE(2);
-	mscc_fa_writel(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(group), value);
-
-	/* Group: Set gap using IFH (gap 0) */
-	mscc_fa_writel(priv, DEVCPU_QS_INJ_CTRL_R_OFF(group),
-		DEVCPU_QS_INJ_CTRL_GAP_SIZE(0));
-
-	/* Channel:
-	* FDMA_CH_CFG[channel].CH_INJ_PORT is set to 0
-	* FDMA_CH_CFG[0-7].CH_DCB_DB_CNT = 1 for number of DCBs
-	* FDMA_CH_CFG[0-7].CH_INTR_DB_EOF_ONLY = 1 for intr on EOF only 
-	*/
-	for (channel = 0; channel < priv->nr_pchans; ++channel) {
-		if (use_pcie) {
-			mscc_fa_writel(priv, FDMA_CH_CFG_R_OFF(channel), 
-				/* Use all data blocks */
-				FDMA_CH_CFG_DCB_DB_CNT(FDMA_DCB_MAX_DBS) | 
-				FDMA_CH_CFG_INTR_DB_EOF_ONLY |
-				FDMA_CH_CFG_MEM);
-		}
-	}
-	/* Group: Enable FDMA Extraction (mode 2) */
-	value = mscc_fa_readl(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(group));
-	value &= ~DEVCPU_QS_XTR_GRP_CFG_MODE_M;
-	value |= DEVCPU_QS_XTR_GRP_CFG_MODE(2);
-	mscc_fa_writel(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(group), value);
-
-
-	/* This should be in the port handling: fireant_board.c */
-	/* Port Format: IFH with no prefix, no preamble, no VSTAX2 aware */
-	mscc_fa_writel(priv, ASM_CFG_PORT_R_OFF(port), 
-		ASM_CFG_PORT_INJ_FORMAT(1) | 
-		ASM_CFG_PORT_NO_PREAMBLE_ENA);
-
-	if (use_pcie) {
+	/* Use the Address Translation for PCIe */
+	if (priv->using_pcie) {
 		mscc_fa_setup_pcie_atu(priv);
-		mscc_fa_access_test(priv);
 	}
-
-	return 0;
 }
 
-static int mscc_fa_init_region(struct platform_device *pdev,
+static bool mscc_fa_init_region(struct platform_device *pdev,
 	struct mscc_fa_fdma *priv, struct resource *res,
 	unsigned int top, phys_addr_t vcore_addr)
 {
 	struct mscc_fa_region *region = 0;
 
 	if (!res->start || !res->end) {
-		return -ENOENT;
+		return 0;
 	}
 	region = &priv->regions[GET_REGION_INDEX(top)];
 	region->phys_addr = res->start;
 	region->size = res->end - res->start + 1;
-	region->io_addr = devm_ioremap_resource(&pdev->dev, res);
+	region->io_addr = ioremap(region->phys_addr, region->size);
 	region->vcore_addr = vcore_addr;
 	pr_debug("%s:%d %s: IO Mapping %u: 0x%llx -> 0x%px .. 0x%px,"
 		" vcore: 0x%llx\n",
@@ -1665,7 +1739,7 @@ static int mscc_fa_init_region(struct platform_device *pdev,
 		region->io_addr, 
 		region->io_addr + region->size - 1,
 		region->vcore_addr);
-	return 0;
+	return region->phys_addr != region->vcore_addr;
 }
 
 static int mscc_fa_fdma_probe(struct platform_device *pdev)
@@ -1674,7 +1748,6 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 	struct mscc_fa_fdma *priv;
 	int ret = -ENODEV, nr_channels, i;
 	struct resource *res;
-	u32 chip_id;
 
 	/* Get Frame DMA info from Device Tree */
 	if (!devnode) {
@@ -1718,29 +1791,6 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 		list_add_tail(&fdma_chan->chan.device_node, &priv->dma.channels);
 	}
 
-	/* Create a pool of consistent memory blocks for hardware descriptors */
-	priv->dcb_pool = dmam_pool_create("mscc-fdma-dcb", priv->dma.dev,
-		sizeof(struct mscc_fa_fdma_dcb),
-		FDMA_BUFFER_ALIGN,
-		0);
-	if (!priv->dcb_pool) {
-		dev_err(&pdev->dev, "Unable to allocate DMA descriptor pool\n");
-		ret = -ENOMEM;
-		goto out_free;
-	}
-	INIT_LIST_HEAD(&priv->free_dcbs);
-	for (i = 0; i < FDMA_DCB_MAX; ++i) {
-		struct mscc_fa_fdma_dcb *dcb;
-		dma_addr_t dcb_phys;
-
-		dcb = dma_pool_zalloc(priv->dcb_pool, GFP_ATOMIC, &dcb_phys);
-		if (dcb) {
-			dcb->phys = dcb_phys;
-			dcb->offset = FDMA_ATU_TARGET_SPACE;
-			list_add(&dcb->node, &priv->free_dcbs);
-		}
-	}
-
 	/* Provide DMA Engine device interface */
 	priv->dma.dev = &pdev->dev;
 	priv->dma.device_alloc_chan_resources = 
@@ -1776,7 +1826,9 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot get IO resource 0\n");
 		return -EINVAL;
 	}
-	mscc_fa_init_region(pdev, priv, res, FIREANT_DEFAULT, VCORE_CSR_SPACE);
+	priv->using_pcie = mscc_fa_init_region(pdev, priv, res, FIREANT_DEFAULT, 
+					       VCORE_CSR_SPACE);
+	priv->dcb_offset = priv->using_pcie ? PCIE_TARGET_OFFSET : DDR_OFFSET;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
 		dev_err(&pdev->dev, "Cannot get IO resource 1\n");
@@ -1784,15 +1836,35 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 	}
 	mscc_fa_init_region(pdev, priv, res, FIREANT_AMBA_TOP, AMBA_TOP_SPACE);
 
-	chip_id = mscc_fa_readl(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
-	pr_debug("%s:%d %s: Fireant: %x\n",
-		__FILE__, __LINE__, __func__, chip_id);
-
-	ret = mscc_fa_configure_fdma(priv, 1);
-	if (ret) {
-		dev_err(&pdev->dev, "Could not configure FDMA\n");
-		goto out_unregister;
+	/* Create a pool of consistent memory blocks for hardware descriptors */
+	priv->dcb_pool = dmam_pool_create("mscc-fdma-dcb", priv->dma.dev,
+		sizeof(struct mscc_fa_fdma_dcb),
+		FDMA_BUFFER_ALIGN,
+		0);
+	if (!priv->dcb_pool) {
+		dev_err(&pdev->dev, "Unable to allocate DMA descriptor pool\n");
+		ret = -ENOMEM;
+		goto out_free;
 	}
+	INIT_LIST_HEAD(&priv->free_dcbs);
+	for (i = 0; i < FDMA_DCB_MAX; ++i) {
+		struct mscc_fa_fdma_dcb *dcb;
+		dma_addr_t dcb_phys;
+
+		dcb = dma_pool_zalloc(priv->dcb_pool, GFP_ATOMIC, &dcb_phys);
+		if (dcb) {
+			dcb->phys = dcb_phys;
+			list_add(&dcb->node, &priv->free_dcbs);
+			pr_debug("Buffer[%d]: dcb: 0x%px, phys: 0x%09llx, target: 0x%09llx\n",
+				 i,
+				 dcb,
+				 dcb_phys,
+				 dcb_phys + priv->dcb_offset);
+		}
+	}
+
+	mscc_fa_access_test(pdev, priv);
+	mscc_fa_reset_fdma(priv);
 
 	priv->irq = platform_get_irq(pdev, 0);
 	pr_debug("%s:%d %s: IRQ: %d\n", __FILE__, __LINE__, __func__, priv->irq);
@@ -1851,7 +1923,7 @@ static int mscc_fa_fdma_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mscc_fa_fdma_match[] = {
-	{ .compatible = "mscc,vsc7568-fdma", },
+	{ .compatible = "mscc,vsc7558-fdma", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mscc_fa_fdma_match);

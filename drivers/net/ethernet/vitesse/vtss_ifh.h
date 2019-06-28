@@ -25,6 +25,7 @@ enum {
 	SOC_OCELOT,
 	SOC_JAGUAR2,
 	SOC_SERVALT,
+	SOC_FIREANT,
 };
 
 enum {
@@ -32,6 +33,7 @@ enum {
 	IFH_ID_SERVAL1 = 0x05,
 	IFH_ID_OCELOT  = 0x0a,
 	IFH_ID_JAGUAR2 = 0x07,
+	IFH_ID_FIREANT = 0x0b,
 };
 
 #define IFH_LEN_LUTON			8
@@ -45,3 +47,6 @@ enum {
 
 #define IFH_LEN_JAGUAR2			28
 #define IFH_OFFS_PORT_MASK_JAGUAR2	128
+
+#define IFH_LEN_FIREANT			36
+#define IFH_OFFS_PORT_MASK_FIREANT	386
