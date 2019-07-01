@@ -7,36 +7,45 @@
 #include "fireant-soc.dtsi"
 
 / {
-	model = "FireAnt PCB125 Reference Board";
-	compatible = "mscc,fireant-pcb125", "mscc,fireant";
-
+	model = "FireAnt PCB134 Reference Board";
+	compatible = "mscc,fireant-pcb134", "mscc,fireant";
 };
 
 &uart0 {
         status = "okay";
 };
 
+&gpio {
+	cs14_pins: cs14-pins {
+		pins = "GPIO_44";
+		function = "si";
+	};
+};
+
 &spi0 {
 	status = "okay";
+	pinctrl-0 = <&si2_pins>;
+	pinctrl-names = "default";
 	spi-flash@0 {
 		compatible = "mx66l1g45g", "jedec,spi-nor";
 		spi-max-frequency = <8000000>; /* input clock */
 		reg = <0>; /* CS0 */
 	};
-        spi-flash@1 {
+	/* Dedicated SPI2 interface */
+        spi-flash@14 {
 		compatible = "spinand,mt29f";
-		pinctrl-0 = <&cs1_pins>;
+		pinctrl-0 = <&cs14_pins>;
 		pinctrl-names = "default";
 		spi-max-frequency = <8000000>;
-		reg = <1>; /* CS1 */
+		reg = <14>; /* CS14 */
 		partitions {
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			/* 128MiB */
+			/* 256MiB */
 			partition@0 {
 				label = "rootfs_data";
-				reg = <0x0000000 0x8000000>;
+				reg = <0x0000000 0x10000000>;
 			};
 		};
 	};

@@ -147,13 +147,14 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "mscc,fireant-spi", "snps,dw-apb-ssi";
-			reg = <6 0x00104000 0x40>, <6 0x000000d4 0x18>;
-			num-chipselect = <4>;
+			reg = <6 0x00104000 0x40>;
+			//, <0 0 0>, <0x3 0x0 0x4000000>;
+			num-cs = <16>;
 			bus-num = <0>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
 			clocks = <&ahb_clk>;
-			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+			//interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 
 			status = "disabled";
 		};
@@ -181,6 +182,11 @@
 			cs3_pins: cs3-pins {
 				pins = "GPIO_18";
 				function = "si";
+			};
+
+			si2_pins: si2-pins {
+				pins = "GPIO_39", "GPIO_40", "GPIO_41";
+				function = "si2";
 			};
 
 			sgpio0_pins: sgpio-pins {
