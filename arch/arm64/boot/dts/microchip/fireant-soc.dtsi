@@ -110,7 +110,7 @@
 		interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	ahb {
+	ahb: ahb@600000000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <1>;
@@ -170,7 +170,7 @@
 
 		gpio: pinctrl@6110101e0 {
 			compatible = "mscc,fireant-pinctrl";
-			reg = <6 0x110101e0 0x90>;
+			reg = <6 0x110101e0 0x90>, <6 0x10508010 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 0 64>;
@@ -277,6 +277,7 @@
 
 		i2c0: i2c@600101000 {
 			compatible = "snps,designware-i2c";
+			status = "disabled";
 			pinctrl-0 = <&i2c_pins>;
 			pinctrl-names = "default";
 			reg = <6 0x00101000 0x100>;
@@ -290,6 +291,7 @@
 
 		i2c1: i2c@600103000 {
 			compatible = "snps,designware-i2c";
+			status = "disabled";
 			pinctrl-0 = <&i2c2_pins>;
 			pinctrl-names = "default";
 			reg = <6 0x00103000 0x100>;
