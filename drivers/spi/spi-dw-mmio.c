@@ -199,7 +199,7 @@ static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
 		const struct dw_spi_mscc_props *props = dwsmscc->props;
 		u8 __iomem *src = dwsmmio->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
 		/* XXX fireant issue TBD */
-		if (op->addr.val < 0x00a00000 && props == dw_spi_mscc_props_fireant)
+		if (op->addr.val < 0x00a00000 && props == &dw_spi_mscc_props_fireant)
 			return ret;
 		/* Make boot master owner of SI interface */
 		dw_spi_mscc_set_owner(dwsmscc, props,
