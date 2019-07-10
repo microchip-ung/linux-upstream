@@ -1011,7 +1011,7 @@ static int ocelot_pinconf_get(struct pinctrl_dev *pctldev,
 
 	case PIN_CONFIG_INPUT_ENABLE:
 	case PIN_CONFIG_OUTPUT_ENABLE:
-		regmap_read(info->map, REG(OCELOT_GPIO_OE, info, pin), &val);
+		err = regmap_read(info->map, REG(OCELOT_GPIO_OE, info, pin), &val);
 		if (err)
 			return err;
 
@@ -1021,6 +1021,7 @@ static int ocelot_pinconf_get(struct pinctrl_dev *pctldev,
 		else
 			val = !val;
 		break;
+
 	default:
 		return -ENOTSUPP;
 	}
