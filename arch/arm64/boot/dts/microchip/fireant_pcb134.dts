@@ -36,7 +36,7 @@
 		compatible = "spinand,mt29f";
 		pinctrl-0 = <&cs14_pins>;
 		pinctrl-names = "default";
-		spi-max-frequency = <8000000>;
+		spi-max-frequency = <28000000>;
 		reg = <14>; /* CS14 */
 		partitions {
 			compatible = "fixed-partitions";
