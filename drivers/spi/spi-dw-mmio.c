@@ -153,7 +153,7 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool nen)
 
 	if (dwsmscc->spi_mst && cs < MAX_CS) {
 		u32 sw_mode;
-		if (!enable)
+		if (enable)
 			sw_mode = BIT(props->pinctrl_bit_off) | (BIT(cs) << props->cs_bit_off);
 		else
 			sw_mode = 0;
@@ -167,7 +167,7 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool nen)
 				   BIT(0), enable);
 	}
 
-	dw_spi_set_cs(spi, enable);
+	dw_spi_set_cs(spi, nen);
 }
 
 static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
