@@ -9,6 +9,11 @@
 / {
 	model = "FireAnt PCB134 Reference Board";
 	compatible = "mscc,fireant-pcb134", "mscc,fireant";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x00000000 0x10000000>;
+	};
 };
 
 &uart0 {
@@ -130,7 +135,7 @@
 	};
 };
 
-&ahb {
+&axi {
 	i2c0_imux: i2c0-imux@0 {
 		compatible = "i2c-mux-pinctrl";
 		status = "disabled";
