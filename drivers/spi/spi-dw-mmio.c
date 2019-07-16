@@ -84,12 +84,13 @@ struct dw_spi_mscc {
 	struct regmap       		*syscon;
 	void __iomem        		*spi_mst;
 	const struct dw_spi_mscc_props	*props;
+	u32				gen_owner;
 };
 
 /*
  * Set the owner of the SPI interface
  */
-static void dw_spi_mscc_set_owner(const struct dw_spi_mscc *dwsmscc,
+static void dw_spi_mscc_set_owner(struct dw_spi_mscc *dwsmscc,
 				  const struct dw_spi_mscc_props *props,
 				  u8 owner, u8 owner2, bool trace)
 {
@@ -106,11 +107,34 @@ static void dw_spi_mscc_set_owner(const struct dw_spi_mscc *dwsmscc,
 		val |= owner2 << props->si_owner2_bit;
 		msk |= (MSCC_IF_SI_OWNER_MASK << props->si_owner2_bit);
 	}
-	regmap_update_bits(dwsmscc->syscon, props->general_ctrl_off, msk, val);
-	if (trace) {
-		printk("Update: mask %08x val %08x\n", msk, val);
-		(void) regmap_read(dwsmscc->syscon, props->general_ctrl_off, &val);
-		printk("Read gen_ctl: 0x%08x\n", val);
+	if (dwsmscc->gen_owner != val) {
+		dwsmscc->gen_owner = val;
+		regmap_update_bits(dwsmscc->syscon, props->general_ctrl_off, msk, val);
+		if (trace) {
+			printk("Update: mask %08x val %08x\n", msk, val);
+			(void) regmap_read(dwsmscc->syscon, props->general_ctrl_off, &val);
+			printk("Read gen_ctl: 0x%08x\n", val);
+		}
+	}
+}
+
+static void dw_spi_mscc_set_cs_owner(struct dw_spi_mscc *dwsmscc,
+				     const struct dw_spi_mscc_props *props,
+				     u8 cs, u8 owner)
+{
+	u8 dummy = MSCC_IF_SI_OWNER_SISL;
+	if (props->si_owner2_bit) {
+		/* Fireant - complex - 2 interfaces via mux */
+		if (cs < 8) { /* CRUDE - XXX - REVISIT */
+			dw_spi_mscc_set_owner(dwsmscc, props,
+					      owner, dummy, false);
+		} else {
+			/* SPI2 */
+			dw_spi_mscc_set_owner(dwsmscc, props,
+					      dummy, owner, false);
+		}
+	} else {
+		dw_spi_mscc_set_owner(dwsmscc, props, owner, dummy, false);
 	}
 }
 
@@ -121,41 +145,20 @@ static void dw_spi_mscc_set_owner(const struct dw_spi_mscc *dwsmscc,
  * the SPI boot controller registers. the final chip select is an OR gate
  * between the Designware SPI controller and the SPI boot controller.
  */
-static void dw_spi_mscc_set_cs(struct spi_device *spi, bool nen)
+static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 {
 	struct dw_spi *dws = spi_master_get_devdata(spi->master);
 	struct dw_spi_mmio *dwsmmio = container_of(dws, struct dw_spi_mmio, dws);
 	struct dw_spi_mscc *dwsmscc = dwsmmio->priv;
 	const struct dw_spi_mscc_props *props = dwsmscc->props;
-	u32 cs = spi->chip_select;
-	bool enable = !nen;	/* True enable */
+	u8 cs = spi->chip_select;
 
-	if (enable) {
-		if (props->si_owner2_bit) {
-			/* Fireant - complex - 2 interfaces via mux */
-			if (cs < 8) { /* CRUDE - XXX - REVISIT */
-				dw_spi_mscc_set_owner(dwsmscc, props,
-						      MSCC_IF_SI_OWNER_SIMC,
-						      MSCC_IF_SI_OWNER_SIBM, false);
-			} else {
-				dw_spi_mscc_set_owner(dwsmscc, props,
-						      MSCC_IF_SI_OWNER_SIBM,
-						      MSCC_IF_SI_OWNER_SIMC, false);
-			}
-		} else {
-			dw_spi_mscc_set_owner(dwsmscc, props,
-					      MSCC_IF_SI_OWNER_SIMC,
-					      MSCC_IF_SI_OWNER_SISL, false); /* Dummy */
-		}
-	} else{
-		dw_spi_mscc_set_owner(dwsmscc, props,
-				      MSCC_IF_SI_OWNER_SIBM,
-				      MSCC_IF_SI_OWNER_SIMC, false);
-	}
+	if (!enable)
+		dw_spi_mscc_set_cs_owner(dwsmscc, props, cs, MSCC_IF_SI_OWNER_SIMC);
 
 	if (dwsmscc->spi_mst && cs < MAX_CS) {
 		u32 sw_mode;
-		if (enable)
+		if (!enable)
 			sw_mode = BIT(props->pinctrl_bit_off) | (BIT(cs) << props->cs_bit_off);
 		else
 			sw_mode = 0;
@@ -163,13 +166,13 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool nen)
 	} else if (props->ss_force_ena_off) {
 		/* CS value */
 		regmap_update_bits(dwsmscc->syscon, props->ss_force_val_off,
-				   GENMASK(15,0), ~(enable ? BIT(cs) : 0));
+				   GENMASK(15,0), ~(!enable ? BIT(cs) : 0));
 		/* CS override drive enable */
 		regmap_update_bits(dwsmscc->syscon, props->ss_force_ena_off,
-				   BIT(0), enable);
+				   BIT(0), !enable);
 	}
 
-	dw_spi_set_cs(spi, nen);
+	dw_spi_set_cs(spi, enable);
 }
 
 static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
@@ -202,9 +205,7 @@ static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
 		if (op->addr.val < 0x00a00000 && props == &dw_spi_mscc_props_fireant)
 			return ret;
 		/* Make boot master owner of SI interface */
-		dw_spi_mscc_set_owner(dwsmscc, props,
-				      MSCC_IF_SI_OWNER_SIBM,
-				      MSCC_IF_SI_OWNER_SIMC, true);
+		dw_spi_mscc_set_cs_owner(dwsmscc, props, spi->chip_select, MSCC_IF_SI_OWNER_SIBM);
 		memcpy(op->data.buf.in, src, op->data.nbytes);
 		ret = op->data.nbytes;
 	}
