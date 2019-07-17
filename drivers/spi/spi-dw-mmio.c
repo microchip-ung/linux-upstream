@@ -92,15 +92,9 @@ struct dw_spi_mscc {
  */
 static void dw_spi_mscc_set_owner(struct dw_spi_mscc *dwsmscc,
 				  const struct dw_spi_mscc_props *props,
-				  u8 owner, u8 owner2, bool trace)
+				  u8 owner, u8 owner2)
 {
 	u32 val, msk;
-	trace = false;		/* XXX */
-	if (trace) {
-		printk("Set owner: %d:%d\n", owner, owner2);
-		(void) regmap_read(dwsmscc->syscon, props->general_ctrl_off, &val);
-		printk("Read gen_ctl: 0x%08x\n", val);
-	}
 	val = (owner << props->si_owner_bit);
 	msk = (MSCC_IF_SI_OWNER_MASK << props->si_owner_bit);
 	if (props->si_owner2_bit) {
@@ -108,13 +102,8 @@ static void dw_spi_mscc_set_owner(struct dw_spi_mscc *dwsmscc,
 		msk |= (MSCC_IF_SI_OWNER_MASK << props->si_owner2_bit);
 	}
 	if (dwsmscc->gen_owner != val) {
-		dwsmscc->gen_owner = val;
 		regmap_update_bits(dwsmscc->syscon, props->general_ctrl_off, msk, val);
-		if (trace) {
-			printk("Update: mask %08x val %08x\n", msk, val);
-			(void) regmap_read(dwsmscc->syscon, props->general_ctrl_off, &val);
-			printk("Read gen_ctl: 0x%08x\n", val);
-		}
+		dwsmscc->gen_owner = val;
 	}
 }
 
@@ -122,19 +111,18 @@ static void dw_spi_mscc_set_cs_owner(struct dw_spi_mscc *dwsmscc,
 				     const struct dw_spi_mscc_props *props,
 				     u8 cs, u8 owner)
 {
-	u8 dummy = MSCC_IF_SI_OWNER_SISL;
+	u8 dummy = (owner == MSCC_IF_SI_OWNER_SIBM ?
+		    MSCC_IF_SI_OWNER_SIMC : MSCC_IF_SI_OWNER_SIBM);
 	if (props->si_owner2_bit) {
 		/* Fireant - complex - 2 interfaces via mux */
 		if (cs < 8) { /* CRUDE - XXX - REVISIT */
-			dw_spi_mscc_set_owner(dwsmscc, props,
-					      owner, dummy, false);
+			dw_spi_mscc_set_owner(dwsmscc, props, owner, dummy);
 		} else {
 			/* SPI2 */
-			dw_spi_mscc_set_owner(dwsmscc, props,
-					      dummy, owner, false);
+			dw_spi_mscc_set_owner(dwsmscc, props, dummy, owner);
 		}
 	} else {
-		dw_spi_mscc_set_owner(dwsmscc, props, owner, dummy, false);
+		dw_spi_mscc_set_owner(dwsmscc, props, owner, dummy);
 	}
 }
 
@@ -156,7 +144,7 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 	if (!enable)
 		dw_spi_mscc_set_cs_owner(dwsmscc, props, cs, MSCC_IF_SI_OWNER_SIMC);
 
-	if (dwsmscc->spi_mst && cs < MAX_CS) {
+	if (dwsmscc->spi_mst && (cs < MAX_CS)) {
 		u32 sw_mode;
 		if (!enable)
 			sw_mode = BIT(props->pinctrl_bit_off) | (BIT(cs) << props->cs_bit_off);
@@ -164,12 +152,17 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 			sw_mode = 0;
 		writel(sw_mode, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
 	} else if (props->ss_force_ena_off) {
-		/* CS value */
-		regmap_update_bits(dwsmscc->syscon, props->ss_force_val_off,
-				   GENMASK(15,0), ~(!enable ? BIT(cs) : 0));
-		/* CS override drive enable */
-		regmap_update_bits(dwsmscc->syscon, props->ss_force_ena_off,
-				   BIT(0), !enable);
+		if (!enable) {
+			/* CS value */
+			regmap_write(dwsmscc->syscon, props->ss_force_val_off, ~BIT(cs));
+			/* CS override drive enable */
+			regmap_write(dwsmscc->syscon, props->ss_force_ena_off, 1);
+		} else {
+			/* CS value */
+			regmap_write(dwsmscc->syscon, props->ss_force_val_off, ~0);
+			/* CS override drive disable */
+			regmap_write(dwsmscc->syscon, props->ss_force_ena_off, 0);
+		}
 	}
 
 	dw_spi_set_cs(spi, enable);
@@ -201,9 +194,6 @@ static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
 		struct dw_spi_mscc *dwsmscc = dwsmmio->priv;
 		const struct dw_spi_mscc_props *props = dwsmscc->props;
 		u8 __iomem *src = dwsmmio->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
-		/* XXX fireant issue TBD */
-		if (op->addr.val < 0x00a00000 && props == &dw_spi_mscc_props_fireant)
-			return ret;
 		/* Make boot master owner of SI interface */
 		dw_spi_mscc_set_cs_owner(dwsmscc, props, spi->chip_select, MSCC_IF_SI_OWNER_SIBM);
 		memcpy(op->data.buf.in, src, op->data.nbytes);
