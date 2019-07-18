@@ -83,6 +83,7 @@ struct dw_spi_mscc {
 	void __iomem        		*spi_mst;
 	const struct dw_spi_mscc_props	*props;
 	u32				gen_owner;
+	u32				if2mask;
 };
 
 /*
@@ -111,15 +112,11 @@ static void dw_spi_mscc_set_cs_owner(struct dw_spi_mscc *dwsmscc,
 {
 	u8 dummy = (owner == MSCC_IF_SI_OWNER_SIBM ?
 		    MSCC_IF_SI_OWNER_SIMC : MSCC_IF_SI_OWNER_SIBM);
-	if (props->si_owner2_bit) {
-		/* Fireant - complex - 2 interfaces via mux */
-		if (cs < 8) { /* CRUDE - XXX - REVISIT */
-			dw_spi_mscc_set_owner(dwsmscc, props, owner, dummy);
-		} else {
-			/* SPI2 */
-			dw_spi_mscc_set_owner(dwsmscc, props, dummy, owner);
-		}
+	if (props->si_owner2_bit && (dwsmscc->if2mask & BIT(cs))) {
+		/* SPI2 */
+		dw_spi_mscc_set_owner(dwsmscc, props, dummy, owner);
 	} else {
+		/* SPI1 */
 		dw_spi_mscc_set_owner(dwsmscc, props, owner, dummy);
 	}
 }
@@ -246,6 +243,9 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 	if (dwsmscc->spi_mst) {
 		writel(0, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
 	}
+
+	/* SPI2 mapping bitmask */
+	device_property_read_u32(&pdev->dev, "interface-mapping-mask", &dwsmscc->if2mask);
 
 	dwsmmio->dws.set_cs = dw_spi_mscc_set_cs;
 	dwsmmio->priv = dwsmscc;
