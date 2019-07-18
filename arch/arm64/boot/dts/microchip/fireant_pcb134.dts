@@ -31,6 +31,7 @@
 	status = "okay";
 	pinctrl-0 = <&si2_pins>;
 	pinctrl-names = "default";
+	interface-mapping-mask = <0x4000>;	// NAND CS14 = SPI2
 	spi-flash@0 {
 		compatible = "mx66l1g45g", "jedec,spi-nor";
 		spi-max-frequency = <8000000>; /* input clock */
