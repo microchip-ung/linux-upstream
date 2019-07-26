@@ -170,4 +170,13 @@ config UIO_HV_GENERIC
 	  to network and storage devices from userspace.
 
 	  If you compile this as a module, it will be called uio_hv_generic.
+
+config UIO_FIREANT
+	tristate "Generic driver for Fireant SoC"
+	depends on PCI
+	help
+
+	  Driver for acessing Fireant Switch across PCI. It provides
+	  switch access from userspace.
+
 endif
