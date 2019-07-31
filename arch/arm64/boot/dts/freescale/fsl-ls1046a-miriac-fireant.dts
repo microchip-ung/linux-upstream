@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+/dts-v1/;
+
+#include "fsl-ls1046a.dtsi"
+#include "fsl-ls1046a-miriac-mpxls1046.dtsi"
+
+/ {
+	model = "Microsys miriac SBC-LS1046A and MCHP Fireant";
+	compatible = "microsys,sbc1046a", "microsys,mpxls1046a", "fsl,ls1046a";
+
+	aliases {
+		ethernet0 = &enet4;
+		serial0 = &duart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&duart0 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+
+	eeprom@57 {
+		compatible = "at24,24c128";
+		reg = <0x57>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&ifc {
+	nand@0,0 {
+		partition@0 {
+			reg = <0x0 0x00100000>;
+			label = "NAND U-Boot Image";
+			read-only;
+		};
+
+		partition@100000 {
+			reg = <0x00100000 0x00100000>;
+			label = "NAND U-Boot Env";
+		};
+
+		partition@200000 {
+			reg = <0x00200000 0x01E00000>;
+			label = "NAND FIT Image";
+		};
+
+		partition@02000000 {
+			reg = <0x02000000 0x1e000000>;
+			label = "NAND (RW) UBIFS Root File System";
+		};
+	};
+};
+
+#include "fsl-ls1046-post.dtsi"
+
+&fman0 {
+	compatible = "fsl,fman", "simple-bus";
+
+	ethernet@e8000 {
+		phy-handle = <&sgmii_phy1>;
+		phy-connection-type = "sgmii";
+		/* Placeholder, overwritten by bootloader */
+	        mac-address = [00 00 00 00 00 00];
+		/* Fallback address */
+		local-mac-address = [02 18 31 7e 3e 63];
+	};
+
+	mdio@fc000 {
+		sgmii_phy1: ethernet-phy@28 {
+			reg = <28>;
+		};
+	};
+};
