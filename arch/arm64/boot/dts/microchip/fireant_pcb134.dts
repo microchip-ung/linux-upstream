@@ -277,3 +277,15 @@
 		#size-cells = <0>;
 	};
 };
+
+&ifh1 {
+	status = "okay";
+};
+
+&ifmux {
+	status = "okay";
+};
+
+&uio0 {
+	status = "okay";
+};
