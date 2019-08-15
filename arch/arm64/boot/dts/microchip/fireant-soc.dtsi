@@ -334,15 +334,21 @@
 
 		ifh0: ifh_switch_port@0 {
 			compatible = "mscc,vsc7558-fdma-ifh";
+			reg = <6 0x10000000 0x10000000>; /* CSR */
 			dmas = <&dma 0>, <&dma 6>;
 			dma-names = "tx", "rx";
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "xtr", "inj";
 			status = "disabled";
 		};
 
 		ifh1: ifh_switch_port@1 {
 			compatible = "mscc,vsc7558-fdma-ifh";
+			reg = <6 0x10000000 0x10000000>; /* CSR */
 			dmas = <&dma 1>, <&dma 7>;
 			dma-names = "tx", "rx";
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "xtr", "inj";
 			status = "disabled";
 		};
 

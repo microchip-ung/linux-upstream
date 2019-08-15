@@ -283,10 +283,6 @@
 	};
 };
 
-&dma {
-	status = "okay";
-};
-
 &ifh1 {
 	status = "okay";
 };
