@@ -56,22 +56,6 @@
 		};
 	};
 
-	memory@0 {
-		device_type = "memory";
-		reg = <0x00000000 0x00000000 0x10000000>;
-	};
-
-	gic: interrupt-controller@600300000 {
-		compatible = "arm,gic-v3";
-		#interrupt-cells = <3>;
-		#address-cells = <2>;
-		#size-cells = <2>;
-		interrupt-controller;
-		reg = <6 0x00300000 0x20000>,	/* GICD */
-		      <6 0x00340000 0x1000000>;	/* GICR */
-		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
@@ -91,21 +75,29 @@
 			#clock-cells = <0>;
 			clock-frequency = <625000000>;
 		};
+		aux1_clk: aux1-clk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <667000000>;
+		};
 	};
 
-	timer1: timer@600105000 {
-		compatible = "snps,dw-apb-timer";
-		reg = <6 0x00105000 0x1000>;
-		clocks = <&ahb_clk>;
-		clock-names = "timer";
-		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	ahb {
+	axi: axi@600000000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <1>;
 		ranges;
+
+		gic: interrupt-controller@600300000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			interrupt-controller;
+			reg = <6 0x00300000 0x20000>,	/* GICD */
+			      <6 0x00340000 0x1000000>;	/* GICR */
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+		};
 
 		cpu_ctrl: syscon@600000000 {
 			compatible = "mscc,fireant-cpu-syscon", "syscon";
@@ -147,20 +139,39 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "mscc,fireant-spi", "snps,dw-apb-ssi";
-			reg = <6 0x00104000 0x40>, <6 0x000000d4 0x18>;
-			num-chipselect = <4>;
-			bus-num = <0>;
+			reg = <6 0x00104000 0x40>, <0 0 0>, <0x3 0x0 0x4000000>;
+			num-cs = <16>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
 			clocks = <&ahb_clk>;
-			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+			//interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 
 			status = "disabled";
 		};
 
+		timer1: timer@600105000 {
+			compatible = "snps,dw-apb-timer";
+			reg = <6 0x00105000 0x1000>;
+			clocks = <&ahb_clk>;
+			clock-names = "timer";
+			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		sdhci0: sdhci@600800000 {
+			compatible = "snps,dwcmshc-sdhci";
+			status = "disabled";
+			reg = <6 0x00800000 0x1000>;
+			pinctrl-0 = <&emmc_pins>;
+			pinctrl-names = "default";
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&ahb_clk>, <&aux1_clk>;
+			clock-names = "bus", "core";
+			bus-width = <8>;
+		};
+
 		gpio: pinctrl@6110101e0 {
 			compatible = "mscc,fireant-pinctrl";
-			reg = <6 0x110101e0 0x90>;
+			reg = <6 0x110101e0 0x90>, <6 0x10508010 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&gpio 0 0 64>;
@@ -181,6 +192,11 @@
 			cs3_pins: cs3-pins {
 				pins = "GPIO_18";
 				function = "si";
+			};
+
+			si2_pins: si2-pins {
+				pins = "GPIO_39", "GPIO_40", "GPIO_41";
+				function = "si2";
 			};
 
 			sgpio0_pins: sgpio-pins {
@@ -222,6 +238,15 @@
 				pins = "GPIO_28", "GPIO_29";
 				function = "twi2";
 			};
+
+			emmc_pins: emmc-pins {
+				pins = "GPIO_34", "GPIO_35", "GPIO_36",
+					"GPIO_37", "GPIO_38", "GPIO_39",
+					"GPIO_40", "GPIO_41", "GPIO_42",
+					"GPIO_43", "GPIO_44", "GPIO_45",
+					"GPIO_46", "GPIO_47";
+				function = "emmc";
+			};
 		};
 
 		sgpio0: gpio@61101036c {
@@ -262,6 +287,7 @@
 
 		i2c0: i2c@600101000 {
 			compatible = "snps,designware-i2c";
+			status = "disabled";
 			pinctrl-0 = <&i2c_pins>;
 			pinctrl-names = "default";
 			reg = <6 0x00101000 0x100>;
@@ -275,6 +301,7 @@
 
 		i2c1: i2c@600103000 {
 			compatible = "snps,designware-i2c";
+			status = "disabled";
 			pinctrl-0 = <&i2c2_pins>;
 			pinctrl-names = "default";
 			reg = <6 0x00103000 0x100>;
@@ -285,5 +312,14 @@
 			clock-frequency = <100000>;
 			clocks = <&ahb_clk>;
 		};
+
+		uio0: vcoreiii_switch@600000000 {
+			compatible = "generic-uio";
+			reg = <6 0x00000000 0x12000000>;
+			reg-names = "origin1_2";
+			/* IRQ TBD: Now = PTP_SYNC */
+			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 	};
 };

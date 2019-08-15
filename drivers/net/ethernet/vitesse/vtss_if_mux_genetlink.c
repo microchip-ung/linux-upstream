@@ -900,11 +900,12 @@ static int parse_elements(struct vtss_if_mux_filter_element *e,
 			element_attr[VTSS_IF_MUX_ATTR_ELEMENT_PREFIX]);
 		break;
 
-	case VTSS_IF_MUX_FILTER_TYPE_acl_id: // fallthrough
+	case VTSS_IF_MUX_FILTER_TYPE_acl_id:
 		if (vtss_if_mux_chip->soc != SOC_LUTON) {
 			printk(KERN_ERR "Platform not supported\n");
 			return -EINVAL;
 		}
+		// fallthrough
 	case VTSS_IF_MUX_FILTER_TYPE_ipv6_src: // fallthrough
 	case VTSS_IF_MUX_FILTER_TYPE_ipv6_dst: // fallthrough
 	case VTSS_IF_MUX_FILTER_TYPE_ipv6_src_or_dst:

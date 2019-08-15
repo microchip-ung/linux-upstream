@@ -10,6 +10,10 @@
 	model = "FireAnt PCB125 Reference Board";
 	compatible = "mscc,fireant-pcb125", "mscc,fireant";
 
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x00000000 0x10000000>;
+	};
 };
 
 &uart0 {
@@ -18,6 +22,9 @@
 
 &spi0 {
 	status = "okay";
+	pinctrl-0 = <&si2_pins>;
+	pinctrl-names = "default";
+	interface-mapping-mask = <0x4000>;	// NAND CS14 = SPI2
 	spi-flash@0 {
 		compatible = "mx66l1g45g", "jedec,spi-nor";
 		spi-max-frequency = <8000000>; /* input clock */
@@ -33,10 +40,10 @@
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			/* 128MiB */
+			/* 256MiB */
 			partition@0 {
 				label = "rootfs_data";
-				reg = <0x0000000 0x8000000>;
+				reg = <0x0000000 0x10000000>;
 			};
 		};
 	};
@@ -53,4 +60,10 @@
 
 &i2c1 {
 	status = "okay";
+};
+
+&sdhci0 {
+	status = "okay";
+	bus-width = <8>;
+	non-removable;
 };

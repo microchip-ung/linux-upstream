@@ -25,6 +25,23 @@
 #include "pinconf.h"
 #include "pinmux.h"
 
+#define clrsetbits(addr, clear, set) \
+	writel((readl(addr) & ~(clear)) | (set), (addr))
+
+/* PINCONFIG bits (fireant only) */
+enum {
+	PINCONF_BIAS,
+	PINCONF_SCHMITT,
+	PINCONF_DRIVE_STRENGTH,
+};
+
+#define BIAS_PD_BIT BIT(4)
+#define BIAS_PU_BIT BIT(3)
+#define BIAS_BITS   (BIAS_PD_BIT|BIAS_PU_BIT)
+#define SCHMITT_BIT BIT(2)
+#define DRIVE_BITS  GENMASK(1, 0)
+
+/* GPIO standard registers */
 #define OCELOT_GPIO_OUT_SET	0x0
 #define OCELOT_GPIO_OUT_CLR	0x4
 #define OCELOT_GPIO_OUT		0x8
@@ -135,6 +152,7 @@ struct ocelot_pinctrl {
 	struct pinctrl_dev *pctl;
 	struct gpio_chip gpio_chip;
 	struct regmap *map;
+	void __iomem *pincfg;
 	struct pinctrl_desc *desc;
 	struct ocelot_pmx_func func[FUNC_MAX];
 	u8 stride;
@@ -788,7 +806,7 @@ static int ocelot_pin_function_idx(struct ocelot_pinctrl *info,
 	return -1;
 }
 
-#define REG(r, info, p) (r * info->stride + (4 * (p / 32)))
+#define REG_ALT(msb, info, p) (OCELOT_GPIO_ALT0 * info->stride + 4 * (msb + (info->stride * (p / 32))))
 
 static int ocelot_pinmux_set_mux(struct pinctrl_dev *pctldev,
 				 unsigned int selector, unsigned int group)
@@ -804,18 +822,21 @@ static int ocelot_pinmux_set_mux(struct pinctrl_dev *pctldev,
 
 	/*
 	 * f is encoded on two bits.
-	 * bit 0 of f goes in BIT(pin) of ALT0, bit 1 of f goes in BIT(pin) of
-	 * ALT1
+	 * bit 0 of f goes in BIT(pin) of ALT[0], bit 1 of f goes in BIT(pin) of
+	 * ALT[1]
 	 * This is racy because both registers can't be updated at the same time
 	 * but it doesn't matter much for now.
+	 * Note: ALT0/ALT1 are organized specially for 64 gpio targets
 	 */
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_ALT0, info, pin->pin),
+	regmap_update_bits(info->map, REG_ALT(0, info, pin->pin),
 			   BIT(p), f << p);
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_ALT1, info, pin->pin),
+	regmap_update_bits(info->map, REG_ALT(1, info, pin->pin),
 			   BIT(p), f << (p - 1));
 
 	return 0;
 }
+
+#define REG(r, info, p) (r * info->stride + (4 * (p / 32)))
 
 static int ocelot_gpio_set_direction(struct pinctrl_dev *pctldev,
 				     struct pinctrl_gpio_range *range,
@@ -824,7 +845,7 @@ static int ocelot_gpio_set_direction(struct pinctrl_dev *pctldev,
 	struct ocelot_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
 	unsigned int p = pin % 32;
 
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_OE, info, p), BIT(p),
+	regmap_update_bits(info->map, REG(OCELOT_GPIO_OE, info, pin), BIT(p),
 			   input ? 0 : BIT(p));
 
 	return 0;
@@ -837,9 +858,9 @@ static int ocelot_gpio_request_enable(struct pinctrl_dev *pctldev,
 	struct ocelot_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
 	unsigned int p = offset % 32;
 
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_ALT0, info, offset),
+	regmap_update_bits(info->map, REG_ALT(0, info, offset),
 			   BIT(p), 0);
-	regmap_update_bits(info->map, REG(OCELOT_GPIO_ALT1, info, offset),
+	regmap_update_bits(info->map, REG_ALT(1, info, offset),
 			   BIT(p), 0);
 
 	return 0;
@@ -882,6 +903,203 @@ static int ocelot_pctl_get_group_pins(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
+static int ocelot_hw_get_value(struct ocelot_pinctrl *info,
+			       unsigned int pin,
+			       unsigned int reg,
+			       int *val)
+{
+	int ret = -1;
+	if (info->pincfg) {
+		u32 regcfg = readl(info->pincfg + (pin * sizeof(u32)));
+		u32 value;
+
+		ret = 0;
+		switch (reg) {
+		case PINCONF_BIAS:
+			value = regcfg & BIAS_BITS;
+			break;
+
+		case PINCONF_SCHMITT:
+			value = regcfg & SCHMITT_BIT;
+			break;
+
+		case PINCONF_DRIVE_STRENGTH:
+			value = regcfg & DRIVE_BITS;
+			break;
+
+		default:
+			ret = -1;
+			break;
+		}
+	}
+	return ret;
+}
+
+static int ocelot_hw_set_value(struct ocelot_pinctrl *info,
+			       unsigned int pin,
+			       unsigned int reg,
+			       int val)
+{
+	int ret = -1;
+	if (info->pincfg) {
+		void __iomem *regaddr = info->pincfg + (pin * sizeof(u32));
+
+		ret = 0;
+		switch (reg) {
+		case PINCONF_BIAS:
+			clrsetbits(regaddr, BIAS_BITS, val);
+			break;
+
+		case PINCONF_SCHMITT:
+			clrsetbits(regaddr, SCHMITT_BIT, val);
+			break;
+
+		case PINCONF_DRIVE_STRENGTH:
+			clrsetbits(regaddr, DRIVE_BITS, val);
+			break;
+
+		default:
+			ret = -1;
+			break;
+		}
+	}
+	return ret;
+}
+
+static int ocelot_pinconf_get(struct pinctrl_dev *pctldev,
+			      unsigned int pin, unsigned long *config)
+{
+	struct ocelot_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
+	u32 param = pinconf_to_config_param(*config);
+	int val, err;
+
+	switch (param) {
+	case PIN_CONFIG_BIAS_DISABLE:
+	case PIN_CONFIG_BIAS_PULL_UP:
+	case PIN_CONFIG_BIAS_PULL_DOWN:
+		err = ocelot_hw_get_value(info, pin, PINCONF_BIAS, &val);
+		if (err)
+			return err;
+
+		if (param == PIN_CONFIG_BIAS_DISABLE)
+			val = (val == 0 ? true : false);
+		else if (param == PIN_CONFIG_BIAS_PULL_DOWN)
+			val = (val & BIAS_PD_BIT ? true : false);
+		else    /* PIN_CONFIG_BIAS_PULL_UP */
+			val = (val & BIAS_PU_BIT ? true : false);
+
+
+		break;
+	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
+		err = ocelot_hw_get_value(info, pin, PINCONF_SCHMITT, &val);
+		if (err)
+			return err;
+
+		val = (val & SCHMITT_BIT ? true : false);
+
+		break;
+	case PIN_CONFIG_DRIVE_STRENGTH:
+		err = ocelot_hw_get_value(info, pin, PINCONF_DRIVE_STRENGTH, &val);
+		if (err)
+			return err;
+
+		break;
+
+	case PIN_CONFIG_INPUT_ENABLE:
+	case PIN_CONFIG_OUTPUT_ENABLE:
+		err = regmap_read(info->map, REG(OCELOT_GPIO_OE, info, pin), &val);
+		if (err)
+			return err;
+
+		val = val & BIT(pin % 32);
+		if (param == PIN_CONFIG_OUTPUT_ENABLE)
+			val = !!val;
+		else
+			val = !val;
+		break;
+
+	default:
+		return -ENOTSUPP;
+	}
+
+	*config = pinconf_to_config_packed(param, val);
+
+	return 0;
+}
+
+noinline int ocelot_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
+			      unsigned long *configs, unsigned int num_configs)
+{
+	struct ocelot_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
+	u32 param, arg, p;
+	int cfg, err = 0;
+
+	for (cfg = 0; cfg < num_configs; cfg++) {
+		param = pinconf_to_config_param(configs[cfg]);
+		arg = pinconf_to_config_argument(configs[cfg]);
+
+		switch (param) {
+		case PIN_CONFIG_BIAS_DISABLE:
+		case PIN_CONFIG_BIAS_PULL_UP:
+		case PIN_CONFIG_BIAS_PULL_DOWN:
+			arg = (param == PIN_CONFIG_BIAS_DISABLE) ? 0 :
+			(param == PIN_CONFIG_BIAS_PULL_UP) ? BIAS_PU_BIT :
+			BIAS_PD_BIT;
+
+			err = ocelot_hw_set_value(info, pin, PINCONF_BIAS, arg);
+			if (err)
+				goto err;
+
+			break;
+
+		case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
+			arg = arg ? SCHMITT_BIT : 0;
+			err = ocelot_hw_set_value(info, pin, PINCONF_SCHMITT, arg);
+			if (err)
+				goto err;
+
+			break;
+
+		case PIN_CONFIG_DRIVE_STRENGTH:
+			if (arg <= 2) {
+				err = ocelot_hw_set_value(info, pin, PINCONF_DRIVE_STRENGTH, arg);
+				if (err)
+					goto err;
+
+			} else {
+				err = -ENOTSUPP;
+			}
+			break;
+
+		case PIN_CONFIG_OUTPUT_ENABLE:
+		case PIN_CONFIG_INPUT_ENABLE:
+		case PIN_CONFIG_OUTPUT:
+			p = pin % 32;
+			if (arg)
+				regmap_write(info->map, REG(OCELOT_GPIO_OUT_SET, info, pin),
+					     BIT(p));
+			else
+				regmap_write(info->map, REG(OCELOT_GPIO_OUT_CLR, info, pin),
+					     BIT(p));
+			regmap_update_bits(info->map, REG(OCELOT_GPIO_OE, info, pin), BIT(p),
+					   param == PIN_CONFIG_INPUT_ENABLE ? 0 : BIT(p));
+			break;
+
+		default:
+			err = -ENOTSUPP;
+		}
+	}
+err:
+	return err;
+}
+
+static const struct pinconf_ops ocelot_confops = {
+	.is_generic = true,
+	.pin_config_get = ocelot_pinconf_get,
+	.pin_config_set = ocelot_pinconf_set,
+	.pin_config_config_dbg_show = pinconf_generic_dump_config,
+};
+
 static const struct pinctrl_ops ocelot_pctl_ops = {
 	.get_groups_count = ocelot_pctl_get_groups_count,
 	.get_group_name = ocelot_pctl_get_group_name,
@@ -896,6 +1114,7 @@ static struct pinctrl_desc luton_desc = {
 	.npins = ARRAY_SIZE(luton_pins),
 	.pctlops = &ocelot_pctl_ops,
 	.pmxops = &ocelot_pmx_ops,
+	.confops = &ocelot_confops,
 	.owner = THIS_MODULE,
 };
 
@@ -905,6 +1124,7 @@ static struct pinctrl_desc serval_desc = {
 	.npins = ARRAY_SIZE(serval_pins),
 	.pctlops = &ocelot_pctl_ops,
 	.pmxops = &ocelot_pmx_ops,
+	.confops = &ocelot_confops,
 	.owner = THIS_MODULE,
 };
 
@@ -914,6 +1134,7 @@ static struct pinctrl_desc ocelot_desc = {
 	.npins = ARRAY_SIZE(ocelot_pins),
 	.pctlops = &ocelot_pctl_ops,
 	.pmxops = &ocelot_pmx_ops,
+	.confops = &ocelot_confops,
 	.owner = THIS_MODULE,
 };
 
@@ -923,6 +1144,7 @@ static struct pinctrl_desc jaguar2_desc = {
 	.npins = ARRAY_SIZE(jaguar2_pins),
 	.pctlops = &ocelot_pctl_ops,
 	.pmxops = &ocelot_pmx_ops,
+	.confops = &ocelot_confops,
 	.owner = THIS_MODULE,
 };
 
@@ -932,6 +1154,7 @@ static struct pinctrl_desc servalt_desc = {
 	.npins = ARRAY_SIZE(servalt_pins),
 	.pctlops = &ocelot_pctl_ops,
 	.pmxops = &ocelot_pmx_ops,
+	.confops = &ocelot_confops,
 	.owner = THIS_MODULE,
 };
 
@@ -941,6 +1164,7 @@ static struct pinctrl_desc fireant_desc = {
 	.npins = ARRAY_SIZE(fireant_pins),
 	.pctlops = &ocelot_pctl_ops,
 	.pmxops = &ocelot_pmx_ops,
+	.confops = &ocelot_confops,
 	.owner = THIS_MODULE,
 };
 
@@ -1221,6 +1445,7 @@ static int ocelot_pinctrl_probe(struct platform_device *pdev)
 	}
 
 	info->stride = 1 + (info->desc->npins - 1) / 32;
+
 	regmap_config.max_register = OCELOT_GPIO_SD_MAP * info->stride + 15 * 4;
 
 	info->map = devm_regmap_init_mmio(dev, base, &regmap_config);
@@ -1230,6 +1455,15 @@ static int ocelot_pinctrl_probe(struct platform_device *pdev)
 	}
 	dev_set_drvdata(dev, info->map);
 	info->dev = dev;
+
+	/* Pinconf registers */
+	base = devm_ioremap_resource(dev,
+				     platform_get_resource(pdev, IORESOURCE_MEM, 1));
+	if (IS_ERR(base)) {
+		dev_dbg(dev, "Failed to ioremap config registers (no extended pinconf)\n");
+	} else {
+		info->pincfg = base;
+	}
 
 	ret = ocelot_pinctrl_register(pdev, info);
 	if (ret)
