@@ -92,6 +92,7 @@ static int fireant_pci_probe(struct pci_dev *dev, const struct pci_device_id *id
     info->mem[0].size = pci_resource_len(dev, 0);
     info->mem[0].memtype = UIO_MEM_PHYS;
     info->mem[0].internal_addr = ioremap(info->mem[0].addr, info->mem[0].size);
+    info->mem[0].name = "mscc_switch";
 
 #if 0
     info->mem[1].addr = pci_resource_start(dev, 1);
