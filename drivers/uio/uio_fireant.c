@@ -92,16 +92,16 @@ static int fireant_pci_probe(struct pci_dev *dev, const struct pci_device_id *id
     info->mem[0].size = pci_resource_len(dev, 0);
     info->mem[0].memtype = UIO_MEM_PHYS;
     info->mem[0].internal_addr = ioremap(info->mem[0].addr, info->mem[0].size);
+    info->mem[0].name = "switch_regs";
 
-#if 0
-    info->mem[1].addr = pci_resource_start(dev, 1);
+    info->mem[1].addr = pci_resource_start(dev, 2); /* BAR2! */
     if (!info->mem[1].addr)
         goto out_release;
-    info->mem[1].size = pci_resource_len(dev, 1);
+    info->mem[1].size = pci_resource_len(dev, 2); /* BAR2! */
     info->mem[1].memtype = UIO_MEM_PHYS;
-#endif
+    info->mem[1].name = "cpu_regs";
 
-    info->name = "Fireant RefBoard";
+    info->name = "mscc_switch";
     info->version = "1.0.0";
     info->irq = dev->irq;
     info->handler = fireant_handler;
@@ -121,6 +121,7 @@ static int fireant_pci_probe(struct pci_dev *dev, const struct pci_device_id *id
     return 0;
 
 out_unmap:
+    dev_err(&dev->dev, "UIO register failed\n");
     iounmap(info->mem[0].internal_addr);
 out_release:
     pci_release_regions(dev);
