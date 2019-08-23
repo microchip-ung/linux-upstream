@@ -489,8 +489,6 @@ static int ifmux_probe(struct platform_device *pdev)
     (void) device_property_read_string(&pdev->dev, "parent-interface", &parent_if_name);
 
     pr_debug("vtss_if_mux_dev_init: use IFH id: 0x%x\n", vtss_if_mux_chip->ifh_id);
-    pr_debug("vtss_if_mux_dev_init: IFH port template length: %lu\n", vtss_if_mux_chip->ifh_encap_port_len);
-    pr_debug("vtss_if_mux_dev_init: IFH vlan template length: %lu\n", vtss_if_mux_chip->ifh_encap_vlan_len);
     return 0;
 
 exit_3:
