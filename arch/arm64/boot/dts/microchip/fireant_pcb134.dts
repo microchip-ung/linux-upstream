@@ -10,6 +10,30 @@
 	model = "FireAnt PCB134 Reference Board";
 	compatible = "mscc,fireant-pcb134", "mscc,fireant";
 
+	aliases {
+            i2c0   = &i2c0;
+            i2c100 = &i2c100;
+            i2c101 = &i2c101;
+            i2c102 = &i2c102;
+            i2c103 = &i2c103;
+            i2c104 = &i2c104;
+            i2c105 = &i2c105;
+            i2c106 = &i2c106;
+            i2c107 = &i2c107;
+            i2c108 = &i2c108;
+            i2c109 = &i2c109;
+            i2c110 = &i2c110;
+            i2c111 = &i2c111;
+            i2c112 = &i2c112;
+            i2c113 = &i2c113;
+            i2c114 = &i2c114;
+            i2c115 = &i2c115;
+            i2c116 = &i2c116;
+            i2c117 = &i2c117;
+            i2c118 = &i2c118;
+            i2c119 = &i2c119;
+	};
+
 	memory@0 {
 		device_type = "memory";
 		reg = <0x00000000 0x00000000 0x10000000>;
@@ -38,7 +62,7 @@
 		reg = <0>; /* CS0 */
 	};
 	/* Dedicated SPI2 interface */
-        spi-flash@14 {
+    spi-flash@14 {
 		compatible = "spinand,mt29f";
 		pinctrl-0 = <&cs14_pins>;
 		pinctrl-names = "default";
@@ -84,12 +108,12 @@
 		function = "twi_scl_m";
 		output-high;
 	};
-	i2cmux_2: i2cmux-3 {
+	i2cmux_2: i2cmux-2 {
 		pins = "GPIO_18";
 		function = "twi_scl_m";
 		output-high;
 	};
-	i2cmux_3: i2cmux-4 {
+	i2cmux_3: i2cmux-3 {
 		pins = "GPIO_19";
 		function = "twi_scl_m";
 		output-high;
@@ -156,9 +180,9 @@
 &i2c0_imux {
 	status = "okay";
 	pinctrl-names =
-		"i2c0", "i2c1", "i2c2", "i2c3",
-		"i2c4", "i2c5", "i2c6", "i2c7",
-		"i2c8", "i2c9", "i2c10", "i2c11", "idle";
+		"i2c100", "i2c101", "i2c102", "i2c103",
+		"i2c104", "i2c105", "i2c106", "i2c107",
+		"i2c108", "i2c109", "i2c110", "i2c111", "idle";
 	pinctrl-0 = <&i2cmux_0>;
 	pinctrl-1 = <&i2cmux_1>;
 	pinctrl-2 = <&i2cmux_2>;
@@ -172,63 +196,63 @@
 	pinctrl-10 = <&i2cmux_10>;
 	pinctrl-11 = <&i2cmux_11>;
 	pinctrl-12 = <&i2cmux_pins_i>;
-	i2c@sfp1 {
-		reg = <0x001>;
+	i2c100: i2c_sfp1 {
+		reg = <0x0>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp2 {
-		reg = <0x002>;
+	i2c101: i2c_sfp2 {
+		reg = <0x1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp3 {
-		reg = <0x004>;
+	i2c102: i2c_sfp3 {
+		reg = <0x2>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp4 {
-		reg = <0x008>;
+	i2c103: i2c_sfp4 {
+		reg = <0x3>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp5 {
-		reg = <0x010>;
+	i2c104: i2c_sfp5 {
+		reg = <0x4>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp6 {
-		reg = <0x020>;
+	i2c105: i2c_sfp6 {
+		reg = <0x5>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp7 {
-		reg = <0x040>;
+	i2c106: i2c_sfp7 {
+		reg = <0x6>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp8 {
-		reg = <0x080>;
+	i2c107: i2c_sfp8 {
+		reg = <0x7>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp9 {
-		reg = <0x100>;
+	i2c108: i2c_sfp9 {
+		reg = <0x8>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp10 {
-		reg = <0x200>;
+	i2c109: i2c_sfp10 {
+		reg = <0x9>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp11 {
-		reg = <0x400>;
+	i2c110: i2c_sfp11 {
+		reg = <0xa>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp12 {
-		reg = <0x800>;
+	i2c111: i2c_sfp12 {
+		reg = <0xb>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
@@ -241,42 +265,42 @@
 		     &gpio 61 GPIO_ACTIVE_HIGH
 		     &gpio 54 GPIO_ACTIVE_HIGH>;
 	idle-state = <0x8>;
-	i2c@sfp13 {
+	i2c112: i2c_sfp13 {
 		reg = <0x0>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp14 {
+	i2c113: i2c_sfp14 {
 		reg = <0x1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp15 {
+	i2c114: i2c_sfp15 {
 		reg = <0x2>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp16 {
+	i2c115: i2c_sfp16 {
 		reg = <0x3>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp17 {
+	i2c116: i2c_sfp17 {
 		reg = <0x4>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp18 {
+	i2c117: i2c_sfp18 {
 		reg = <0x5>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp19 {
+	i2c118: i2c_sfp19 {
 		reg = <0x6>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-	i2c@sfp20 {
+	i2c119: i2c_sfp20 {
 		reg = <0x7>;
 		#address-cells = <1>;
 		#size-cells = <0>;
