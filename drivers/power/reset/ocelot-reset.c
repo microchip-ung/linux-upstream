@@ -19,6 +19,7 @@ struct reset_mscc_props {
 	const char *syscon_name;
 	u32 protect_reg_off;
 	u32 vcore_protect;
+	int (*switch_core_reset)(void __iomem *base, const struct reset_mscc_props *props);
 };
 
 struct ocelot_reset_context {
@@ -28,6 +29,7 @@ struct ocelot_reset_context {
 	struct notifier_block restart_handler;
 };
 
+#define SOFT_SWC_RST  BIT(1)
 #define SOFT_CHIP_RST BIT(0)
 
 static int ocelot_restart_handle(struct notifier_block *this,
@@ -83,6 +85,36 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 	return err;
 }
 
+static int fireant_switch_core_reset(void __iomem *base, const struct reset_mscc_props *props)
+{
+	struct regmap * cpu_ctrl;
+	int timeout;
+
+	pr_debug("fireant: Resetting Switch Core\n");
+
+	cpu_ctrl = syscon_regmap_lookup_by_compatible(props->syscon_name);
+	if (IS_ERR(cpu_ctrl)) {
+		pr_err("No syscon regmap named '%s'!\n", props->syscon_name);
+		return -ENXIO;
+	}
+
+	/* Make sure the core is PROTECTED from reset */
+	regmap_update_bits(cpu_ctrl, props->protect_reg_off,
+			   props->vcore_protect, props->vcore_protect);
+
+	writel(SOFT_SWC_RST, base);
+	for(timeout = 0; timeout < 100; timeout++) {
+		if ((readl(base) & SOFT_SWC_RST) == 0) {
+			pr_debug("Switch Core Reset complete.\n");
+			return 0;
+		}
+		udelay(1);
+	}
+
+	pr_warning("Switch Core Reset timeout!\n");
+	return -ENXIO;
+}
+
 static const struct reset_mscc_props reset_mscc_props_ocelot = {
 	.syscon_name = "mscc,ocelot-cpu-syscon",
 	.protect_reg_off = 0x20,
@@ -93,6 +125,7 @@ static const struct reset_mscc_props reset_mscc_props_fireant = {
 	.syscon_name = "mscc,fireant-cpu-syscon",
 	.protect_reg_off = 0x84,
 	.vcore_protect   = BIT(10),
+	.switch_core_reset    = fireant_switch_core_reset,
 };
 
 static const struct of_device_id ocelot_reset_of_match[] = {
@@ -109,3 +142,41 @@ static struct platform_driver ocelot_reset_driver = {
 	},
 };
 builtin_platform_driver(ocelot_reset_driver);
+
+static int __init early_switch_init(void)
+{
+	const struct of_device_id *match;
+	struct device_node *np;
+
+	np = of_find_matching_node_and_match(NULL, ocelot_reset_of_match, &match);
+	if (np) {
+		const struct reset_mscc_props *props = match->data;
+		if (of_property_read_bool(np, "mscc,reset-switch-core") &&
+		    props->switch_core_reset) {
+			struct resource regs;
+			void __iomem *base;
+			if (of_address_to_resource(np, 0, &regs) < 0) {
+				pr_err("failed to get reset registers\n");
+				of_node_put(np);
+				return -ENXIO;
+			}
+			base = ioremap_nocache(regs.start, resource_size(&regs));
+			if (!base) {
+				pr_err("failed to map reset registers\n");
+				of_node_put(np);
+				return -ENXIO;
+			}
+
+			/* Call switch reset function */
+			props->switch_core_reset(base, props);
+
+			iounmap(base);
+		}
+
+		of_node_put(np);
+	}
+
+	return 0;
+}
+
+early_initcall(early_switch_init);

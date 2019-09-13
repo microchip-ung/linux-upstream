@@ -107,6 +107,7 @@
                 reset@611010008 {
 			compatible = "mscc,fireant-chip-reset";
 			reg = <0x6 0x11010008 0x4>;
+			mscc,reset-switch-core;
 		};
 
 		uart0: serial@600100000 {
