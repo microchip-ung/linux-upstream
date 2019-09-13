@@ -318,4 +318,3 @@
 &uio0 {
 	status = "okay";
 };
-
