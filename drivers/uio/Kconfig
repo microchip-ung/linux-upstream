@@ -179,4 +179,11 @@ config UIO_FIREANT
 	  Driver for acessing Fireant Switch across PCI. It provides
 	  switch access from userspace.
 
+config UIO_FIREANT_IRQMUX
+	tristate "Generic driver for Fireant SoC"
+	depends on OF
+	help
+	  Driver for acessing Fireant Switch and IRQs. It provides
+	  switch access from userspace.
+
 endif
