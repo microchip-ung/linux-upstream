@@ -242,10 +242,11 @@ static irqreturn_t slave_irq(int irq, void *ident)
 static int uio_fireant_irqmux_request_irqs(struct irqmux_platdata *priv)
 {
 	struct platform_device *pdev = priv->pdev;
+	struct device *dev = &pdev->dev;
 	int irq, num, max;
 
 	priv->n_sirq = platform_irq_count(pdev);
-	priv->sirq = devm_kzalloc(&pdev->dev,
+	priv->sirq = devm_kzalloc(dev,
 				  sizeof(struct slave_irq)*priv->n_sirq,
 				  GFP_KERNEL);
 	if (!priv->sirq)
@@ -263,22 +264,20 @@ static int uio_fireant_irqmux_request_irqs(struct irqmux_platdata *priv)
 		priv->sirq[num].priv = priv;
 		strncpy(priv->sirq[num].name, r->name, MAXNAMELEN);
 		if (irq <= 0) {
-			dev_err(&pdev->dev, "failed to get IRQ %d\n", num);
+			dev_err(dev, "failed to get IRQ %d\n", num);
 			return irq;
 		}
 		if (num == 0) {
 			priv->info.irq = irq;
 			if (strcmp(r->name, "master")) {
-				dev_err(&pdev->dev,
-					"First irq must be 'master'\n");
+				dev_err(dev, "First irq must be 'master'\n");
 				return -ENXIO;
 			}
 		} else {
 			int ret = request_irq(irq, slave_irq, 0, r->name,
 					      (void *) &priv->sirq[num]);
 			if (ret < 0) {
-				dev_err(&pdev->dev, "can not get IRQ %d\n",
-					irq);
+				dev_err(dev, "can not get IRQ %d\n", irq);
 				return -ENXIO;
 			}
 		}
@@ -313,8 +312,9 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 	priv->info.mem[0].addr = pdev->resource[0].start;
 	priv->info.mem[0].size = resource_size(&(pdev->resource[0]));
 	priv->info.mem[0].name = pdev->resource[0].name;
-	priv->info.mem[0].internal_addr = ioremap(priv->info.mem[0].addr,
-						  priv->info.mem[0].size);
+	priv->info.mem[0].internal_addr = devm_ioremap(dev,
+						       priv->info.mem[0].addr,
+						       priv->info.mem[0].size);
 	if (!priv->info.mem[0].internal_addr) {
 		dev_err(dev, "failed to map chip region\n");
 		return -ENODEV;
@@ -345,8 +345,6 @@ static int uio_fireant_irqmux_remove(struct platform_device *pdev)
 	struct irqmux_platdata *priv = platform_get_drvdata(pdev);
 
 	uio_unregister_device(&priv->info);
-
-	iounmap(priv->info.mem[0].internal_addr);
 
 	priv->info.handler = NULL;
 	priv->info.irqcontrol = NULL;
