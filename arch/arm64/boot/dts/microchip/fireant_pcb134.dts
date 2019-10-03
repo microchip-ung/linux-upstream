@@ -160,7 +160,7 @@
 	};
 };
 
-&ahb {
+&axi {
 	i2c0_imux: i2c0-imux@0 {
 		compatible = "i2c-mux-pinctrl";
 		status = "disabled";
