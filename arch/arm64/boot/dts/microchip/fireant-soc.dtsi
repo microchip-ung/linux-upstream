@@ -94,8 +94,8 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			interrupt-controller;
-			reg = <6 0x00300000 0x20000>,	/* GICD */
-			      <6 0x00340000 0x1000000>;	/* GICR */
+			reg = <6 0x00300000 0x20000>,	// GICD
+			      <6 0x00340000 0x1000000>;	// GICR
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
@@ -136,7 +136,7 @@
 			status = "disabled";
 		};
 
-		spi0: spi-master@600104000 {
+		spi0: spi@600104000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "mscc,fireant-spi", "snps,dw-apb-ssi";
@@ -330,8 +330,8 @@
 
 		dma: dma-controller@600000000 {
 			compatible = "mscc,vsc7558-fdma";
-			reg = <6 0x10000000 0x10000000>, /* CSR */
-			      <6 0x00000000 0x10000000>; /* VCore */
+			reg = <6 0x10000000 0x10000000>, // CSR
+			      <6 0x00000000 0x10000000>; // VCore
 			#dma-cells = <1>;
 			dma-channels = <8>;
 			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
@@ -340,7 +340,7 @@
 
 		ifh0: ifh_switch_port@0 {
 			compatible = "mscc,vsc7558-fdma-ifh";
-			reg = <6 0x10000000 0x10000000>; /* CSR */
+			reg = <6 0x10000000 0x10000000>; // CSR
 			dmas = <&dma 0>, <&dma 6>;
 			dma-names = "tx", "rx";
 			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
@@ -350,7 +350,7 @@
 
 		ifh1: ifh_switch_port@1 {
 			compatible = "mscc,vsc7558-fdma-ifh";
-			reg = <6 0x10000000 0x10000000>; /* CSR */
+			reg = <6 0x10000000 0x10000000>; // CSR
 			dmas = <&dma 1>, <&dma 7>;
 			dma-names = "tx", "rx";
 			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
  * Copyright (c) 2018 Microsemi Corporation
-  */
+ */
 
 /dts-v1/;
 #include "fireant-soc.dtsi"
@@ -34,21 +34,21 @@
 	interface-mapping-mask = <0x4000>;	// NAND CS14 = SPI2
 	spi-flash@0 {
 		compatible = "mx66l1g45g", "jedec,spi-nor";
-		spi-max-frequency = <8000000>; /* input clock */
-		reg = <0>; /* CS0 */
+		spi-max-frequency = <8000000>;
+		reg = <0>;
 	};
-	/* Dedicated SPI2 interface */
-        spi-flash@14 {
-		compatible = "spinand,mt29f";
+	// Dedicated SPI2 interface
+        spi-flash@e {
+		compatible = "spi-nand";
 		pinctrl-0 = <&cs14_pins>;
 		pinctrl-names = "default";
 		spi-max-frequency = <28000000>;
-		reg = <14>; /* CS14 */
+		reg = <14>;
 		partitions {
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			/* 256MiB */
+			// 256MiB
 			partition@0 {
 				label = "rootfs_data";
 				reg = <0x0000000 0x10000000>;

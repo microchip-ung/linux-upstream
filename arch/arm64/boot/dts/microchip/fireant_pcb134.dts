@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
  * Copyright (c) 2018 Microsemi Corporation
-  */
+ */
 
 /dts-v1/;
 #include "fireant-soc.dtsi"
@@ -9,30 +9,6 @@
 / {
 	model = "FireAnt PCB134 Reference Board";
 	compatible = "mscc,fireant-pcb134", "mscc,fireant";
-
-	aliases {
-            i2c0   = &i2c0;
-            i2c100 = &i2c100;
-            i2c101 = &i2c101;
-            i2c102 = &i2c102;
-            i2c103 = &i2c103;
-            i2c104 = &i2c104;
-            i2c105 = &i2c105;
-            i2c106 = &i2c106;
-            i2c107 = &i2c107;
-            i2c108 = &i2c108;
-            i2c109 = &i2c109;
-            i2c110 = &i2c110;
-            i2c111 = &i2c111;
-            i2c112 = &i2c112;
-            i2c113 = &i2c113;
-            i2c114 = &i2c114;
-            i2c115 = &i2c115;
-            i2c116 = &i2c116;
-            i2c117 = &i2c117;
-            i2c118 = &i2c118;
-            i2c119 = &i2c119;
-	};
 
 	memory@0 {
 		device_type = "memory";
@@ -53,37 +29,45 @@
 
 &spi0 {
 	status = "okay";
-	pinctrl-0 = <&si2_pins>;
+	//pinctrl-0 = <&si2_pins>;
 	pinctrl-names = "default";
 	interface-mapping-mask = <0x4000>;	// NAND CS14 = SPI2
 	spi-flash@0 {
 		compatible = "mx66l1g45g", "jedec,spi-nor";
-		spi-max-frequency = <8000000>; /* input clock */
-		reg = <0>; /* CS0 */
+		spi-max-frequency = <8000000>;
+		reg = <0>;
 	};
-	/* Dedicated SPI2 interface */
-    spi-flash@14 {
+	// Dedicated SPI2 interface
+#if 0
+	spi-flash@e {
 		compatible = "spinand,mt29f";
 		pinctrl-0 = <&cs14_pins>;
 		pinctrl-names = "default";
 		spi-max-frequency = <28000000>;
-		reg = <14>; /* CS14 */
+		reg = <14>;
 		partitions {
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			/* 256MiB */
+			// 256MiB
 			partition@0 {
 				label = "rootfs_data";
 				reg = <0x0000000 0x10000000>;
 			};
 		};
 	};
+#endif
 };
 
 &sgpio0 {
 	status = "okay";
 	mscc,sgpio-ports = <0x00FFFFFF>;
+};
+
+&sdhci0 {
+	status = "okay";
+	bus-width = <8>;
+	non-removable;
 };
 
 &i2c0 {
