@@ -17,6 +17,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/acpi.h>
 #include <linux/property.h>
@@ -253,20 +254,6 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 	return 0;
 }
 
-static int dw_spi_mscc_ocelot_init(struct platform_device *pdev,
-				   struct dw_spi_mmio *dwsmmio)
-{
-	return dw_spi_mscc_init(pdev, dwsmmio, "mscc,ocelot-cpu-syscon",
-				OCELOT_IF_SI_OWNER_OFFSET);
-}
-
-static int dw_spi_mscc_jaguar2_init(struct platform_device *pdev,
-				    struct dw_spi_mmio *dwsmmio)
-{
-	return dw_spi_mscc_init(pdev, dwsmmio, "mscc,jaguar2-cpu-syscon",
-				JAGUAR2_IF_SI_OWNER_OFFSET);
-}
-
 static int dw_spi_mmio_probe(struct platform_device *pdev)
 {
 	const struct dw_spi_mscc_props *props;
@@ -346,7 +333,7 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 
 	props = device_get_match_data(&pdev->dev);
 	if (props) {
-		ret = dw_spi_mscc_init(pdev, dwsmmio, props);
+		ret = dw_spi_mscc_init(pdev, dws, dwsmmio, props);
 		if (ret)
 			goto out;
 	}
