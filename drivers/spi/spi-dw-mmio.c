@@ -137,22 +137,26 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 	const struct dw_spi_mscc_props *props = dwsmscc->props;
 	u8 cs = spi->chip_select;
 
-	if (!enable)
+	if (enable)
 		dw_spi_mscc_set_cs_owner(dwsmscc, props, cs, MSCC_IF_SI_OWNER_SIMC);
 
 	if (dwsmscc->spi_mst && (cs < MAX_CS)) {
 		u32 sw_mode;
-		if (!enable)
+		if (enable)
 			sw_mode = BIT(props->pinctrl_bit_off) | (BIT(cs) << props->cs_bit_off);
 		else
 			sw_mode = 0;
 		writel(sw_mode, dwsmscc->spi_mst + MSCC_SPI_MST_SW_MODE);
 	} else if (props->ss_force_ena_off) {
-		if (!enable) {
-			/* CS value */
-			regmap_write(dwsmscc->syscon, props->ss_force_val_off, ~BIT(cs));
+		if (enable) {
+			/* Ensure CS toggles, so start off all disabled */
+			regmap_write(dwsmscc->syscon, props->ss_force_val_off, ~0);
 			/* CS override drive enable */
 			regmap_write(dwsmscc->syscon, props->ss_force_ena_off, 1);
+			/* Allow settle */
+			udelay(1);
+			/* Now set CSx enabled */
+			regmap_write(dwsmscc->syscon, props->ss_force_val_off, ~BIT(cs));
 		} else {
 			/* CS value */
 			regmap_write(dwsmscc->syscon, props->ss_force_val_off, ~0);
