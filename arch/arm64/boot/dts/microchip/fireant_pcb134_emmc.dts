@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2018 Microsemi Corporation
+ */
+
+/dts-v1/;
+#include "fireant_pcb134_board.dtsi"
+
+/ {
+	model = "FireAnt PCB134 Reference Board (eMMC enabled)";
+	compatible = "mscc,fireant-pcb134", "mscc,fireant";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x00000000 0x10000000>;
+	};
+};
+
+&gpio {
+	emmc_pins: emmc-pins {
+		// NB: No  "GPIO_35", "GPIO_36", "GPIO_37"
+		// (CARD_nDETECT, CARD_WP, CARD_LED)
+		pins = "GPIO_34", "GPIO_38", "GPIO_39",
+			"GPIO_40", "GPIO_41", "GPIO_42",
+			"GPIO_43", "GPIO_44", "GPIO_45",
+			"GPIO_46", "GPIO_47";
+		function = "emmc";
+	};
+};
+
+&sdhci0 {
+	status = "okay";
+	non-removable;
+        //max-frequency =   <80000000>;
+	//clock-frequency = <80000000>;
+	mscc,clock-delay = <8>;
+        //cap-sd-highspeed;
+	sd-uhs-sdr12;
+	//sd-uhs-sdr25;
+	//sd-uhs-sdr50;
+	//sd-uhs-ddr50;
+};
