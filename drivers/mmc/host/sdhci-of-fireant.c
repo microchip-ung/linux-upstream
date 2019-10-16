@@ -9,7 +9,7 @@
  * Author: Lars Povlsen <lars.povlsen@microchip.com>
  */
 
-#define DEBUG
+//#define DEBUG
 
 #include <linux/sizes.h>
 #include <linux/delay.h>
@@ -21,14 +21,27 @@
 
 #include "sdhci-pltfm.h"
 
-#define ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL	(0x22 * 4)
-#define MSHC_DLY_CC_MASK			GENMASK(16, 13)
-#define MSHC_DLY_CC_SHIFT			13
+#define CPU_REGS_GENERAL_CTRL	(0x22 * 4)
+#define  MSHC_DLY_CC_MASK	GENMASK(16, 13)
+#define  MSHC_DLY_CC_SHIFT	13
+#define  MSHC_DLY_CC_MAX	15
+
+#define CPU_REGS_PROC_CTRL	(0x2C * 4)
+#define  ACP_CACHE_FORCE_ENA	BIT(4)
+#define  ACP_AWCACHE		BIT(3)
+#define  ACP_ARCACHE		BIT(2)
+#define  ACP_CACHE_MASK		(ACP_CACHE_FORCE_ENA|ACP_AWCACHE|ACP_ARCACHE)
+
+#define MSHC2_VERSION			0x500	/* Off 0x140, reg 0x0 */
+#define MSHC2_TYPE			0x504	/* Off 0x140, reg 0x1 */
+#define MSHC2_EMMC_CTRL			0x52c	/* Off 0x140, reg 0xB */
+#define  MSHC2_EMMC_CTRL_EMMC_RST_N	BIT(2)
+#define  MSHC2_EMMC_CTRL_IS_EMMC	BIT(0)
 
 struct sdhci_fireant_data {
 	struct sdhci_host *host;
 	struct regmap *cpu_ctrl;
-	u32 delay_clock;
+	int delay_clock;
 };
 
 #define BOUNDARY_OK(addr, len) \
@@ -43,12 +56,16 @@ static void sdhci_fireant_adma_write_desc(struct sdhci_host *host, void **desc,
 {
 	int tmplen, offset;
 
-	pr_debug("dwcmshc_adma_write_desc: len %d\n", len);
+	pr_debug("write_desc: Called: len %d, offset 0x%0llx\n",
+		 len, addr);
 
 	if (likely(!len || BOUNDARY_OK(addr, len))) {
 		sdhci_adma_write_desc(host, desc, addr, len, cmd);
 		return;
 	}
+
+	pr_debug("write_desc: splitting dma len %d, offset 0x%0llx\n",
+		 len, addr);
 
 	offset = addr & (SZ_128M - 1);
 	tmplen = SZ_128M - offset;
@@ -59,36 +76,83 @@ static void sdhci_fireant_adma_write_desc(struct sdhci_host *host, void **desc,
 	sdhci_adma_write_desc(host, desc, addr, len, cmd);
 }
 
-static void fireant_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
+static void fireant_set_cacheable(struct sdhci_host *host, u32 value)
+				  {
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_fireant_data *sdhci_fireant = sdhci_pltfm_priv(pltfm_host);
+
+	pr_debug("%s: Set Cacheable = 0x%x\n", mmc_hostname(host->mmc), value);
+
+	/* Update ACP caching attributes in HW */
+	regmap_update_bits(sdhci_fireant->cpu_ctrl,
+			   CPU_REGS_PROC_CTRL, ACP_CACHE_MASK, value);
+}
+
+static void fireant_set_delay(struct sdhci_host *host, u8 value)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_fireant_data *sdhci_fireant = sdhci_pltfm_priv(pltfm_host);
 
-	pr_debug("%s: Set DLY_CC = %u, timing %u\n", mmc_hostname(host->mmc),
-		 sdhci_fireant->delay_clock, timing);
+	pr_debug("%s: Set DLY_CC = %u\n", mmc_hostname(host->mmc), value);
 
-	/* Ensure DLY_CC is set in HW */
+	/* Update DLY_CC in HW */
 	regmap_update_bits(sdhci_fireant->cpu_ctrl,
-			   ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL,
+			   CPU_REGS_GENERAL_CTRL,
 			   MSHC_DLY_CC_MASK,
-			   (sdhci_fireant->delay_clock << MSHC_DLY_CC_SHIFT));
+			   (value << MSHC_DLY_CC_SHIFT));
+}
 
-	/* Call standard setup */
-	sdhci_set_uhs_signaling(host, timing);
+static void sdhci_fireant_set_emmc(struct sdhci_host *host)
+{
+	if (!mmc_card_is_removable(host->mmc)) {
+		u8 value;
+		value = sdhci_readb(host, MSHC2_EMMC_CTRL);
+		if (!(value & MSHC2_EMMC_CTRL_IS_EMMC)) {
+			pr_debug("Get EMMC_CTRL: 0x%08x\n", value);
+			value |= MSHC2_EMMC_CTRL_IS_EMMC;
+			pr_debug("Set EMMC_CTRL: 0x%08x\n", value);
+			sdhci_writeb(host, value, MSHC2_EMMC_CTRL);
+		}
+	}
+}
+
+static void sdhci_fireant_reset_emmc(struct sdhci_host *host)
+{
+	u8 value;
+	pr_debug("Toggle EMMC_CTRL.EMMC_RST_N\n");
+	value = sdhci_readb(host, MSHC2_EMMC_CTRL) &
+		~MSHC2_EMMC_CTRL_EMMC_RST_N;
+	sdhci_writeb(host, value, MSHC2_EMMC_CTRL);
+	/* For eMMC, minimum is 1us but give it 10us for good measure */
+	udelay(10);
+	sdhci_writeb(host, value | MSHC2_EMMC_CTRL_EMMC_RST_N,
+		     MSHC2_EMMC_CTRL);
+	/* For eMMC, minimum is 200us but give it 300us for good measure */
+	udelay(300);
+}
+
+static void sdhci_fireant_reset(struct sdhci_host *host, u8 mask)
+{
+	pr_debug("*** RESET: mask %d\n", mask);
+
+	sdhci_reset(host, mask);
+
+	/* Be sure CARD_IS_EMMC stays set */
+	sdhci_fireant_set_emmc(host);
 }
 
 static const struct sdhci_ops sdhci_fireant_ops = {
 	.set_clock		= sdhci_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
-	.set_uhs_signaling	= fireant_set_uhs_signaling,
+	.set_uhs_signaling	= sdhci_set_uhs_signaling,
 	.get_max_clock		= sdhci_pltfm_clk_get_max_clock,
-	.reset			= sdhci_reset,
+	.reset			= sdhci_fireant_reset,
 	.adma_write_desc	= sdhci_fireant_adma_write_desc,
 };
 
 static const struct sdhci_pltfm_data sdhci_fireant_pdata = {
-	.quirks = 0,
-	.quirks2 = SDHCI_QUIRK2_TUNING_WORK_AROUND,
+	.quirks  = 0,
+	.quirks2 = SDHCI_QUIRK2_NO_1_8_V,
 	.ops = &sdhci_fireant_ops,
 };
 
@@ -99,6 +163,7 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_fireant_data *sdhci_fireant;
 	struct device_node *np = pdev->dev.of_node;
+	u32 value;
 
 	host = sdhci_pltfm_init(pdev, &sdhci_fireant_pdata, sizeof(*sdhci_fireant));
 
@@ -109,8 +174,11 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 	sdhci_fireant = sdhci_pltfm_priv(pltfm_host);
 	sdhci_fireant->host = host;
 
-	if (of_property_read_u32(np, "mscc,clock-delay", &sdhci_fireant->delay_clock))
-		sdhci_fireant->delay_clock = 3; /* Default */
+	if (!of_property_read_u32(np, "mscc,clock-delay", &value) &&
+	    value <= MSHC_DLY_CC_MAX)
+		sdhci_fireant->delay_clock = value;
+	else
+		sdhci_fireant->delay_clock = -1; /* Autotune */
 
 	sdhci_get_of_property(pdev);
 
@@ -127,9 +195,30 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 		return PTR_ERR(sdhci_fireant->cpu_ctrl);
 	}
 
+	if (sdhci_fireant->delay_clock >= 0)
+		fireant_set_delay(host, sdhci_fireant->delay_clock);
+
+	/* Set AXI bus master to use cached access (for ADMA) */
+	fireant_set_cacheable(host, ACP_CACHE_FORCE_ENA|ACP_AWCACHE|ACP_ARCACHE);
+
+	if (!mmc_card_is_removable(host->mmc)) {
+		/* Do a HW reset of eMMC card */
+		sdhci_fireant_reset_emmc(host);
+		/* Update EMMC_CTRL */
+		sdhci_fireant_set_emmc(host);
+		/* If eMMC, disable SD and SDIO */
+		host->mmc->caps2 |= (MMC_CAP2_NO_SDIO|MMC_CAP2_NO_SD);
+	}
+
+	/* Enable v4 mode */
+	//sdhci_enable_v4_mode(host);
+
 	ret = sdhci_add_host(host);
 	if (ret)
 		dev_err(&pdev->dev, "sdhci_add_host() failed (%d)\n", ret);
+
+	pr_debug("SDHC version: 0x%08x\n", sdhci_readl(host, MSHC2_VERSION));
+	pr_debug("SDHC type:    0x%08x\n", sdhci_readl(host, MSHC2_TYPE));
 
 	return ret;
 }

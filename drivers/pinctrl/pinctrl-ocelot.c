@@ -1061,7 +1061,7 @@ noinline int ocelot_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			break;
 
 		case PIN_CONFIG_DRIVE_STRENGTH:
-			if (arg <= 2) {
+			if (arg <= 3) {
 				err = ocelot_hw_set_value(info, pin, PINCONF_DRIVE_STRENGTH, arg);
 				if (err)
 					goto err;
