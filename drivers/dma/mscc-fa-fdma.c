@@ -1073,7 +1073,7 @@ static void mscc_fa_fdma_xtr_tasklet(unsigned long data)
 	struct mscc_fa_fdma_dcb *iter;
 	int idx;
 	bool more = true;
-	u32 packet_size;
+	u32 packet_size = 0;
 	u64 status;
 	u64 pktstatus;
 	struct mscc_fa_fdma_dcb *first = NULL;

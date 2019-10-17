@@ -45,6 +45,7 @@ struct irqmux_platdata {
 	struct slave_irq_data *sirq;
 	int n_sirq;
 	int n_active;
+	bool io_enabled;
 };
 
 /* Bits in irqmux_platdata.flags */
@@ -59,9 +60,11 @@ static ssize_t swint_show(struct device *dev,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct irqmux_platdata *priv = platform_get_drvdata(pdev);
-	u32 val;
+	u32 val = 0;
 
-	val = readl(priv->info.mem[0].internal_addr + priv->cfg->reg_off_ident);
+	if (priv->io_enabled) {
+		val = readl(priv->info.mem[0].internal_addr + priv->cfg->reg_off_ident);
+	}
 
 	return sprintf(buf, "0x%x\n", val);
 }
@@ -77,8 +80,9 @@ static ssize_t swint_store(struct device *dev,
 	if (kstrtoint(buf, 0, &val))
 		return -EINVAL;
 
-	dev_dbg(&priv->pdev->dev, "Setting: 0x%x\n", val);
-	writel(val, priv->info.mem[0].internal_addr + priv->cfg->reg_off_force);
+	if (priv->io_enabled) {
+		writel(val, priv->info.mem[0].internal_addr + priv->cfg->reg_off_force);
+	}
 
 	return count;
 }
@@ -131,7 +135,7 @@ static ssize_t irqctl_store(struct device *dev,
 				priv->n_active);
 			priv->sirq[index].active = false;
 			priv->n_active--;
-			if (priv->n_active == 0) {
+			if (priv->io_enabled && priv->n_active == 0) {
 				/* Clear combined master IRQ */
 				writel(priv->cfg->master_mask,
 				       priv->info.mem[0].internal_addr +
@@ -233,9 +237,11 @@ static irqreturn_t slave_irq(int irq, void *ident)
 		sirq->active = true;
 		priv->n_active++;
 		disable_irq_nosync(irq);
-		/* Trigger SW0 */
-		writel(priv->cfg->master_mask, priv->info.mem[0].internal_addr +
-		       priv->cfg->reg_off_set);
+		if (priv->io_enabled) {
+			/* Trigger SW0 */
+			writel(priv->cfg->master_mask, priv->info.mem[0].internal_addr +
+			       priv->cfg->reg_off_set);
+		}
 	} else {
 		dev_err(&priv->pdev->dev, "Got IRQ %d while already active\n",
 			sirq->index);
@@ -307,6 +313,14 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 	priv->pdev = pdev;
 	priv->cfg = device_get_match_data(&pdev->dev);
 
+	priv->io_enabled = !of_property_read_bool(pdev->dev.of_node, 
+						  "external-cpu");
+	if (priv->io_enabled) {
+		dev_info(dev, "IO is enabled\n");
+	} else {
+		dev_info(dev, "IO is disabled, using external CPU\n");
+	}
+
 	ret = uio_fireant_irqmux_request_irqs(priv);
 	if (ret) {
 		dev_err(dev, "failed to get IRQs\n");
@@ -315,16 +329,18 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 
 	priv->info.name = pdev->dev.of_node->name;
 	priv->info.version = "devicetree";
-	priv->info.mem[0].memtype = UIO_MEM_PHYS;
-	priv->info.mem[0].addr = pdev->resource[0].start;
-	priv->info.mem[0].size = resource_size(&(pdev->resource[0]));
-	priv->info.mem[0].name = pdev->resource[0].name;
-	priv->info.mem[0].internal_addr = devm_ioremap(dev,
-						       priv->info.mem[0].addr,
-						       priv->info.mem[0].size);
-	if (!priv->info.mem[0].internal_addr) {
-		dev_err(dev, "failed to map chip region\n");
-		return -ENODEV;
+	if (priv->io_enabled) {
+		priv->info.mem[0].memtype = UIO_MEM_PHYS;
+		priv->info.mem[0].addr = pdev->resource[0].start;
+		priv->info.mem[0].size = resource_size(&(pdev->resource[0]));
+		priv->info.mem[0].name = pdev->resource[0].name;
+		priv->info.mem[0].internal_addr = devm_ioremap(dev,
+							priv->info.mem[0].addr,
+							priv->info.mem[0].size);
+		if (!priv->info.mem[0].internal_addr) {
+			dev_err(dev, "failed to map chip region\n");
+			return -ENODEV;
+		}
 	}
 
 	priv->info.handler = uio_fireant_irqmux_handler;

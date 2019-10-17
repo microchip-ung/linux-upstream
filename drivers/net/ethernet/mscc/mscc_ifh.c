@@ -886,7 +886,7 @@ static void mscc_ifh_receive_cb(void *data,
 
 		if (prev->idx != req->fill_level) {
 			if (cookie != prev->cookie) {
-				pr_err("%s:%d %s: going from: [C%u,I%u] to: [C%u,I%u]\n",
+				pr_info("%s:%d %s: going from: [C%u,I%u] to: [C%u,I%u]\n",
 				       __FILE__, __LINE__, __func__,
 				       prev->cookie,
 				       prev->idx,

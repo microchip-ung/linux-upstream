@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/uio_driver.h>
 #include <linux/delay.h>
+#include <linux/of_platform.h>
 
 #define DEVICE_NAME "fireant"
 
@@ -64,72 +65,72 @@ static int fireant_irqcontrol(struct uio_info *dev_info, s32 irq_on)
 
 static int fireant_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
-    struct uio_fireant *priv;
-    struct uio_info *info;
-    void __iomem *chipid_reg;
+	struct uio_fireant *priv;
+	struct uio_info *info;
+	void __iomem *chipid_reg;
 
-    priv = kzalloc(sizeof(struct uio_fireant), GFP_KERNEL);
-    if (!priv)
-        return -ENOMEM;
-    info = &priv->uio;
-    info->priv = priv;
+	priv = kzalloc(sizeof(struct uio_fireant), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+	info = &priv->uio;
+	info->priv = priv;
 
-    if (pci_enable_device(dev))
-        goto out_free;
+	if (pci_enable_device(dev))
+		goto out_free;
 
-    if (pci_request_regions(dev, DEVICE_NAME))
-        goto out_disable;
+	if (pci_request_regions(dev, DEVICE_NAME))
+		goto out_disable;
 
-    if (pci_resource_len(dev, 2) != SZ_1M) {
-	    dev_warn(&dev->dev, "Skipping non-fireant PCIe device\n");
-	    goto out_release;
-    }
+	if (pci_resource_len(dev, 2) != SZ_1M) {
+		dev_warn(&dev->dev, "Skipping non-fireant PCIe device\n");
+		goto out_release;
+	}
 
-    /* BAR0 = registers, BAR1 = CONFIG, BAR2 = DDR (unused) */
-    info->mem[0].addr = pci_resource_start(dev, 0);
-    if (!info->mem[0].addr)
-        goto out_release;
-    info->mem[0].size = pci_resource_len(dev, 0);
-    info->mem[0].memtype = UIO_MEM_PHYS;
-    info->mem[0].internal_addr = ioremap(info->mem[0].addr, info->mem[0].size);
-    info->mem[0].name = "switch_regs";
+	/* BAR0 = registers, BAR1 = CONFIG, BAR2 = DDR (unused) */
+	info->mem[0].addr = pci_resource_start(dev, 0);
+	if (!info->mem[0].addr)
+		goto out_release;
+	info->mem[0].size = pci_resource_len(dev, 0);
+	info->mem[0].memtype = UIO_MEM_PHYS;
+	info->mem[0].internal_addr = ioremap(info->mem[0].addr, info->mem[0].size);
+	info->mem[0].name = "switch_regs";
 
-    info->mem[1].addr = pci_resource_start(dev, 2); /* BAR2! */
-    if (!info->mem[1].addr)
-        goto out_release;
-    info->mem[1].size = pci_resource_len(dev, 2); /* BAR2! */
-    info->mem[1].memtype = UIO_MEM_PHYS;
-    info->mem[1].name = "cpu_regs";
+	info->mem[1].addr = pci_resource_start(dev, 2); /* BAR2! */
+	if (!info->mem[1].addr)
+		goto out_release;
+	info->mem[1].size = pci_resource_len(dev, 2); /* BAR2! */
+	info->mem[1].memtype = UIO_MEM_PHYS;
+	info->mem[1].name = "cpu_regs";
 
-    info->name = "mscc_switch";
-    info->version = "1.0.0";
-    info->irq = dev->irq;
-    info->handler = fireant_handler;
-    info->irqcontrol = fireant_irqcontrol;
+	info->name = "mscc_switch";
+	info->version = "1.0.0";
+	info->irq = dev->irq;
+	info->handler = fireant_handler;
+	info->irqcontrol = fireant_irqcontrol;
 
-    spin_lock_init(&priv->lock);
-    priv->flags = 0; /* interrupt is enabled to begin with */
-    priv->pdev = dev;
+	spin_lock_init(&priv->lock);
+	priv->flags = 0; /* interrupt is enabled to begin with */
+	priv->pdev = dev;
 
-    if (uio_register_device(&dev->dev, info))
-        goto out_unmap;
+	if (uio_register_device(&dev->dev, info))
+		goto out_unmap;
 
-    pci_set_drvdata(dev, info);
-    chipid_reg = info->mem[0].internal_addr + (0x01010000);
+	pci_set_drvdata(dev, info);
+	chipid_reg = info->mem[0].internal_addr + (0x01010000);
     dev_info(&dev->dev, "Found %s, UIO device - IRQ %ld, id 0x%08x.\n", info->name, info->irq, ioread32(chipid_reg));
 
     return 0;
 
 out_unmap:
-    dev_err(&dev->dev, "UIO register failed\n");
-    iounmap(info->mem[0].internal_addr);
+	dev_err(&dev->dev, "UIO register failed\n");
+	iounmap(info->mem[0].internal_addr);
 out_release:
-    pci_release_regions(dev);
+	pci_release_regions(dev);
 out_disable:
-    pci_disable_device(dev);
+	pci_disable_device(dev);
 out_free:
-    kfree(info);
-    return -ENODEV;
+	kfree(info);
+	return -ENODEV;
 }
 
 

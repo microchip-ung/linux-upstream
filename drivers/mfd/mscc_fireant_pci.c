@@ -21,75 +21,92 @@
 #include <linux/uio_driver.h>
 
 #define DEVICE_NAME "mscc-fireant-pci"
+#define UIO_NAME    "mscc_switch" /* Used by MESA */
+#define UIO_VERSION "1.0.0"
+
 #define PCI_VENDOR_ID_MSCC              0x101b
 #define PCI_DEVICE_ID_MSCC_FIREANT      0xb006
 
 #define FIREANT_SWITCH_BAR      0     /* Default instance in CML model */
-#define FIREANT_CONFIG_BAR      2     /* amba_top instance in CML model */
+#define FIREANT_CPU_BAR         2     /* amba_top instance in CML model */
 #define FIREANT_SUBCPU_BAR      4     /* subcpu_sys instance in CML model */
 
+/* CPU @amba_top, offset 0x10000000, size: 724 bytes */
 /* CPU:INTR:INTR_STICKY */
 #define CPU_INTR_STICKY_OFF                            0x100001c4
+/* CPU:INTR:INTR_STICKY1 */
+#define CPU_INTR_STICKY1_OFF                           0x100001c8
 /* CPU:INTR:INTR_IDENT */
 #define CPU_INTR_IDENT_OFF                             0x100001ec
+/* CPU:INTR:INTR_IDENT1 */
+#define CPU_INTR_IDENT1_OFF                            0x100001f0
 /* CPU:INTR:INTR_ENA_CLR */
 #define CPU_INTR_ENA_CLR_OFF                           0x100001dc
+/* CPU:INTR:INTR_ENA_CLR1 */
+#define CPU_INTR_ENA_CLR1_OFF                          0x100001e0
 /* CPU:INTR:INTR_ENA_SET */
 #define CPU_INTR_ENA_SET_OFF                           0x100001e4
+/* CPU:INTR:INTR_ENA_SET1 */
+#define CPU_INTR_ENA_SET1_OFF                          0x100001e8
 /* CPU:INTR:DST_INTR_MAP[2] */
 #define CPU_INTR_DST_MAP_R_OFF(ridx)                   (0x100001f4 + (ridx*4))
+/* CPU:INTR:DST_INTR_MAP1[2] */
+#define CPU_INTR_DST_MAP1_R_OFF(ridx)                  (0x100001fc + (ridx*4))
 /* CPU:INTR:INTR_TRIGGER[2] */
 #define CPU_INTR_TRIGGER_R_OFF(ridx)                   (0x100001ac + (ridx*4))
+/* CPU:INTR:INTR_TRIGGER1[2] */
+#define CPU_INTR_TRIGGER1_R_OFF(ridx)                  (0x100001b4 + (ridx*4))
 /* CPU:PCIE:PCIE_INTR_COMMON_CFG[2] */
 #define CPU_PCIE_INTR_COMMON_CFG_R_OFF(ridx)           (0x1000018c + (ridx*4))
+/* CPU:PCIE:PCIE_CFG */
+#define CPU_PCIE_CFG_OFF                               0x10000110
+/* CPU:PCIE:PCIEMST_PF0_BAR2_OFFSET_LOW */
+#define CPU_PCIE_PCIEMST_PF0_BAR2_OFFSET_LOW_OFF       0x10000134
+/* CPU:PCIE:PCIEMST_PF0_BAR2_OFFSET_HIGH */
+#define CPU_PCIE_PCIEMST_PF0_BAR2_OFFSET_HIGH_OFF      0x10000138
+/* CPU:PCIE:PCIEMST_PF0_BAR2_MASK_LOW */
+#define CPU_PCIE_PCIEMST_PF0_BAR2_MASK_LOW_OFF         0x1000013c
+/* CPU:PCIE:PCIEMST_PF0_BAR2_MASK_HIGH */
+#define CPU_PCIE_PCIEMST_PF0_BAR2_MASK_HIGH_OFF        0x10000140
+
+
 /* DEVCPU_GCB:CHIP_REGS:CHIP_ID */
 #define DEVCPU_GCB_CHIP_REGS_ID_OFF                    0x01010000
 
 /* CPU:PCIE:PCIE_INTR_COMMON_CFG[2] */
 #define CPU_PCIE_INTR_COMMON_CFG_ENA                   BIT(1)
+/* CPU:PCIE:PCIE_CFG */
+#define CPU_PCIE_CFG_DBI_ACCESS_ENA(x)                    (((x) << 7) & GENMASK(8, 7))
+#define CPU_PCIE_CFG_DBI_ACCESS_ENA_M                     GENMASK(8, 7)
+#define CPU_PCIE_CFG_DBI_ACCESS_ENA_X(x)                  (((x) & GENMASK(8, 7)) >> 7)
 
 #define GET_REGION(off)                                ((off) & GENMASK(31, 28))
 #define GET_REGION_INDEX(off)                          ((off) >> 28)
 #define GET_ADDRESS(off)                               ((off) & GENMASK(27, 0))
 
-static struct pci_device_id fireant_ids[] = {
+/* Debugging flags */
+/* #define FIREANT_ACCESS_LOG */
+
+static struct pci_device_id mscc_fireant_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_MSCC, PCI_DEVICE_ID_MSCC_FIREANT) },
 	{ 0, }
 };
-MODULE_DEVICE_TABLE(pci, fireant_ids);
+MODULE_DEVICE_TABLE(pci, mscc_fireant_ids);
 
-struct uio_fireant {
+struct mscc_fireant_uio {
 	struct uio_info uio;
 	spinlock_t lock;
 	unsigned long flags;
 	struct pci_dev *pdev;
 };
 
-static struct resource fireant_io_resources[] = {
-	{
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.flags = IORESOURCE_MEM,
-	},
-};
-
-static const struct mfd_cell fireant_mfd_cells[] = {
-	{
-		.name = "fireant_fdma",
-		.num_resources = ARRAY_SIZE(fireant_io_resources),
-		.resources = fireant_io_resources,
-		.of_compatible = "mscc,vsc7568-fdma",
-	},
-};
-
-static u32 fireant_pci_readl(struct uio_fireant *priv, u32 reg)
+static u32 mscc_fireant_mfd_readl(struct mscc_fireant_uio *priv, u32 reg)
 {
 	void __iomem *addr = 
 		priv->uio.mem[GET_REGION_INDEX(reg)].internal_addr + 
 		GET_ADDRESS(reg);
 	u32 data = readl(addr);
-#ifdef FDMA_LOG
+#ifdef FIREANT_ACCESS_LOG
 	pr_debug("%s:%d %s: addr 0x%llx, data 0x%08x\n", 
 		__FILE__, __LINE__, __func__,
 		priv->uio.mem[GET_REGION_INDEX(reg)].addr + 
@@ -99,12 +116,12 @@ static u32 fireant_pci_readl(struct uio_fireant *priv, u32 reg)
 	return data;
 }
 
-static void fireant_pci_writel(struct uio_fireant *priv, u32 reg, u32 data)
+static void mscc_fireant_mfd_writel(struct mscc_fireant_uio *priv, u32 reg, u32 data)
 {
 	void __iomem *addr = 
 		priv->uio.mem[GET_REGION_INDEX(reg)].internal_addr + 
 		GET_ADDRESS(reg);
-#ifdef FDMA_LOG
+#ifdef FIREANT_ACCESS_LOG
 	pr_debug("%s:%d %s: addr 0x%llx, data 0x%08x\n", 
 		__FILE__, __LINE__, __func__, 
 		priv->uio.mem[GET_REGION_INDEX(reg)].addr + 
@@ -114,9 +131,28 @@ static void fireant_pci_writel(struct uio_fireant *priv, u32 reg, u32 data)
 	writel(data, addr);
 }
 
-static int fireant_pci_irqcontrol(struct uio_info *info, s32 irq_on)
+#ifdef FIREANT_ACCESS_LOG
+static u32 fireant_readl(void __iomem *addr)
 {
-	struct uio_fireant *priv = info->priv;
+	u32 data = readl(addr);
+	pr_debug("%s:%d %s: addr %px, data 0x%08x\n", 
+		__FILE__, __LINE__, __func__,
+		 addr, data);
+	return data;
+}
+
+static void fireant_writel(u32 data, void __iomem *addr)
+{
+	pr_debug("%s:%d %s: addr %px, data 0x%08x\n", 
+		__FILE__, __LINE__, __func__,
+		addr, data);
+	writel(data, addr);
+}
+#endif
+
+static int mscc_fireant_mfd_irqcontrol(struct uio_info *info, s32 irq_on)
+{
+	struct mscc_fireant_uio *priv = info->priv;
 	unsigned long flags;
 
 	pr_debug("%s:%d %s: irq_on %d\n", 
@@ -136,126 +172,229 @@ static int fireant_pci_irqcontrol(struct uio_info *info, s32 irq_on)
 	return 0;
 }
 
-static void fireant_pci_irq_unmask(struct irq_data *data)
+static void mscc_fireant_mfd_irq_unmask(struct irq_data *data)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(data);
 	struct irq_chip_type *ct = irq_data_get_chip_type(data);
 	unsigned int mask = data->mask;
-	u32 val;
 
-	pr_debug("%s:%d %s: irq %d\n", 
-		__FILE__, __LINE__, __func__, data->irq);
+	pr_debug("%s:%d %s: hwirq %lu\n", 
+		__FILE__, __LINE__, __func__, data->hwirq);
 	irq_gc_lock(gc);
-	val = irq_reg_readl(gc, GET_ADDRESS(CPU_INTR_TRIGGER_R_OFF(0))) |
-	      irq_reg_readl(gc, GET_ADDRESS(CPU_INTR_TRIGGER_R_OFF(1)));
-	if (!(val & mask)) {
-		irq_reg_writel(gc, mask, GET_ADDRESS(CPU_INTR_STICKY_OFF));
-	}
-
+	irq_reg_writel(gc, mask, ct->regs.ack);
 	*ct->mask_cache &= ~mask;
-	irq_reg_writel(gc, mask, GET_ADDRESS(CPU_INTR_ENA_SET_OFF));
+	irq_reg_writel(gc, mask, ct->regs.enable);
 	irq_gc_unlock(gc);
 }
 
-static void fireant_pci_irq_handler(struct irq_desc *desc)
+
+/*
+ * Fireant level encoding: this is a 2 bit value
+ * with 
+ * - LSB in CPU:INTR:INTR_TRIGGER*[0].INTR_TRIGGER
+ * - MSB in CPU:INTR:INTR_TRIGGER*[1].INTR_TRIGGER
+ * 0: Interrupt is level-activated
+ * 1: Interrupt is edge-triggered
+ * 2: Interrupt is falling-edge-triggered
+ * 3: Interrupt is rising-edge-triggered
+ */
+static int mscc_fireant_mfd_irq_set_type(struct irq_data *data, 
+					 unsigned int flow_type)
 {
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	struct irq_domain *d = irq_desc_get_handler_data(desc);
-	struct irq_chip_generic *gc = irq_get_domain_generic_chip(d, 0);
-	u32 uio, reg = irq_reg_readl(gc, GET_ADDRESS(CPU_INTR_IDENT_OFF));
-	u32 mask = *gc->chip_types[0].mask_cache;
-	struct uio_fireant *priv = gc->private;
+	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(data);
+	struct irq_chip_type *ct = irq_data_get_chip_type(data);
+	int chip_hwirq = data->hwirq % 32;
+	u32 lsb, msb;
+	u32 new_lsb = 0, new_msb = 0;
 
-	uio = reg & mask;
-	reg &= ~mask;
+	pr_debug("%s:%d %s: irq: %d, hwirq %lu, chip_hwirq: %d, flow type: %u\n", 
+		__FILE__, __LINE__, __func__, 
+		data->irq, data->hwirq, chip_hwirq, flow_type);
 
-	pr_debug("%s:%d %s: irq %d: ident: 0x%x\n", 
-		__FILE__, __LINE__, __func__, desc->irq_data.irq, reg);
-	chained_irq_enter(chip, desc);
+	switch (flow_type) {
+	case IRQ_TYPE_NONE:
+	case IRQ_TYPE_LEVEL_LOW:
+		return -1;
+	case IRQ_TYPE_EDGE_RISING:
+		new_lsb |= BIT(chip_hwirq);
+		new_msb |= BIT(chip_hwirq);
+		break;
+	case IRQ_TYPE_EDGE_FALLING:
+		new_msb |= BIT(chip_hwirq);
+		break;
+	case IRQ_TYPE_EDGE_BOTH:
+		new_lsb |= BIT(chip_hwirq);
+		break;
+	case IRQ_TYPE_LEVEL_HIGH:
+		break;
+	}
+	irq_gc_lock(gc);
+	/* Read the trigger register values */
+	lsb = irq_reg_readl(gc, ct->regs.polarity);
+	msb = irq_reg_readl(gc, ct->regs.polarity + 4);
+	/* Mask out the current trigger values */
+	lsb &= ~BIT(chip_hwirq);
+	msb &= ~BIT(chip_hwirq);
+	/* Add the new trigger values */
+	lsb |= new_lsb;
+	msb |= new_msb;
+	/* Write the new trigger register values */
+	irq_reg_writel(gc, lsb, ct->regs.polarity);
+	irq_reg_writel(gc, msb, ct->regs.polarity + 4);
+	irq_gc_unlock(gc);
 
-	while (reg) {
-		u32 hwirq = __fls(reg);
+	return IRQ_SET_MASK_OK;
+}
+
+static int mscc_fireant_mfd_find_irq(struct irq_domain *d, int first_irq)
+{
+	struct irq_chip_generic *gc = irq_get_domain_generic_chip(d, first_irq);
+	struct irq_chip_type *ct = &gc->chip_types[0];
+	u32 mask = *ct->mask_cache;
+	u32 identity;
+	u32 uio;
+
+	identity = irq_reg_readl(gc, ct->regs.type);
+	uio = identity & mask;
+	identity &= ~mask;
+
+	pr_debug("%s:%d %s: index: %d, identity: 0x%x\n", 
+		 __FILE__, __LINE__, __func__, first_irq, identity);
+	while (identity) {
+		u32 hwirq = __fls(identity);
 
 		pr_debug("%s:%d %s: hwirq: %u maps to IRQ: %d\n", 
-			__FILE__, __LINE__, __func__, 
-			hwirq,
-			irq_find_mapping(d, hwirq));
-		generic_handle_irq(irq_find_mapping(d, hwirq));
-		reg &= ~(BIT(hwirq));
+			 __FILE__, __LINE__, __func__, 
+			 hwirq + first_irq,
+			 irq_find_mapping(d, hwirq + first_irq));
+		generic_handle_irq(irq_find_mapping(d, hwirq + first_irq));
+		identity &= ~(BIT(hwirq));
 	}
-
-	chained_irq_exit(chip, desc);
-
-	if (uio) {
-		if (!test_and_set_bit(0, &priv->flags))
-			pci_intx(priv->pdev, 0);
-		uio_event_notify(&priv->uio);
-	}
+	return uio;
 
 }
 
-static int __init fireant_pci_irq_common_init(struct uio_fireant *priv,
-	struct device_node *node,
-	struct pci_dev *pdev,
-	int size)
+static void mscc_fireant_mfd_irq_handler(struct irq_desc *desc)
+{
+	struct irq_domain *d = irq_desc_get_handler_data(desc);
+	u32 uio;
+
+	chained_irq_enter(irq_desc_get_chip(desc), desc);
+	uio = mscc_fireant_mfd_find_irq(d, 0);
+	uio |= mscc_fireant_mfd_find_irq(d, 32);
+	chained_irq_exit(irq_desc_get_chip(desc), desc);
+
+	if (uio) {
+		struct irq_chip_generic *gc = irq_get_domain_generic_chip(d, 0);
+
+		if (gc) {
+			struct mscc_fireant_uio *priv = gc->private;
+
+			if (!test_and_set_bit(0, &priv->flags)) {
+				pci_intx(priv->pdev, 0);
+			}
+			uio_event_notify(&priv->uio);
+		}
+	}
+}
+
+static void mscc_fireant_mfd_config_irqchip(struct mscc_fireant_uio *priv,
+	struct irq_chip_generic *gc,
+	dma_addr_t acknowledge,
+	dma_addr_t atomic_disable,
+	dma_addr_t atomic_enable,
+	dma_addr_t identity,
+	dma_addr_t trigger)
+{
+	gc->reg_base = priv->uio.mem[1].internal_addr;
+#ifdef FIREANT_ACCESS_LOG
+	gc->reg_writel = fireant_writel;
+	gc->reg_readl = fireant_readl;
+#endif
+	gc->chip_types[0].regs.ack = acknowledge;
+	gc->chip_types[0].regs.mask = atomic_disable;
+	gc->chip_types[0].regs.enable = atomic_enable;
+	gc->chip_types[0].regs.type = identity;
+	gc->chip_types[0].regs.polarity = trigger;
+	gc->chip_types[0].chip.irq_ack = irq_gc_ack_set_bit;
+	gc->chip_types[0].chip.irq_mask = irq_gc_mask_set_bit;
+	gc->chip_types[0].chip.irq_unmask = mscc_fireant_mfd_irq_unmask;
+	gc->chip_types[0].chip.irq_set_type = mscc_fireant_mfd_irq_set_type;
+	gc->chip_types[0].mask_cache = &gc->mask_cache;
+	gc->mask_cache = 0xffffffff;
+	gc->private = priv;
+	/* Mask and ack all interrupts */
+	irq_reg_writel(gc, 0, atomic_enable);
+	irq_reg_writel(gc, ~0, acknowledge);
+}
+
+static int __init mscc_fireant_mfd_irq_common_init(struct mscc_fireant_uio *priv,
+	struct device_node *node)
 {
 	struct irq_domain *domain;
-	struct irq_chip_generic *gc;
 	int ret;
 
 	pr_debug("%s:%d %s: Using IRQ: %d\n", 
-		__FILE__, __LINE__, __func__, pdev->irq);
-	if (!pdev->irq || !node) {
-		pr_err("no node or IRQ: %d, 0x%px\n", pdev->irq, node);
+		 __FILE__, __LINE__, __func__, priv->pdev->irq);
+	if (!priv->pdev->irq || !node) {
+		pr_err("no node or IRQ: %d, 0x%px\n", priv->pdev->irq, node);
 		return -EINVAL;
 	}
 
-	/* TODO: The current implementation only handles the first 32 interrupts
-	 * and there are 50 interrupts from Fireant in all
+	/*
+	 * There are 50 interrupts from Fireant in all
 	 */
-	domain = irq_domain_add_linear(node, size, &irq_generic_chip_ops, NULL);
+	/* Map interrupts to destination EXT_DST0 (0) */
+	mscc_fireant_mfd_writel(priv, CPU_INTR_DST_MAP_R_OFF(0), ~0);
+	mscc_fireant_mfd_writel(priv, CPU_INTR_DST_MAP1_R_OFF(0), 0x3ffff);
+	/* Set Level activated interrupts */
+	mscc_fireant_mfd_writel(priv, CPU_INTR_TRIGGER_R_OFF(0), 0);
+	mscc_fireant_mfd_writel(priv, CPU_INTR_TRIGGER_R_OFF(1), 0);
+	mscc_fireant_mfd_writel(priv, CPU_INTR_TRIGGER1_R_OFF(0), 0);
+	mscc_fireant_mfd_writel(priv, CPU_INTR_TRIGGER1_R_OFF(1), 0);
+	/* Enable PCIe Legacy interrupt on Function 0 using EXT_DST0 */
+	mscc_fireant_mfd_writel(priv, CPU_PCIE_INTR_COMMON_CFG_R_OFF(0), 
+				CPU_PCIE_INTR_COMMON_CFG_ENA);
+
+	domain = irq_domain_add_linear(node, 50, &irq_generic_chip_ops, NULL);
 	if (!domain) {
 		pr_err("%s: unable to add irq domain\n", node->name);
 		return -ENOMEM;
 	}
 
-	ret = irq_alloc_domain_generic_chips(domain, size, 1, "cpu",
+	/* Create 2 generic chips with 32 interrupts each */
+	ret = irq_alloc_domain_generic_chips(domain, 32, 2, "fireant",
 					     handle_level_irq, 0, 0, 0);
 	if (ret) {
 		pr_err("%s: unable to alloc irq domain gc\n", node->name);
 		goto err_domain_remove;
 	}
 
-	gc = irq_get_domain_generic_chip(domain, 0);
-	gc->reg_base = priv->uio.mem[1].internal_addr;
-	if (!gc->reg_base) {
-		pr_err("%s: unable to map resource\n", node->name);
-		ret = -ENOMEM;
-		goto err_gc_free;
-	}
+	/* Setup the first chip (handles irq 0-31) */
+	mscc_fireant_mfd_config_irqchip(priv,
+					irq_get_domain_generic_chip(domain, 0),
+					GET_ADDRESS(CPU_INTR_STICKY_OFF),
+					GET_ADDRESS(CPU_INTR_ENA_CLR_OFF),
+					GET_ADDRESS(CPU_INTR_ENA_SET_OFF),
+					GET_ADDRESS(CPU_INTR_IDENT_OFF),
+					GET_ADDRESS(CPU_INTR_TRIGGER_R_OFF(0)));
 
-	gc->chip_types[0].regs.ack = GET_ADDRESS(CPU_INTR_STICKY_OFF);
-	gc->chip_types[0].regs.mask = GET_ADDRESS(CPU_INTR_ENA_CLR_OFF);
-	gc->chip_types[0].chip.irq_ack = irq_gc_ack_set_bit;
-	gc->chip_types[0].chip.irq_mask = irq_gc_mask_set_bit;
-	gc->chip_types[0].chip.irq_unmask = fireant_pci_irq_unmask;
-	gc->mask_cache = 0xffffffff;
-
-	gc->private = priv;
-
-	/* Mask and ack all interrupts */
-	irq_reg_writel(gc, 0, GET_ADDRESS(CPU_INTR_ENA_SET_OFF));
-	irq_reg_writel(gc, ~0, GET_ADDRESS(CPU_INTR_STICKY_OFF));
+	/* Setup the second chip (handles irq 32-49) */
+	mscc_fireant_mfd_config_irqchip(priv,
+					irq_get_domain_generic_chip(domain, 32),
+					GET_ADDRESS(CPU_INTR_STICKY1_OFF),
+					GET_ADDRESS(CPU_INTR_ENA_CLR1_OFF),
+					GET_ADDRESS(CPU_INTR_ENA_SET1_OFF),
+					GET_ADDRESS(CPU_INTR_IDENT1_OFF),
+					GET_ADDRESS(CPU_INTR_TRIGGER1_R_OFF(0)));
 
 	pr_debug("%s:%d %s: Chaining IRQ: %d\n", 
-		__FILE__, __LINE__, __func__, pdev->irq);
-	irq_set_chained_handler_and_data(pdev->irq, fireant_pci_irq_handler,
-		domain);
+		 __FILE__, __LINE__, __func__, priv->pdev->irq);
+	irq_set_chained_handler_and_data(priv->pdev->irq, 
+					 mscc_fireant_mfd_irq_handler,
+					 domain);
 
 	return 0;
-
-err_gc_free:
-	irq_free_generic_chip(gc);
 
 err_domain_remove:
 	irq_domain_remove(domain);
@@ -263,142 +402,150 @@ err_domain_remove:
 	return ret;
 }
 
-static int fireant_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+static int mscc_fireant_mfd_probe(struct pci_dev *dev, 
+				  const struct pci_device_id *id)
 {
-	struct device_node *devnode;
-	struct uio_fireant *priv;
+	struct mscc_fireant_uio *priv;
 	struct uio_info *info;
 	u32 chip_id;
-	int ret;
+	int ret = -ENODEV;
 
-	pr_debug("%s:%d %s: probe 0x%04x:0x%04x 0x%04x:0x%08x C:0x%08x F:0x%08x\n", 
-		__FILE__, __LINE__, __func__, 
-		pdev->vendor, pdev->device,
-		pdev->subsystem_vendor, pdev->subsystem_device,
-		pdev->class, pdev->devfn);
-	devnode = pdev->dev.of_node;
-	if (!devnode) {
-		pr_err("%s:%d %s: no platform device node\n", 
-			__FILE__, __LINE__, __func__);
-		devnode = of_find_compatible_node(NULL, NULL, "pci101b,b006");
-		if (!devnode) {
-			return -ENODEV;
-		}
-		pdev->dev.of_node = devnode;
+	if (!dev->dev.of_node) {
+		dev_warn(&dev->dev, "No platform device nodes in PCIe device\n");
+		return -ENODEV;
 	}
-
-	/* TODO: Remove this check when the PCI configuration is correct */
-	if (pdev->devfn > 0) {
-		pr_err("%s:%d %s: Not accepting function 1 or higher\n",
-			__FILE__, __LINE__, __func__);
+	if (dev->devfn > 0) {
+		dev_warn(&dev->dev, "Not accepting function 1 or higher\n");
 		return -ENOENT;
 	}
-	pr_debug("%s:%d %s: OK\n", __FILE__, __LINE__, __func__);
-
-	ret = pcim_enable_device(pdev);
-	if (ret) {
-		dev_err(&pdev->dev, "Could not enable PCI device\n");
-		return ret;
-	}
-	pci_set_master(pdev);
-	dev_info(&pdev->dev, "Device is master\n");
-
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc(&dev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
-		pr_err("%s:%d %s: No memory\n",
-			__FILE__, __LINE__, __func__);
+		dev_err(&dev->dev, "No memory\n");
 		return -ENOMEM;
 	}
+	spin_lock_init(&priv->lock);
+	priv->flags = 0; /* interrupt is enabled to begin with */
+	priv->pdev = dev;
+
+	ret = pcim_enable_device(dev);
+	if (ret) {
+		dev_err(&dev->dev, "Could not enable PCI device\n");
+		return ret;
+	}
+	pci_set_master(dev);
+	dev_info(&dev->dev, "Device is master\n");
 
 	info = &priv->uio;
 	info->priv = priv;
-
-
-	info->mem[0].addr = pci_resource_start(pdev, FIREANT_SWITCH_BAR);
-	info->mem[0].size = pci_resource_len(pdev, FIREANT_SWITCH_BAR);
+	
+	info->mem[0].name = "switch_regs";  /* Used by MESA */
+	info->mem[0].addr = pci_resource_start(dev, FIREANT_SWITCH_BAR);
+	info->mem[0].size = pci_resource_len(dev, FIREANT_SWITCH_BAR);
 	info->mem[0].memtype = UIO_MEM_PHYS;
-	info->mem[0].internal_addr = pcim_iomap(pdev, FIREANT_SWITCH_BAR, 0);
+	if (!info->mem[0].addr) {
+		dev_err(&dev->dev, "Could not map region: %d\n", 
+			FIREANT_SWITCH_BAR);
+		ret = -ENXIO;
+		goto out_disable;
+	}
+	info->mem[0].internal_addr = ioremap(info->mem[0].addr, 
+					     info->mem[0].size);
 
-	info->mem[1].addr = pci_resource_start(pdev, FIREANT_CONFIG_BAR);
-	info->mem[1].size = pci_resource_len(pdev, FIREANT_CONFIG_BAR);
+	info->mem[1].name = "cpu_regs";  /* Used by MESA */
+	info->mem[1].addr = pci_resource_start(dev, FIREANT_CPU_BAR);
+	info->mem[1].size = pci_resource_len(dev, FIREANT_CPU_BAR);
 	info->mem[1].memtype = UIO_MEM_PHYS;
-	info->mem[1].internal_addr = pcim_iomap(pdev, FIREANT_CONFIG_BAR, 0);
-
-	if (!info->mem[0].internal_addr || !info->mem[1].internal_addr) {
-		pr_err("%s:%d %s: Could not map PCI bars\n",
-			__FILE__, __LINE__, __func__);
-		return -ENOMEM;
+	if (!info->mem[1].addr) {
+		dev_err(&dev->dev, "Could not map region: %d\n", 
+			FIREANT_CPU_BAR);
+		ret = -ENXIO;
+		goto out_disable;
 	}
+	info->mem[1].internal_addr = ioremap(info->mem[1].addr, 
+					     info->mem[1].size);
 
-	chip_id = fireant_pci_readl(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
-	pr_debug("%s:%d %s: Fireant: %x\n",
-		__FILE__, __LINE__, __func__, chip_id);
-	if (chip_id != 0x07568445) {
-		pr_err("%s:%d %s: Chip ID error\n",
-			__FILE__, __LINE__, __func__);
-		return -ENOMEM;
-	}
-
-	info->name = "sparx5_switch";
-	info->version = "0";
+	pci_set_drvdata(dev, info);
+	info->name = UIO_NAME;
+	info->version = UIO_VERSION;
+	/* info->irq = dev->irq; */
 	info->irq = UIO_IRQ_CUSTOM;
-	info->irqcontrol = fireant_pci_irqcontrol;
-
-	spin_lock_init(&priv->lock);
-	priv->flags = 0; /* interrupt is enabled to begin with */
-	priv->pdev = pdev;
-
-	ret = uio_register_device(&pdev->dev, info);
+	info->irqcontrol = mscc_fireant_mfd_irqcontrol;
+	ret = uio_register_device(&dev->dev, info);
 	if (ret) {
-		pr_err("%s:%d %s: Could not register UIO driver: %d\n",
-			__FILE__, __LINE__, __func__, ret);
-		return ret;
+		if (ret == -EPROBE_DEFER) {
+			dev_info(&dev->dev, "Defer UIO registration\n");
+		} else {
+			dev_warn(&dev->dev, "Could not register UIO driver: %d\n", ret);
+		}
+		goto out_disable;
 	}
-	pci_set_drvdata(pdev, info);
 
-	pr_info("%s:%d %s: FireAnt UIO Driver with PCI IRQ: legacy: %d\n",
-		__FILE__, __LINE__, __func__, pdev->irq);
-
-	/* Map interrupts to destination EXT_DST0 (0) */
-	fireant_pci_writel(priv, CPU_INTR_DST_MAP_R_OFF(0), ~0);
-	/* Set Level activated interrupts */
-	fireant_pci_writel(priv, CPU_INTR_TRIGGER_R_OFF(0), 0);
-	fireant_pci_writel(priv, CPU_INTR_TRIGGER_R_OFF(1), 0);
-	/* Enable PCIe Legacy interrupt on Function 0 using EXT_DST0 */
-	fireant_pci_writel(priv, CPU_PCIE_INTR_COMMON_CFG_R_OFF(0), CPU_PCIE_INTR_COMMON_CFG_ENA);
-
-	if (fireant_pci_irq_common_init(priv, devnode, pdev, 32)) {
+	ret = mscc_fireant_mfd_irq_common_init(priv, dev->dev.of_node);
+	if (ret) {
+		dev_err(&dev->dev, "Could not configure irqs: %d\n", ret);
 		goto out_unregister;
 	}
-	fireant_io_resources[0].start = info->mem[0].addr;
-	fireant_io_resources[0].end = info->mem[0].addr + info->mem[0].size - 1;
-	fireant_io_resources[1].start = info->mem[1].addr;
-	fireant_io_resources[1].end = info->mem[1].addr + info->mem[1].size - 1;
-	return devm_mfd_add_devices(&pdev->dev, -1, fireant_mfd_cells, 
-		ARRAY_SIZE(fireant_mfd_cells), NULL, 0, NULL);
+	chip_id = mscc_fireant_mfd_readl(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
+	dev_info(&dev->dev, "Found %s, UIO device, IRQ %ld, chip id 0x%08x\n", 
+		 info->name, info->irq, chip_id);
+	pr_debug("%s:%d %s: Region: %d, size: %lluMB, %llx-%llx => %px\n", 
+		__FILE__, __LINE__, __func__,
+		0,
+		info->mem[0].size >> 20,
+		info->mem[0].addr,
+		info->mem[0].addr + info->mem[0].size - 1,
+		info->mem[0].internal_addr);
+	pr_debug("%s:%d %s: Region: %d, size: %lluMB, %llx-%llx => %px\n", 
+		__FILE__, __LINE__, __func__,
+		1,
+		info->mem[1].size >> 20,
+		info->mem[1].addr,
+		info->mem[1].addr + info->mem[1].size - 1,
+		info->mem[1].internal_addr);
+
+	/* Update PCIe PF0 BAR2 mask */
+	{
+		u32 dbi_access, orig;
+		dbi_access = orig = mscc_fireant_mfd_readl(priv, CPU_PCIE_CFG_OFF);
+		dbi_access &= ~CPU_PCIE_CFG_DBI_ACCESS_ENA_M;
+		dbi_access |= CPU_PCIE_CFG_DBI_ACCESS_ENA(3);
+		mscc_fireant_mfd_writel(priv, CPU_PCIE_PCIEMST_PF0_BAR2_MASK_LOW_OFF, 0xff000000);
+		mscc_fireant_mfd_writel(priv, CPU_PCIE_PCIEMST_PF0_BAR2_MASK_HIGH_OFF, 0xf);
+		mscc_fireant_mfd_writel(priv, CPU_PCIE_CFG_OFF, orig);
+		pr_debug("%s:%d %s: Update PF0 BAR2 mask\n", 
+		__FILE__, __LINE__, __func__);
+	}
+	return of_platform_default_populate(dev->dev.of_node, NULL, &dev->dev);
 
 out_unregister:
-	pr_err("%s:%d %s: unregister UIO driver\n",
-		__FILE__, __LINE__, __func__);
 	uio_unregister_device(info);
-	return -ENODEV;
+out_disable:
+	pci_disable_device(dev);
+	return ret;
 }
 
-static void fireant_pci_remove(struct pci_dev *pdev)
+static void mscc_fireant_mfd_remove(struct pci_dev *dev)
 {
-	pr_debug("%s:%d %s: done\n", __FILE__, __LINE__, __func__);
+	struct uio_info *info = pci_get_drvdata(dev);
+
+	pr_debug("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	uio_unregister_device(info);
+	iounmap(info->mem[0].internal_addr);
+	iounmap(info->mem[1].internal_addr);
+	pci_disable_device(dev);
+	pci_set_drvdata(dev, NULL);
 }
 
-static struct pci_driver fireant_pci_driver = {
+static struct pci_driver mscc_fireant_pci_driver = {
 	.name = DEVICE_NAME,
-	.id_table = fireant_ids,
-	.probe = fireant_pci_probe,
-	.remove = fireant_pci_remove,
+	.id_table = mscc_fireant_ids,
+	.probe = mscc_fireant_mfd_probe,
+	.remove = mscc_fireant_mfd_remove,
 };
 
 
-module_pci_driver(fireant_pci_driver);
+module_pci_driver(mscc_fireant_pci_driver);
 
 MODULE_AUTHOR("Steen Hegelund <steen.hegelund@microchip.com>");
-MODULE_DESCRIPTION("Microsemi FireAnt PCI driver");
+MODULE_DESCRIPTION("Microchip FireAnt PCI/MFD driver");
 MODULE_LICENSE("Dual MIT/GPL");
