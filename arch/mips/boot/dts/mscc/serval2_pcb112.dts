@@ -33,7 +33,7 @@
 		reg = <0>; /* CS0 */
 	};
 	spi-flash@3 {
-		compatible = "spinand,mt29f";
+		compatible = "spi-nand";
 		pinctrl-0 = <&cs3_pins>;
 		pinctrl-names = "default";
 		spi-max-frequency = <15625000>;

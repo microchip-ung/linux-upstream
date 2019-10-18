@@ -59,22 +59,22 @@ static inline struct mscc_nand_data *mtd_to_mscc(struct mtd_info *mtd)
 }
 
 /* hardware specific access to control-lines */
-static void vcoreiii_nand_cmd_ctrl(struct mtd_info *mtd, int cmd,
+static void vcoreiii_nand_cmd_ctrl(struct nand_chip *this, int cmd,
 				   unsigned int ctrl)
 {
-	struct nand_chip *this = mtd_to_nand(mtd);
+	struct mtd_info *mtd = nand_to_mtd(this);
 	if (ctrl & NAND_CTRL_CHANGE) {
 		struct mscc_nand_data *host = mtd_to_mscc(mtd);
-		u32 ioaddr = (u32) this->IO_ADDR_R;
+		u32 ioaddr = (u32) this->legacy.IO_ADDR_R;
 		if(ctrl & NAND_CLE) {
 			ioaddr |= host->props->cle_mask;
 		} else if(ctrl & NAND_ALE) {
 			ioaddr |= host->props->ale_mask;
 		}
-		this->IO_ADDR_W = (void __iomem *)ioaddr;
+		this->legacy.IO_ADDR_W = (void __iomem *)ioaddr;
 	}
 	if (cmd != NAND_CMD_NONE) {
-		__raw_writeb(cmd, this->IO_ADDR_W);
+		__raw_writeb(cmd, this->legacy.IO_ADDR_W);
 		wmb();
 	}
 }
@@ -134,21 +134,21 @@ static int __init mscc_nand_probe(struct platform_device *pdev)
 	nand_set_flash_node(nand, pdev->dev.of_node);
 	mtd->dev.parent = &pdev->dev;
 
-	nand->IO_ADDR_R = nand->IO_ADDR_W = host->pi_region;
-	nand->cmd_ctrl = vcoreiii_nand_cmd_ctrl;
+	nand->legacy.IO_ADDR_R = nand->legacy.IO_ADDR_W = host->pi_region;
+	nand->legacy.cmd_ctrl = vcoreiii_nand_cmd_ctrl;
 	nand->ecc.mode = NAND_ECC_SOFT;
 	nand->ecc.algo = NAND_ECC_HAMMING;
 
 	if (!of_property_read_u32(pdev->dev.of_node,
 				  "chip-delay", &val)) {
-		nand->chip_delay = (u8)val;
-		dev_dbg(dev, "Chip Delay = %d\n", nand->chip_delay);
+		nand->legacy.chip_delay = val;
+		dev_dbg(dev, "Chip Delay = %d\n", nand->legacy.chip_delay);
 	}
 
 	/*
 	 * Scan to find existence of the device
 	 */
-	ret = nand_scan(mtd, 1);
+	ret = nand_scan(nand, 1);
 	if (ret)
 		goto cleanup_nand;
 
@@ -176,7 +176,7 @@ static int mscc_nand_remove(struct platform_device *pdev)
 {
 	struct mscc_nand_data *host = platform_get_drvdata(pdev);
 	if (host) {
-		nand_release(nand_to_mtd(&host->nand));
+		nand_release(&host->nand);
 	}
 	return 0;
 }
@@ -207,4 +207,3 @@ module_platform_driver_probe(mscc_nand_driver, mscc_nand_probe);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Lars Povlsen <lars.povlsen@microchip.com>");
 MODULE_DESCRIPTION("MSCC SoC NAND driver");
-

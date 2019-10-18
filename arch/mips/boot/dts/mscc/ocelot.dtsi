@@ -79,19 +79,6 @@
 			status = "disabled";
 		};
 
-		i2c: i2c@70100400 {
-			compatible = "mscc,ocelot-i2c", "snps,designware-i2c";
-			pinctrl-0 = <&i2c_pins>;
-			pinctrl-names = "default";
-			reg = <0x70100400 0x100>, <0x70000198 0x8>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			interrupts = <8>;
-			clocks = <&ahb_clk>;
-
-			status = "disabled";
-		};
-
 		uart2: serial@70100800 {
 			pinctrl-0 = <&uart2_pins>;
 			pinctrl-names = "default";
@@ -234,10 +221,6 @@
 				function = "miim1";
 			};
 
-			i2c_pins: i2c-pins {
-				pins = "GPIO_16", "GPIO_17";
-				function = "twi";
-			};
 		};
 
 		mdio0: mdio@7107009c {
@@ -281,6 +264,18 @@
 				compatible = "mscc,vsc7514-serdes";
 				#phy-cells = <2>;
 			};
+		};
+
+		fdma: fdma@0 {
+			compatible = "mscc,ocelot-fdma";
+			status = "okay";
+			reg = <0x70000000 0x00200000>, <0x71000000 0x01000000>;
+			interrupts = <16>;
+		};
+
+		ifmux: ifmux@0 {
+			compatible = "mscc,ocelot-ifmux";
+			status = "okay";
 		};
 	};
 };

@@ -29,12 +29,14 @@
 			description = "Ocelot Linux kernel";
 			kernel = "kernel@0";
 			fdt = "fdt@ocelot_pcb123";
+			ramdisk = "ramdisk";
 		};
 
 		conf@ocelot_pcb120 {
 			description = "Ocelot Linux kernel";
 			kernel = "kernel@0";
 			fdt = "fdt@ocelot_pcb120";
+			ramdisk = "ramdisk";
 		};
 	};
 };

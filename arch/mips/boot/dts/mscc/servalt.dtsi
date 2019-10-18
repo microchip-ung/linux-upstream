@@ -99,7 +99,7 @@
 			reg = <0x71010008 0x4>;
 		};
 
-		spi0: spi-bitbang@70000050 {
+		spi0: spi@70000050 {
 			compatible = "mscc,luton-bb-spi";
 			status = "okay";
 			reg = <0x70000050 0x4>, <0x40000000 0x4000000>;

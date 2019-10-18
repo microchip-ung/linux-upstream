@@ -27,8 +27,9 @@
 };
 
 &i2c0 {
-	status = "okay";
+	clock-frequency = <100000>;
 	i2c-sda-hold-time-ns = <300>;
+	status = "okay";
 };
 
 &spi {
@@ -40,7 +41,7 @@
 		reg = <0>;
 	};
 	spi-flash@1 {
-		compatible = "spinand,mt29f";
+		compatible = "spi-nand";
 		pinctrl-0 = <&cs1_pins>;
 		pinctrl-names = "default";
 		spi-max-frequency = <31000000>;
@@ -56,12 +57,6 @@
 			};
 		};
 	};
-};
-
-&i2c {
-	clock-frequency = <100000>;
-	i2c-sda-hold-time-ns = <300>;
-	status = "okay";
 };
 
 &mdio0 {

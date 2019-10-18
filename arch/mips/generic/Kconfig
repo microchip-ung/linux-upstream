@@ -87,42 +87,42 @@ config FIT_IMAGE_FDT_XILFPGA
 	  from Imagination Technologies in the FIT kernel image.
 
 config FIT_IMAGE_FDT_OCELOT
-	bool "Include FDT for Microsemi Ocelot development platforms"
+	bool "Include FDT for Microsemi Ocelot boards"
 	select MSCC_OCELOT
 	help
 	  Enable this to include the FDT for the Ocelot development platforms
 	  from Microsemi in the FIT kernel image.
 	  This requires u-boot on the platform.
 
-config FIT_IMAGE_FDT_LUTON_PCB090
-	bool "Include FDT for Microsemi Luton PCB090"
+config FIT_IMAGE_FDT_LUTON
+	bool "Include FDT for Microsemi Luton boards"
 	select MSCC_LUTON
 	help
-	  Enable this to include the FDT for the Luton PCB090 platform
+	  Enable this to include the FDT for the Luton development platforms
 	  from Microsemi in the FIT kernel image.
 	  This requires u-boot on the platform.
 
-config FIT_IMAGE_FDT_JAGUAR2_PCB110
-	bool "Include FDT for Microsemi Jaguar2 PCB110"
+config FIT_IMAGE_FDT_JAGUAR2
+	bool "Include FDT for Microsemi Jaguar2 boards"
 	select MSCC_JAGUAR2
 	help
-	  Enable this to include the FDT for the Jaguar2 PCB110 platform
+	  Enable this to include the FDT for the Jaguar2 development platforms
 	  from Microsemi in the FIT kernel image.
 	  This requires u-boot on the platform.
 
-config FIT_IMAGE_FDT_SERVALT_PCB116
-	bool "Include FDT for Microsemi Servalt PCB116"
+config FIT_IMAGE_FDT_SERVALT
+	bool "Include FDT for Microsemi Servalt boards"
 	select MSCC_SERVALT
 	help
-	  Enable this to include the FDT for the Servalt PCB116 platform
+	  Enable this to include the FDT for the Servalt development platforms
 	  from Microsemi in the FIT kernel image.
 	  This requires u-boot on the platform.
 
-config FIT_IMAGE_FDT_SERVAL_PCB105
-	bool "Include FDT for Microsemi Serval PCB105"
+config FIT_IMAGE_FDT_SERVAL
+	bool "Include FDT for Microsemi Serval boards"
 	select MSCC_SERVAL
 	help
-	  Enable this to include the FDT for the Serval PCB105 platform
+	  Enable this to include the FDT for the Serval development platforms
 	  from Microsemi in the FIT kernel image.
 	  This requires u-boot on the platform.
 
