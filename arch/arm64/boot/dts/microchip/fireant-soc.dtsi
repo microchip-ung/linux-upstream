@@ -5,6 +5,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/mchp,fireant.h>
 
 / {
 	compatible = "mscc,fireant";
@@ -65,6 +66,9 @@
 	};
 
 	clocks: clocks {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
 		ahb_clk: ahb-clk {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
@@ -75,10 +79,10 @@
 			#clock-cells = <0>;
 			clock-frequency = <625000000>;
 		};
-		aux1_clk: aux1-clk {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <667000000>;
+		clks: clks@61110000c {
+			compatible = "mchp,fireant-clock";
+			#clock-cells = <1>;
+			reg = <6 0x1110000c 0x24>;
 		};
 	};
 
@@ -164,6 +168,10 @@
 			reg = <6 0x00800000 0x1000>;
 			pinctrl-0 = <&emmc_pins>;
 			pinctrl-names = "default";
+			clocks = <&clks CLK_ID_AUX1>;
+			clock-names = "core";
+			assigned-clocks = <&clks CLK_ID_AUX1>;
+		        assigned-clock-rates = <100000000>;
 			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 		};
