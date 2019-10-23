@@ -9,15 +9,17 @@
  * Author: Lars Povlsen <lars.povlsen@microchip.com>
  */
 
-//#define DEBUG
+#if defined(CONFIG_MMC_DEBUG)
+#define DEBUG
+#endif
 
 #include <linux/sizes.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
-#include <linux/mmc/host.h>
 #include <linux/of_device.h>
 #include <linux/mfd/syscon.h>
+#include <linux/dma-mapping.h>
 
 #include "sdhci-pltfm.h"
 
@@ -47,6 +49,26 @@ struct sdhci_fireant_data {
 #define BOUNDARY_OK(addr, len) \
 	((addr | (SZ_128M - 1)) == ((addr + len - 1) | (SZ_128M - 1)))
 
+#if defined(DEBUG)
+static void sdhci_fa_writel(struct sdhci_host *host, u32 val, int reg)
+{
+	pr_debug("$$$ writel(0x%08x, 0x%02x)\n", val, reg);
+	writel(val, host->ioaddr + reg);
+}
+
+static void sdhci_fa_writew(struct sdhci_host *host, u16 val, int reg)
+{
+	pr_debug("$$$ writew(0x%04x, 0x%02x)\n", val, reg);
+	writew(val, host->ioaddr + reg);
+}
+
+static void sdhci_fa_writeb(struct sdhci_host *host, u8 val, int reg)
+{
+	pr_debug("$$$ writeb(0x%02x, 0x%02x)\n", val, reg);
+	writeb(val, host->ioaddr + reg);
+}
+#endif
+
 /*
  * If DMA addr spans 128MB boundary, we split the DMA transfer into two
  * so that each DMA transfer doesn't exceed the boundary.
@@ -56,8 +78,8 @@ static void sdhci_fireant_adma_write_desc(struct sdhci_host *host, void **desc,
 {
 	int tmplen, offset;
 
-	pr_debug("write_desc: Called: len %d, offset 0x%0llx\n",
-		 len, addr);
+	pr_debug("write_desc: cmd %02x: len %d, offset 0x%0llx\n",
+		 cmd, len, addr);
 
 	if (likely(!len || BOUNDARY_OK(addr, len))) {
 		sdhci_adma_write_desc(host, desc, addr, len, cmd);
@@ -142,6 +164,11 @@ static void sdhci_fireant_reset(struct sdhci_host *host, u8 mask)
 }
 
 static const struct sdhci_ops sdhci_fireant_ops = {
+#if defined(DEBUG)
+	.write_l		= sdhci_fa_writel,
+	.write_w		= sdhci_fa_writew,
+	.write_b		= sdhci_fa_writeb,
+#endif
 	.set_clock		= sdhci_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
 	.set_uhs_signaling	= sdhci_set_uhs_signaling,
@@ -152,7 +179,7 @@ static const struct sdhci_ops sdhci_fireant_ops = {
 
 static const struct sdhci_pltfm_data sdhci_fireant_pdata = {
 	.quirks  = 0,
-	.quirks2 = SDHCI_QUIRK2_NO_1_8_V,
+	.quirks2 = SDHCI_QUIRK2_BROKEN_HS200, /* No hs200 mode */
 	.ops = &sdhci_fireant_ops,
 };
 
@@ -164,15 +191,34 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 	struct sdhci_fireant_data *sdhci_fireant;
 	struct device_node *np = pdev->dev.of_node;
 	u32 value;
+	u32 extra;
 
 	host = sdhci_pltfm_init(pdev, &sdhci_fireant_pdata, sizeof(*sdhci_fireant));
 
 	if (IS_ERR(host))
 		return PTR_ERR(host);
 
+	/*
+	 * extra adma table cnt for cross 128M boundary handling.
+	 */
+	extra = DIV_ROUND_UP_ULL(dma_get_required_mask(&pdev->dev), SZ_128M);
+	if (extra > SDHCI_MAX_SEGS)
+		extra = SDHCI_MAX_SEGS;
+	host->adma_table_cnt += extra;
+
 	pltfm_host = sdhci_priv(host);
 	sdhci_fireant = sdhci_pltfm_priv(pltfm_host);
 	sdhci_fireant->host = host;
+
+	pltfm_host->clk = devm_clk_get(&pdev->dev, "core");
+	if (IS_ERR(pltfm_host->clk)) {
+		ret = PTR_ERR(pltfm_host->clk);
+		dev_err(&pdev->dev, "failed to get core clk: %d\n", ret);
+		goto free_pltfm;
+	}
+	ret = clk_prepare_enable(pltfm_host->clk);
+	if (ret)
+		goto free_pltfm;
 
 	if (!of_property_read_u32(np, "mscc,clock-delay", &value) &&
 	    value <= MSHC_DLY_CC_MAX)
@@ -183,16 +229,14 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 	sdhci_get_of_property(pdev);
 
 	ret = mmc_of_parse(host->mmc);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "parsing dt failed (%d)\n", ret);
-		return ret;
-	}
+	if (ret)
+		goto err_clk;
 
 	sdhci_fireant->cpu_ctrl = syscon_regmap_lookup_by_compatible("mscc,fireant-cpu-syscon");
 	if (IS_ERR(sdhci_fireant->cpu_ctrl)) {
 		dev_err(&pdev->dev, "No CPU syscon regmap !\n");
-		return PTR_ERR(sdhci_fireant->cpu_ctrl);
+		ret = PTR_ERR(sdhci_fireant->cpu_ctrl);
+		goto err_clk;
 	}
 
 	if (sdhci_fireant->delay_clock >= 0)
@@ -220,6 +264,12 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 	pr_debug("SDHC version: 0x%08x\n", sdhci_readl(host, MSHC2_VERSION));
 	pr_debug("SDHC type:    0x%08x\n", sdhci_readl(host, MSHC2_TYPE));
 
+	return ret;
+
+err_clk:
+	clk_disable_unprepare(pltfm_host->clk);
+free_pltfm:
+	sdhci_pltfm_free(pdev);
 	return ret;
 }
 
