@@ -171,7 +171,7 @@
 			clocks = <&clks CLK_ID_AUX1>;
 			clock-names = "core";
 			assigned-clocks = <&clks CLK_ID_AUX1>;
-		        assigned-clock-rates = <100000000>;
+		        assigned-clock-rates = <800000000>;
 			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 		};
