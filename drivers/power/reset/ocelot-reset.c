@@ -19,7 +19,6 @@ struct reset_mscc_props {
 	const char *syscon_name;
 	u32 protect_reg_off;
 	u32 vcore_protect;
-	int (*switch_core_reset)(void __iomem *base, const struct reset_mscc_props *props);
 };
 
 struct ocelot_reset_context {
@@ -97,16 +96,18 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 	return err;
 }
 
-static int fireant_switch_core_reset(void __iomem *base, const struct reset_mscc_props *props)
+static int ocelot_switch_core_reset(void __iomem *base,
+				    const struct reset_mscc_props *props,
+				    struct device_node *np)
 {
 	struct regmap * cpu_ctrl;
 	int timeout;
 
-	pr_debug("fireant: Resetting Switch Core\n");
+	pr_notice("%pOFn: Resetting Switch Core\n", np);
 
 	cpu_ctrl = syscon_regmap_lookup_by_compatible(props->syscon_name);
 	if (IS_ERR(cpu_ctrl)) {
-		pr_err("No syscon regmap named '%s'!\n", props->syscon_name);
+		pr_err("%pOFn: No syscon regmap named '%s'!\n", np, props->syscon_name);
 		return -ENXIO;
 	}
 
@@ -117,13 +118,13 @@ static int fireant_switch_core_reset(void __iomem *base, const struct reset_mscc
 	writel(SOFT_SWC_RST, base);
 	for(timeout = 0; timeout < 100; timeout++) {
 		if ((readl(base) & SOFT_SWC_RST) == 0) {
-			pr_debug("Switch Core Reset complete.\n");
+			pr_debug("%pOFn: Switch Core Reset complete.\n", np);
 			return 0;
 		}
 		udelay(1);
 	}
 
-	pr_warning("Switch Core Reset timeout!\n");
+	pr_warning("%pOFn: Switch Core Reset timeout!\n", np);
 	return -ENXIO;
 }
 
@@ -137,7 +138,6 @@ static const struct reset_mscc_props reset_mscc_props_fireant = {
 	.syscon_name = "mscc,fireant-cpu-syscon",
 	.protect_reg_off = 0x84,
 	.vcore_protect   = BIT(10),
-	.switch_core_reset    = fireant_switch_core_reset,
 };
 
 static const struct of_device_id ocelot_reset_of_match[] = {
@@ -163,8 +163,7 @@ static int __init early_switch_init(void)
 	np = of_find_matching_node_and_match(NULL, ocelot_reset_of_match, &match);
 	if (np) {
 		const struct reset_mscc_props *props = match->data;
-		if (of_property_read_bool(np, "mscc,reset-switch-core") &&
-		    props->switch_core_reset) {
+		if (of_property_read_bool(np, "mscc,reset-switch-core")) {
 			struct resource regs;
 			void __iomem *base;
 			if (of_address_to_resource(np, 0, &regs) < 0) {
@@ -180,7 +179,7 @@ static int __init early_switch_init(void)
 			}
 
 			/* Call switch reset function */
-			props->switch_core_reset(base, props);
+			ocelot_switch_core_reset(base, props, np);
 
 			iounmap(base);
 		}
