@@ -94,7 +94,7 @@
 			status = "disabled";
 		};
 
-		spi0: spi-master@70101000 {
+		spi0: spi@70101000 {
 			compatible = "mscc,jaguar2-spi", "snps,dw-apb-ssi";
 			#address-cells = <1>;
 			#size-cells = <0>;
