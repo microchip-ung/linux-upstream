@@ -327,10 +327,17 @@
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+				     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
+                                     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>,
+                                     <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>,
+                                     <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>,
+                                     <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
+                                     <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "master",
 				     "slave-0x10001", "slave-0x10002",
-				     "slave-0x20000";
+				     "slave-0x20000",
+                                     "sgpio0", "sgpio1", "sgpio2",
+                                     "ptp_rdy", "ptp_sync";
 			status = "disabled";
 		};
 
