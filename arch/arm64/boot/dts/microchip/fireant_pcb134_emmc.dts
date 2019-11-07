@@ -34,5 +34,6 @@
 	pinctrl-0 = <&emmc_pins>;
 	non-removable;
 	max-frequency = <1000000>;
+	bus-width = <4>;
 	mscc,clock-delay = <8>;
 };
