@@ -62,7 +62,7 @@ static const struct chip_props jaguar2_props = {
 	.reg_off_ena_set	= 0x90 - 0x70,
 	.reg_off_ident		= 0xa8 - 0x70,
 	.reg_off_trigger	= 0xcc - 0x70,
-	.n_irq			= 28,
+	.n_irq			= 29,
 };
 
 static void ocelot_irq_unmask(struct irq_data *data)

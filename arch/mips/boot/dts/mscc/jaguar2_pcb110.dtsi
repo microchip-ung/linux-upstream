@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * Copyright (c) 2018 Microsemi Corporation
+ * Copyright (c) 2020 Microsemi Corporation
  */
 
-/dts-v1/;
 #include "jaguar2.dtsi"
 
 / {
@@ -24,6 +23,10 @@
 	status = "okay";
 };
 
+&uart2 {
+	status = "okay";
+};
+
 &spi0 {
 	status = "okay";
 	spi-flash@0 {
@@ -31,6 +34,35 @@
 		compatible = "macronix,mx25l25635f", "jedec,spi-nor";
 		spi-max-frequency = <18000000>; /* input clock */
 		reg = <0>; /* CS0 */
+	};
+	// synce module
+	spi@1 {
+		compatible = "mchp,synce_dpll";
+		reg = <0x1>; /* CS1 */
+		pinctrl-0 = <&synce_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+	// CPLD for Synce CPLD
+	spi@d {
+		compatible = "mchp,synce_builtin";
+		reg = <0xd>; /* CS13 */
+		pinctrl-0 = <&synce_builtin_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+};
+
+&gpio {
+	synce_pins: synce-pins {
+		// GPIO 16 == SI_nCS1
+		pins = "GPIO_16";
+		function = "si";
+	};
+	synce_builtin_pins: synce-builtin-pins {
+		// GPIO 49 == SI_nCS13
+		pins = "GPIO_49";
+		function = "si";
 	};
 };
 
@@ -53,4 +85,16 @@
 &i2c0 {
 	status = "okay";
 	i2c-sda-hold-time-ns = <300>;
+};
+
+&uio0 {
+	status = "okay";
+};
+
+&fdma {
+	status = "okay";
+};
+
+&ifmux {
+	status = "okay";
 };

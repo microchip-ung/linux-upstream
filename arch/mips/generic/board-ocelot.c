@@ -7,6 +7,8 @@
 #include <asm/machine.h>
 #include <asm/prom.h>
 
+extern const char __appended_dtb[];
+
 struct plat_props {
 	phys_addr_t uart_addr;
 };
@@ -53,6 +55,18 @@ static __init const void *ocelot_fixup_fdt(const void *fdt,
 	return fdt;
 }
 
+static __init bool mscc_mips_detect(void)
+{
+	/* TODO: Do a real MIPS vcore check */
+#if defined(CONFIG_LEGACY_BOARD_OCELOT) || defined(CONFIG_MSCC_OCELOT) \
+	|| defined(CONFIG_MSCC_LUTON) || defined(CONFIG_MSCC_JAGUAR2)
+	return 1;
+#else
+	return 0;
+#endif
+
+}
+
 static const struct of_device_id mscc_of_match[] __initconst = {
 	{
 		.compatible = "mscc,ocelot",
@@ -76,4 +90,8 @@ static const struct of_device_id mscc_of_match[] __initconst = {
 MIPS_MACHINE(ocelot) = {
 	.fixup_fdt = ocelot_fixup_fdt,
 	.matches = mscc_of_match,
+	.detect = mscc_mips_detect,
+#if defined(CONFIG_MIPS_RAW_APPENDED_DTB)
+	.fdt = __appended_dtb,
+#endif
 };

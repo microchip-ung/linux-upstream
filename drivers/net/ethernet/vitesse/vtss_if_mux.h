@@ -32,6 +32,7 @@ struct ifmux_chip {
 	u8 ifh_len;
 	u8 cpu_port;
 	u16 ifh_offs_port_mask;
+	u8 ifh_encap_len;
 	const u8 *hdr_tmpl_vlan;
 	const u8 *hdr_tmpl_port;
 	size_t ifh_encap_vlan_len;

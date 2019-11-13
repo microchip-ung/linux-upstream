@@ -43,26 +43,31 @@ config MSCC_OCELOT
 	bool
 	select GPIOLIB
 	select MSCC_OCELOT_IRQ
+	select UIO_MIPS_MSCC
 
 config MSCC_LUTON
 	bool
 	select GPIOLIB
 	select MSCC_OCELOT_IRQ
+	select UIO_MIPS_MSCC
 
 config MSCC_JAGUAR2
 	bool
 	select GPIOLIB
 	select MSCC_OCELOT_IRQ
+	select UIO_MIPS_MSCC
 
 config MSCC_SERVAL
 	bool
 	select GPIOLIB
 	select MSCC_OCELOT_IRQ
+	select UIO_MIPS_MSCC
 
 config MSCC_SERVALT
 	bool
 	select GPIOLIB
 	select MSCC_OCELOT_IRQ
+	select UIO_MIPS_MSCC
 
 comment "FIT/UHI Boards"
 

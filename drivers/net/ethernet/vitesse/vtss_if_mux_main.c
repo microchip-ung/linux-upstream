@@ -582,23 +582,31 @@ static void set_vlan_id(struct ifmux_chip *cfg, u8 *hdr, struct sk_buff *skb,
     u16 vlan_id)
 {
     int i;
-
-    // Make room for the VTSS-IFH
-    hdr = skb_push(skb, cfg->ifh_encap_vlan_len);
+    u8 *mac;
 
     // Write the template header
     memcpy(hdr, cfg->hdr_tmpl_vlan, cfg->ifh_encap_vlan_len);
 
-    // move the da/sa to make room for vlan tag (dummy tag is last in template)
-    for (i = 0; i < 12; ++i) {
-        skb->data[i + cfg->ifh_encap_vlan_len] = skb->data[i + cfg->ifh_encap_vlan_len + 4];
-    }
+#if 0
+    pr_debug("Template: %lu bytes\n", cfg->ifh_encap_vlan_len);
+    print_hex_dump(KERN_INFO, "template: ", DUMP_PREFIX_OFFSET, 16, 1,
+                   vtss_if_mux_chip->hdr_tmpl_vlan, cfg->ifh_encap_vlan_len, false);
 
+    pr_info("TX2 %u bytes on vlan: %u\n", skb->len, vlan_id);
+    print_hex_dump(KERN_INFO, "TX2: ", DUMP_PREFIX_OFFSET, 16, 1,
+                   skb->data, skb->len, false);
+#endif
+    hdr += cfg->ifh_encap_len;
+    mac = hdr + VLAN_HLEN;
+    // move the da/sa to make room for vlan tag (dummy tag is last in template)
+    for (i = 0; i < 2*ETH_ALEN; ++i) {
+        *hdr++ = *mac++;
+    }
     // Write the vlan tag
-    skb->data[cfg->ifh_encap_vlan_len + 12 + 0] = 0x81;
-    skb->data[cfg->ifh_encap_vlan_len + 12 + 1] = 0x00;
-    skb->data[cfg->ifh_encap_vlan_len + 12 + 2] = (vlan_id >> 8) & 0x0f;
-    skb->data[cfg->ifh_encap_vlan_len + 12 + 3] = vlan_id & 0xff;
+    *hdr++ = 0x81;
+    *hdr++ = 0x00;
+    *hdr++ = (vlan_id >> 8) & 0x0f;
+    *hdr++ = vlan_id & 0xff;
 
     // update the placement of the mac-header
     skb->mac_header = cfg->ifh_encap_vlan_len;
@@ -642,6 +650,7 @@ static const struct ifmux_chip luton_chip = {
         .soc                    = SOC_LUTON,
         .ifh_id             = IFH_ID_LUTON,
         .ifh_len            = IFH_LEN_LUTON,
+        .ifh_encap_len      = IFH_LEN_LUTON + 2*ETH_ALEN + VLAN_HLEN,
         .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_LUTON,
         .cpu_port            = 0,        /* Unused */
         .hdr_tmpl_vlan            = hdr_tmpl_vlan_luton,
@@ -656,6 +665,7 @@ static const struct ifmux_chip serval1_chip = {
         .soc                    = SOC_SERVAL1,
         .ifh_id             = IFH_ID_SERVAL1,
         .ifh_len            = IFH_LEN_SERVAL1,
+        .ifh_encap_len      = IFH_LEN_SERVAL1 + 2*ETH_ALEN + VLAN_HLEN,
         .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_SERVAL1,
         .cpu_port            = 0,        /* Unused */
         .hdr_tmpl_vlan            = hdr_tmpl_vlan_serval1,
@@ -670,6 +680,7 @@ static const struct ifmux_chip ocelot_chip = {
         .soc                    = SOC_OCELOT,
         .ifh_id             = IFH_ID_OCELOT,
         .ifh_len            = IFH_LEN_OCELOT,
+        .ifh_encap_len      = IFH_LEN_OCELOT + 2*ETH_ALEN + VLAN_HLEN,
         .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_OCELOT,
         .cpu_port            = 0,        /* Unused */
         .hdr_tmpl_vlan            = hdr_tmpl_vlan_ocelot,
@@ -684,6 +695,7 @@ static const struct ifmux_chip servalt_chip = {
         .soc                    = SOC_SERVALT,
         .ifh_id             = IFH_ID_JAGUAR2,
         .ifh_len            = IFH_LEN_JAGUAR2,
+        .ifh_encap_len      = IFH_LEN_JAGUAR2 + 2*ETH_ALEN + VLAN_HLEN,
         .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
         .cpu_port            = 11, /* CPU port == 11 on ServalT */
         .hdr_tmpl_vlan            = hdr_tmpl_vlan_jaguar2,
@@ -698,6 +710,7 @@ static const struct ifmux_chip jaguar2_chip = {
         .soc                    = SOC_JAGUAR2,
         .ifh_id             = IFH_ID_JAGUAR2,
         .ifh_len            = IFH_LEN_JAGUAR2,
+        .ifh_encap_len      = IFH_LEN_JAGUAR2 + 2*ETH_ALEN + VLAN_HLEN,
         .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
         .cpu_port            = 53, /* CPU port == 53 on JR2 */
         .hdr_tmpl_vlan            = hdr_tmpl_vlan_jaguar2,
@@ -712,6 +725,7 @@ static const struct ifmux_chip fireant_chip = {
         .soc                    = SOC_FIREANT,
         .ifh_id             = IFH_ID_FIREANT,
         .ifh_len            = IFH_LEN_FIREANT,
+        .ifh_encap_len      = IFH_LEN_FIREANT + 2*ETH_ALEN + VLAN_HLEN,
         .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_FIREANT,
         .cpu_port            = 65, /* CPU port 0 == chipport 65 on FA */
         .hdr_tmpl_vlan            = hdr_tmpl_vlan_fireant,

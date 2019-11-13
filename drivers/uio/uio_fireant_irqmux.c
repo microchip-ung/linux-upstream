@@ -17,15 +17,10 @@
 #include <linux/io.h>
 #include <linux/of.h>
 
-/* Software IRQ ctl registers */
-#define REGOFF_SHARED_INTR	0x00000098
-#define REGOFF_SHARED_INTR_CLR	0x0000009c
-#define REGOFF_SHARED_INTR_SET	0x000000a0
-
 #define DRIVER_NAME	"uio_fireant_irqmux"
 #define MAXNAMELEN	16
 
-struct slave_irq {
+struct slave_irq_data {
 	int index;
 	int irq;
 	int active;
@@ -33,12 +28,21 @@ struct slave_irq {
 	struct irqmux_platdata *priv;
 };
 
+struct uio_fireant_irqmux_config {
+	u32 reg_off_ident;
+	u32 reg_off_force;
+	u32 reg_off_clr;
+	u32 reg_off_set;
+	u32 master_mask;
+};
+
 struct irqmux_platdata {
 	struct uio_info info;
 	spinlock_t lock;
+	const struct uio_fireant_irqmux_config *cfg;
 	unsigned long flags;
 	struct platform_device *pdev;
-	struct slave_irq *sirq;
+	struct slave_irq_data *sirq;
 	int n_sirq;
 	int n_active;
 };
@@ -57,7 +61,7 @@ static ssize_t swint_show(struct device *dev,
 	struct irqmux_platdata *priv = platform_get_drvdata(pdev);
 	u32 val;
 
-	val = readl(priv->info.mem[0].internal_addr + REGOFF_SHARED_INTR);
+	val = readl(priv->info.mem[0].internal_addr + priv->cfg->reg_off_ident);
 
 	return sprintf(buf, "0x%x\n", val);
 }
@@ -73,7 +77,8 @@ static ssize_t swint_store(struct device *dev,
 	if (kstrtoint(buf, 0, &val))
 		return -EINVAL;
 
-	writel(val, priv->info.mem[0].internal_addr + REGOFF_SHARED_INTR);
+	dev_dbg(&priv->pdev->dev, "Setting: 0x%x\n", val);
+	writel(val, priv->info.mem[0].internal_addr + priv->cfg->reg_off_force);
 
 	return count;
 }
@@ -127,9 +132,10 @@ static ssize_t irqctl_store(struct device *dev,
 			priv->sirq[index].active = false;
 			priv->n_active--;
 			if (priv->n_active == 0) {
-				/* Clear combined mastr IRQ SW0 */
-				writel(BIT(0), priv->info.mem[0].internal_addr +
-				       REGOFF_SHARED_INTR_CLR);
+				/* Clear combined master IRQ */
+				writel(priv->cfg->master_mask,
+				       priv->info.mem[0].internal_addr +
+				       priv->cfg->reg_off_clr);
 			}
 			enable_irq(priv->sirq[index].irq);
 		} else {
@@ -216,7 +222,7 @@ static int uio_fireant_irqmux_irqcontrol(struct uio_info *dev_info, s32 irq_on)
 
 static irqreturn_t slave_irq(int irq, void *ident)
 {
-	struct slave_irq *sirq = ident;
+	struct slave_irq_data *sirq = ident;
 	struct irqmux_platdata *priv = sirq->priv;
 	unsigned long flags;
 
@@ -228,8 +234,8 @@ static irqreturn_t slave_irq(int irq, void *ident)
 		priv->n_active++;
 		disable_irq_nosync(irq);
 		/* Trigger SW0 */
-		writel(BIT(0), priv->info.mem[0].internal_addr +
-		       REGOFF_SHARED_INTR_SET);
+		writel(priv->cfg->master_mask, priv->info.mem[0].internal_addr +
+		       priv->cfg->reg_off_set);
 	} else {
 		dev_err(&priv->pdev->dev, "Got IRQ %d while already active\n",
 			sirq->index);
@@ -247,7 +253,7 @@ static int uio_fireant_irqmux_request_irqs(struct irqmux_platdata *priv)
 
 	priv->n_sirq = platform_irq_count(pdev);
 	priv->sirq = devm_kzalloc(dev,
-				  sizeof(struct slave_irq)*priv->n_sirq,
+				  sizeof(struct slave_irq_data)*priv->n_sirq,
 				  GFP_KERNEL);
 	if (!priv->sirq)
 		return -ENOMEM;
@@ -299,6 +305,7 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->lock);
 	priv->flags = 0; /* interrupt is enabled to begin with */
 	priv->pdev = pdev;
+	priv->cfg = device_get_match_data(&pdev->dev);
 
 	ret = uio_fireant_irqmux_request_irqs(priv);
 	if (ret) {
@@ -354,8 +361,25 @@ static int uio_fireant_irqmux_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct uio_fireant_irqmux_config fireant_data = {
+	.reg_off_ident = 0x00000098,
+	.reg_off_force = 0x00000098,
+	.reg_off_clr   = 0x0000009c,
+	.reg_off_set   = 0x000000a0,
+	.master_mask   = BIT(0), /* Shared IRQ 0 */
+};
+
+static const struct uio_fireant_irqmux_config jaguar2_data = {
+	.reg_off_ident = 0x000000a8,
+	.reg_off_force = 0x0000007c,
+	.reg_off_clr   = 0x0000008c,
+	.reg_off_set   = 0x00000090,
+	.master_mask   = BIT(11),  /* SW0 */
+};
+
 static const struct of_device_id uio_of_fireant_irqmux_match[] = {
-	{ .compatible = "mscc,uio_fireant_irqmux", },
+	{ .compatible = "mscc,uio_fireant_irqmux", .data = &fireant_data },
+	{ .compatible = "mscc,uio_jaguar2_irqmux", .data = &jaguar2_data },
 	{},
 };
 
