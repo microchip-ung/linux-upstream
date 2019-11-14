@@ -9,9 +9,8 @@
  * Author: Lars Povlsen <lars.povlsen@microchip.com>
  */
 
-#if defined(CONFIG_MMC_DEBUG)
 //#define DEBUG
-#endif
+//#define TRACE_REGISTER
 
 #include <linux/sizes.h>
 #include <linux/delay.h>
@@ -50,7 +49,7 @@ struct sdhci_fireant_data {
 #define BOUNDARY_OK(addr, len) \
 	((addr | (SZ_128M - 1)) == ((addr + len - 1) | (SZ_128M - 1)))
 
-#if defined(DEBUG)
+#if defined(TRACE_REGISTER)
 static void sdhci_fa_writel(struct sdhci_host *host, u32 val, int reg)
 {
 	pr_debug("$$$ writel(0x%08x, 0x%02x)\n", val, reg);
@@ -165,7 +164,7 @@ static void sdhci_fireant_reset(struct sdhci_host *host, u8 mask)
 }
 
 static const struct sdhci_ops sdhci_fireant_ops = {
-#if defined(DEBUG)
+#if defined(TRACE_REGISTER)
 	.write_l		= sdhci_fa_writel,
 	.write_w		= sdhci_fa_writew,
 	.write_b		= sdhci_fa_writeb,
@@ -179,7 +178,7 @@ static const struct sdhci_ops sdhci_fireant_ops = {
 };
 
 static const struct sdhci_pltfm_data sdhci_fireant_pdata = {
-	.quirks  = SDHCI_QUIRK_BROKEN_ADMA | SDHCI_QUIRK_BROKEN_DMA,
+	.quirks  = 0,
 	.quirks2 = SDHCI_QUIRK2_NO_1_8_V, /* No sdr104, ddr50, etc */
 	.ops = &sdhci_fireant_ops,
 };
@@ -285,9 +284,6 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 	if (sdhci_fireant->delay_clock >= 0)
 		fireant_set_delay(host, sdhci_fireant->delay_clock);
 
-	/* Set AXI bus master to use cached access (for ADMA) */
-	fireant_set_cacheable(host, ACP_CACHE_FORCE_ENA|ACP_AWCACHE|ACP_ARCACHE);
-
 	if (!mmc_card_is_removable(host->mmc)) {
 		/* Do a HW reset of eMMC card */
 		sdhci_fireant_reset_emmc(host);
@@ -303,6 +299,11 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 	ret = sdhci_add_host(host);
 	if (ret)
 		dev_err(&pdev->dev, "sdhci_add_host() failed (%d)\n", ret);
+
+	/* Set AXI bus master to use un-cached access (for DMA) */
+	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA) &&
+	    IS_ENABLED(CONFIG_DMA_DECLARE_COHERENT))
+		fireant_set_cacheable(host, ACP_CACHE_FORCE_ENA);
 
 	pr_debug("SDHC version: 0x%08x\n", sdhci_readl(host, MSHC2_VERSION));
 	pr_debug("SDHC type:    0x%08x\n", sdhci_readl(host, MSHC2_TYPE));
