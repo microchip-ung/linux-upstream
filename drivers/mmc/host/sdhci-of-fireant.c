@@ -10,7 +10,7 @@
  */
 
 #if defined(CONFIG_MMC_DEBUG)
-#define DEBUG
+//#define DEBUG
 #endif
 
 #include <linux/sizes.h>
@@ -44,6 +44,7 @@ struct sdhci_fireant_data {
 	struct sdhci_host *host;
 	struct regmap *cpu_ctrl;
 	int delay_clock;
+	struct device_attribute dev_delay_clock;
 };
 
 #define BOUNDARY_OK(addr, len) \
@@ -178,10 +179,41 @@ static const struct sdhci_ops sdhci_fireant_ops = {
 };
 
 static const struct sdhci_pltfm_data sdhci_fireant_pdata = {
-	.quirks  = 0,
-	.quirks2 = SDHCI_QUIRK2_BROKEN_HS200, /* No hs200 mode */
+	.quirks  = SDHCI_QUIRK_BROKEN_ADMA | SDHCI_QUIRK_BROKEN_DMA,
+	.quirks2 = SDHCI_QUIRK2_NO_1_8_V, /* No sdr104, ddr50, etc */
 	.ops = &sdhci_fireant_ops,
 };
+
+static ssize_t fireant_delay_clock_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	struct sdhci_fireant_data *sdhci_fireant = container_of(attr,
+								struct sdhci_fireant_data,
+								dev_delay_clock);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", sdhci_fireant->delay_clock);
+}
+
+static ssize_t fireant_delay_clock_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	unsigned int delay_clock;
+	struct sdhci_fireant_data *sdhci_fireant = container_of(attr,
+								struct sdhci_fireant_data,
+								dev_delay_clock);
+
+	if (sscanf(buf, "%u", &delay_clock) != 1 ||
+	    delay_clock > MSHC_DLY_CC_MAX) {
+		printk(KERN_ERR "sdhci-of-fireant: wrong parameter format.\n");
+		return -EINVAL;
+	}
+
+	sdhci_fireant->delay_clock = delay_clock;
+	fireant_set_delay(sdhci_fireant->host, sdhci_fireant->delay_clock);
+
+	return strlen(buf);
+}
 
 int sdhci_fireant_probe(struct platform_device *pdev)
 {
@@ -225,6 +257,17 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 		sdhci_fireant->delay_clock = value;
 	else
 		sdhci_fireant->delay_clock = -1; /* Autotune */
+
+	/* Sysfs delay_clock interface */
+	sdhci_fireant->dev_delay_clock.show = fireant_delay_clock_show;
+	sdhci_fireant->dev_delay_clock.store = fireant_delay_clock_store;
+	sysfs_attr_init(&sdhci_fireant->dev_delay_clock.attr);
+	sdhci_fireant->dev_delay_clock.attr.name = "delay_clock";
+	sdhci_fireant->dev_delay_clock.attr.mode = S_IRUGO | S_IWUSR;
+	ret = device_create_file(&pdev->dev, &sdhci_fireant->dev_delay_clock);
+	if (ret)
+		dev_err(&pdev->dev, "failure creating '%s' device file",
+			sdhci_fireant->dev_delay_clock.attr.name);
 
 	sdhci_get_of_property(pdev);
 
