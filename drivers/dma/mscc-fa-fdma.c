@@ -19,12 +19,14 @@
 #include <linux/slab.h>
 #include <linux/printk.h>
 #include <linux/pci.h>
+#include <linux/seq_file.h>
+#include <linux/debugfs.h>
+#include <asm/cacheflush.h>
 
 #include "dmaengine.h"
 
 #define DEVICE_NAME "fireant-fdma"
-
-/* Register offsets */
+#define CHIP_ID 0x07558445
 
 enum fireant_top {
     FIREANT_DEFAULT   = 0x000000000, /* Default instance in CML model */
@@ -38,14 +40,18 @@ enum fireant_top {
 
 #define AMBA_TOP_SPACE                             0x600000000
 #define VCORE_CSR_SPACE                            0x610000000
-#define FDMA_ATU_TARGET_SPACE                      0x900000000
+#define PCIE_TARGET_OFFSET                         0x900000000
+#define FDMA_ATU_TARGET_SPACE                      0x0
 
+/* Register offsets */
 
 /* ASM:CFG:PORT_CFG[67] */
 #define ASM_CFG_PORT_R_OFF(ridx)                   (0x0060841c + (ridx*4))
 
 /* CPU:CPU_REGS:GPR[32] */
 #define CPU_REGS_GPR_R_OFF(ridx)                   (0x10000000 + (ridx*4))
+/* CPU:CPU_REGS:PROC_CTRL */
+#define CPU_REGS_PROC_CTRL_OFF                     0x100000b0
 
 /* DEVCPU_GCB:CHIP_REGS:CHIP_ID */
 #define DEVCPU_GCB_CHIP_REGS_ID_OFF                0x01010000
@@ -66,6 +72,18 @@ enum fireant_top {
 #define DEVCPU_QS_INJ_GRP_CFG_R_OFF(ridx)          (0x01030024 + (ridx*4))
 /* DEVCPU_QS:INJ:INJ_CTRL[2] */
 #define DEVCPU_QS_INJ_CTRL_R_OFF(ridx)             (0x01030034 + (ridx*4))
+
+/* DSM:CFG:DEV_TX_STOP_WM_CFG[67] */
+#define DSM_CFG_DEV_TX_STOP_WM_R_OFF(ridx)         (0x00504564 + (ridx*4))
+/* DSM:CFG:BUF_CFG[67] */
+#define DSM_CFG_BUF_R_OFF(ridx)                    (0x00504014 + (ridx*4))
+
+/* REW:COMMON:IFH_CTRL_CPUVD */
+#define REW_COMMON_IFH_CTRL_CPUVD_OFF              0x0165e9d4
+
+/* QFWD:SYSTEM:FRAME_COPY_CFG[12] */
+#define QFWD_SYSTEM_FRAME_COPY_CFG_R_OFF(ridx)     (0x010b011c + (ridx*4))
+#define QFWD_SYSTEM_FRAME_COPY_CFG_MAX             12
 
 /* FDMA:FDMA:FDMA_CH_ACTIVATE */
 #define FDMA_CH_ACTIVATE_OFF                       0x10080008
@@ -159,7 +177,14 @@ enum fireant_top {
 #define ASM_CFG_PORT_INJ_FORMAT(x)               (((x) << 2) & GENMASK(3, 2))
 #define ASM_CFG_PORT_INJ_FORMAT_M                GENMASK(3, 2)
 #define ASM_CFG_PORT_INJ_FORMAT_X(x)             (((x) & GENMASK(3, 2)) >> 2)
+#define ASM_CFG_PORT_VSTAX2_AWR_ENA              BIT(1)
 
+/* CPU:CPU_REGS:PROC_CTRL */
+#define CPU_REGS_PROC_CTRL_ACP_DISABLE           BIT(0)
+#define CPU_REGS_PROC_CTRL_L2_FLUSH_REQ          BIT(1)
+#define CPU_REGS_PROC_CTRL_ACP_AWCACHE           BIT(3)
+#define CPU_REGS_PROC_CTRL_ACP_ARCACHE           BIT(2)
+#define CPU_REGS_PROC_CTRL_ACP_CACHE_FORCE_ENA   BIT(4)
 
 /* DEVCPU_GCB:VCORE_ACCESS:VA_CTRL */
 #define DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_ERR_M    GENMASK(3, 2)
@@ -187,6 +212,18 @@ enum fireant_top {
 #define DEVCPU_QS_INJ_CTRL_GAP_SIZE(x)           (((x) << 21) & GENMASK(24, 21))
 #define DEVCPU_QS_INJ_CTRL_GAP_SIZE_M            GENMASK(24, 21)
 #define DEVCPU_QS_INJ_CTRL_GAP_SIZE_X(x)         (((x) & GENMASK(24, 21)) >> 21)
+
+/* DSM:CFG:DEV_TX_STOP_WM_CFG[67] */
+#define DSM_CFG_DEV_TX_STOP_WM(x)                (((x) << 1) & GENMASK(7, 1))
+#define DSM_CFG_DEV_TX_STOP_WM_M                 GENMASK(7, 1)
+#define DSM_CFG_DEV_TX_STOP_WM_X(x)              (((x) & GENMASK(7, 1)) >> 1)
+/* DSM:CFG:BUF_CFG[67] */
+#define DSM_CFG_BUF_UNDERFLOW_WATCHDOG_DIS       BIT(11)
+
+/* QFWD:SYSTEM:FRAME_COPY_CFG[12] */
+#define QFWD_SYSTEM_FRAME_COPY_CFG_FRMC_PORT_VAL(x)   (((x) << 6) & GENMASK(12, 6))
+#define QFWD_SYSTEM_FRAME_COPY_CFG_FRMC_PORT_VAL_M    GENMASK(12, 6)
+#define QFWD_SYSTEM_FRAME_COPY_CFG_FRMC_PORT_VAL_X(x) (((x) & GENMASK(12, 6)) >> 6)
 
 /* FDMA:FDMA:FDMA_CH_CFG[8] */
 #define FDMA_CH_CFG_INTR_DB_EOF_ONLY             BIT(6)
@@ -266,16 +303,17 @@ enum fireant_top {
 #define FDMA_BUFFER_ALIGN                        128
 #define FDMA_BUFFER_MASK                         127
 #define XTR_BUFFER_SIZE                          (XTR_CHUNK_SIZE*12)
-#define DMA_RX_CHANNEL                           6
-#define FDMA_DCB_MAX                             200
+#define FDMA_XTR_CHANNEL                         6
+#define FDMA_DCB_MAX                             21
 #define VCORE_ACCESS_TIMEOUT_MS                  5
 #define FDMA_DISABLE_TIMEOUT_MS                  5
 
 /* Debugging flags */
-// #define FDMA_LOG
-// #define FDMA_DCB_LOG
-// #define FDMA_DCB_ERROR_LOG
+// #define FDMA_ACCESS_LOG
+// #define FDMA_DEBUG_TX
+// #define FDMA_DEBUG_RX
 
+/* Structures */
 
 struct mscc_fa_fdma;
 
@@ -290,6 +328,7 @@ enum mscc_fa_fdma_channel_state {
 enum mscc_fa_fdma_dcb_state {
 	DCBS_IDLE = 0,    /* Not yet used or ready to be reused */
 	DCBS_QUEUED,      /* In queue for transfer */
+	DCBS_ISSUED,      /* In transfer in progress */
 	DCBS_ERROR,       /* Transfer failed */
 	DCBS_COMPLETE,    /* Transfer successful */
 };
@@ -313,49 +352,135 @@ struct mscc_fa_fdma_dcb {
 	struct  mscc_fa_fdma_dcb_hw hw;
 	struct dma_async_tx_descriptor txd;
 	dma_addr_t phys;
-	dma_addr_t offset;
 	enum mscc_fa_fdma_dcb_state state;
 	int valid_blocks;
 	struct mscc_fa_fdma_dcb *first_dcb;
 	int is_last_dcb;
 	struct mscc_fa_fdma_block_info binfo[FDMA_DCB_MAX_DBS];
+	u32 residue;
 	struct list_head node;
 };
 
-struct mscc_fa_region {
+struct mscc_fa_fdma_region {
 	phys_addr_t phys_addr;
 	void __iomem *io_addr;
 	resource_size_t size;
 	phys_addr_t vcore_addr;
 };
 
+struct mscc_fa_stats {
+	int free_dcbs;
+	int free_dcbs_low_mark;
+};
+
 struct mscc_fa_fdma_channel {
 	struct dma_chan chan;
 	enum mscc_fa_fdma_channel_state state;
 	struct dma_tx_state tx_state;
+	struct list_head free_dcbs;
 	struct list_head queued_dcbs;
-	int queue_state_dcbs;
-	int completed_dcbs;
+	u64 dbirq_pattern;
+	struct tasklet_struct tasklet;
+	struct mscc_fa_fdma *drv;
+	struct mscc_fa_fdma_dcb *next_dcb;
+	int next_idx;
+	struct mscc_fa_stats stats;
+	spinlock_t lock;
 };
 
 struct mscc_fa_fdma {
 	struct dma_device dma;  /* Must be first member due to xlate function */
-	struct mscc_fa_region regions[FIREANT_REGIONS];
-	spinlock_t lock;
+	struct mscc_fa_fdma_region regions[FIREANT_REGIONS];
 	struct dma_pool *dcb_pool;
+	dma_addr_t dcb_offset;
 	int irq;
-	struct tasklet_struct tasklet;
-	struct list_head free_dcbs;
+	bool using_pcie;
+	struct dentry *rootfs;
 
 	unsigned int nr_pchans;
 	struct mscc_fa_fdma_channel chans[0];
 };
 
-static void mscc_fa_writel(struct mscc_fa_fdma *priv, u32 reg, u32 data)
+/* Implementation */
+
+struct prof_sample {
+	u64 min;
+	u64 max;
+	u64 sum;
+};
+
+struct prof_stat {
+	int samples;
+	char *name;
+	int count;
+	u64 last;
+	struct prof_sample sample;
+	struct prof_sample result;
+};
+
+
+static struct prof_stat profstats[2];
+
+static void prof_sample_init(struct prof_stat *stat, int samples, char *name)
+{
+	stat->samples = samples;
+	stat->count = stat->samples;
+	stat->name = name;
+	stat->sample.min = ~0;
+	stat->sample.max = 0;
+	stat->sample.sum = 0;
+	stat->result.min = 0;
+	stat->result.max = 0;
+	stat->result.sum = 0;
+}
+
+static void prof_sample_begin(struct prof_stat *stat)
+{
+	stat->last = ktime_get_ns();
+}
+
+static void prof_sample_reset(struct prof_stat *stat)
+{
+	stat->count = stat->samples;
+	stat->sample.min = ~0;
+	stat->sample.max = 0;
+	stat->sample.sum = 0;
+}
+
+static void prof_sample_end(struct prof_stat *stat)
+{
+	u64 diff = ktime_get_ns() - stat->last;
+	stat->sample.sum += diff;
+	if (diff > stat->sample.max) {
+		stat->sample.max = diff;
+	}
+	if (diff < stat->sample.min) {
+		stat->sample.min = diff;
+	}
+	if (--stat->count == 0) {
+		memcpy(&stat->result, &stat->sample, sizeof(struct prof_sample));
+		prof_sample_reset(stat);
+	}
+}
+
+#if defined(FDMA_DEBUG_TX) || defined(FDMA_DEBUG_RX)
+static void mscc_fa_dump_byte_array(const char *name, const u8 *buf, size_t len)
+{
+	char prefix[64];
+	if (!buf) {
+		return;
+	}
+	snprintf(prefix, sizeof(prefix), "%.50s[%zu]: ", name, len);
+	print_hex_dump(KERN_NOTICE, prefix, DUMP_PREFIX_OFFSET, 16, 1, buf, len,
+		       false);
+}
+#endif
+
+static void mscc_fa_fdma_writel(struct mscc_fa_fdma *priv, u32 reg, u32 data)
 {
 	void __iomem *addr = 
 		priv->regions[GET_REGION_INDEX(reg)].io_addr + GET_ADDRESS(reg);
-#ifdef FDMA_LOG
+#ifdef FDMA_ACCESS_LOG
 	pr_debug("%s:%d %s: addr 0x%llx, data 0x%08x\n", 
 		__FILE__, __LINE__, __func__,
 		priv->regions[GET_REGION_INDEX(reg)].phys_addr + 
@@ -365,19 +490,19 @@ static void mscc_fa_writel(struct mscc_fa_fdma *priv, u32 reg, u32 data)
 	writel(data, addr);
 }
 
-static void mscc_fa_writell(struct mscc_fa_fdma *priv, u32 regls, u32 regms, 
+static void mscc_fa_fdma_writell(struct mscc_fa_fdma *priv, u32 regls, u32 regms,
 			    u64 data)
 {
-	mscc_fa_writel(priv, regls, data & GENMASK(31,0));
-	mscc_fa_writel(priv, regms, data >> 32);
+	mscc_fa_fdma_writel(priv, regls, data & GENMASK(31,0));
+	mscc_fa_fdma_writel(priv, regms, data >> 32);
 }
 
-static u32 mscc_fa_readl(struct mscc_fa_fdma *priv, u32 reg)
+static u32 mscc_fa_fdma_readl(struct mscc_fa_fdma *priv, u32 reg)
 {
 	void __iomem *addr = 
 		priv->regions[GET_REGION_INDEX(reg)].io_addr + GET_ADDRESS(reg);
 	u32 data = readl(addr);
-#ifdef FDMA_LOG
+#ifdef FDMA_ACCESS_LOG
 	pr_debug("%s:%d %s: addr 0x%llx, data 0x%08x\n", 
 		__FILE__, __LINE__, __func__, 
 		priv->regions[GET_REGION_INDEX(reg)].phys_addr + 
@@ -387,34 +512,43 @@ static u32 mscc_fa_readl(struct mscc_fa_fdma *priv, u32 reg)
 	return data;
 }
 
-#ifdef FDMA_DCB_ERROR_LOG
-static u64 mscc_fa_readll(struct mscc_fa_fdma *priv, u32 regls, u32 regms)
+static u64 mscc_fa_fdma_readll(struct mscc_fa_fdma *priv, u32 regls, u32 regms)
 {
-	u32 datals = mscc_fa_readl(priv, regls);
-	u64 datams = mscc_fa_readl(priv, regms);
+	u32 datals = mscc_fa_fdma_readl(priv, regls);
+	u64 datams = mscc_fa_fdma_readl(priv, regms);
 	return (datams << 32) | datals;
 }
-#endif
 
 static u32 mscc_fa_vcore_readl(struct mscc_fa_fdma *priv, u64 vcore_addr) {
 	unsigned long deadline;
 	u32 value;
 	u32 status;
 
+#ifdef FDMA_ACCESS_LOG
+	pr_debug("%s:%d %s: VCore Access Read Begin at 0x%llx", 
+		__FILE__, __LINE__, __func__, vcore_addr);
+#endif
+	/* Wait for not busy */
+	deadline = jiffies + msecs_to_jiffies(VCORE_ACCESS_TIMEOUT_MS);
+	do {
+		status = mscc_fa_fdma_readl(priv,
+				       DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF);
+	} while (time_before(jiffies, deadline) &&
+		 (status & DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_BUSY));
 	/* Set VA_SIZE = 0 (32 bit access) */
-	mscc_fa_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF, 0);
+	mscc_fa_fdma_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF, 0);
 	/* Set LS Word */
-	mscc_fa_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_ADDR_LSB_OFF, 
+	mscc_fa_fdma_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_ADDR_LSB_OFF,
 		       (u32)vcore_addr);
 	/* Set MS Word */
-	mscc_fa_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_ADDR_MSB_OFF, 
+	mscc_fa_fdma_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_ADDR_MSB_OFF,
 		       (u32)(vcore_addr >> 32));
 	/* Read VA_DATA to trigger access */
-	mscc_fa_readl(priv, DEVCPU_GCB_VCORE_ACCESS_VA_DATA_OFF);
+	mscc_fa_fdma_readl(priv, DEVCPU_GCB_VCORE_ACCESS_VA_DATA_OFF);
 	/* Wait while VA_BUSY is set, handle timeouts */
 	deadline = jiffies + msecs_to_jiffies(VCORE_ACCESS_TIMEOUT_MS);
 	do {
-		status = mscc_fa_readl(priv, 
+		status = mscc_fa_fdma_readl(priv,
 				       DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF);
 	} while (time_before(jiffies, deadline) &&
 		 (status & DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_BUSY) &&
@@ -425,51 +559,51 @@ static u32 mscc_fa_vcore_readl(struct mscc_fa_fdma *priv, u64 vcore_addr) {
 		return -EINVAL;
 	}
 	/* Read data without triggering a new read (using INERT) */
-	value = mscc_fa_readl(priv, DEVCPU_GCB_VCORE_ACCESS_VA_DATA_INERT_OFF);
-#ifdef FDMA_LOG
+	value = mscc_fa_fdma_readl(priv, DEVCPU_GCB_VCORE_ACCESS_VA_DATA_INERT_OFF);
+#ifdef FDMA_ACCESS_LOG
 	pr_debug("%s:%d %s: VCore Access Read at 0x%llx, value 0x%08x", 
 		__FILE__, __LINE__, __func__, vcore_addr, value);
 #endif
 	return value;
 }
 
-#ifdef FDMA_DCB_LOG
-
-static u64 mscc_fa_vcore_readll(struct mscc_fa_fdma *priv, u64 vcore_addr)
+static u64 mscc_fa_fdma_vcore_readll(struct mscc_fa_fdma *priv, u64 vcore_addr)
 {
 	u32 datals = mscc_fa_vcore_readl(priv, vcore_addr);
 	u64 datams = mscc_fa_vcore_readl(priv, vcore_addr + 4);
 	return (datams << 32) | datals;
 }
 
-#endif
-
-static void mscc_fa_vcore_writel(struct mscc_fa_fdma *priv, u64 vcore_addr, 
+static void mscc_fa_fdma_vcore_writel(struct mscc_fa_fdma *priv, u64 vcore_addr,
 				u32 value) {
 	unsigned long deadline;
 	u32 status;
 
+#ifdef FDMA_ACCESS_LOG
+	pr_debug("%s:%d %s: VCore Access Write Begin at 0x%llx", 
+		__FILE__, __LINE__, __func__, vcore_addr);
+#endif
 	/* Wait for not busy */
 	deadline = jiffies + msecs_to_jiffies(VCORE_ACCESS_TIMEOUT_MS);
 	do {
-		status = mscc_fa_readl(priv, 
+		status = mscc_fa_fdma_readl(priv,
 				       DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF);
 	} while (time_before(jiffies, deadline) &&
 		 (status & DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_BUSY));
 	/* Set VA_SIZE = 0 (32 bit access) */
-	mscc_fa_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF, 0);
+	mscc_fa_fdma_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF, 0);
 	/* Set LS Word */
-	mscc_fa_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_ADDR_LSB_OFF, 
+	mscc_fa_fdma_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_ADDR_LSB_OFF,
 		       (u32)vcore_addr);
 	/* Set MS Word */
-	mscc_fa_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_ADDR_MSB_OFF, 
+	mscc_fa_fdma_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_ADDR_MSB_OFF,
 		       (u32)(vcore_addr >> 32));
 	/* Write VA_DATA to trigger write operation */
-	mscc_fa_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_DATA_OFF, value);
+	mscc_fa_fdma_writel(priv, DEVCPU_GCB_VCORE_ACCESS_VA_DATA_OFF, value);
 	/* Wait while VA_BUSY is set, handle timeouts */
 	deadline = jiffies + msecs_to_jiffies(VCORE_ACCESS_TIMEOUT_MS);
 	do {
-		status = mscc_fa_readl(priv, 
+		status = mscc_fa_fdma_readl(priv,
 				       DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_OFF);
 	} while (time_before(jiffies, deadline) &&
 		 (status & DEVCPU_GCB_VCORE_ACCESS_VA_CTRL_BUSY) &&
@@ -478,7 +612,7 @@ static void mscc_fa_vcore_writel(struct mscc_fa_fdma *priv, u64 vcore_addr,
 		pr_err("%s:%d %s: Error writing VCore Access at 0x%llx", 
 			__FILE__, __LINE__, __func__, vcore_addr);
 	}
-#ifdef FDMA_LOG
+#ifdef FDMA_ACCESS_LOG
 	pr_debug("%s:%d %s: VCore Access Write at 0x%llx, value 0x%08x", 
 		__FILE__, __LINE__, __func__, vcore_addr, value);
 #endif
@@ -493,100 +627,94 @@ static u32 mscc_fa_vcore_read_reg(struct mscc_fa_fdma *priv, u32 reg) {
 }
 
 /* Using Vcore access to write VCore address space */
-static void mscc_fa_vcore_write_reg(struct mscc_fa_fdma *priv, 
+static void mscc_fa_fdma_vcore_write_reg(struct mscc_fa_fdma *priv,
 				    u32 reg, u32 value) {
 	u64 vcore_addr = 
 		priv->regions[GET_REGION_INDEX(reg)].vcore_addr + 
 		GET_ADDRESS(reg);
-	mscc_fa_vcore_writel(priv, vcore_addr, value);
+	mscc_fa_fdma_vcore_writel(priv, vcore_addr, value);
 }
 
-#ifdef FDMA_DCB_LOG
-static void mscc_fa_fdma_show_dcb_via_vcore(struct mscc_fa_fdma *priv, 
-	struct mscc_fa_fdma_dcb *dcb)
+static int mscc_fa_fdma_cpuport_config(struct mscc_fa_fdma *priv, int channel)
 {
-	u64 vcore_addr = dcb->phys + dcb->offset;
-	u64 val;
+	u32 value = 0;
+	u32 mask;
+	unsigned int cpuport = channel % 2;
+	/* Fireant specific mapping to chipport */
+	unsigned int chipport = cpuport + 65;
 	int idx;
 
-	pr_debug("%s:%d %s, txd: 0x%px\n", 
-		__FILE__, __LINE__, __func__, 
-		&dcb->txd);
-	pr_debug("   dcb_phys: 0x%09llx\n", dcb->txd.phys);
-	val = mscc_fa_vcore_readll(priv, vcore_addr); 
-	vcore_addr += 8;
-	pr_debug("    nextptr: 0x%09llx\n", val);
-	val = mscc_fa_vcore_readll(priv, vcore_addr); 
-	vcore_addr += 8;
-	pr_debug("       info: 0x%09llx\n", val);
-	for (idx = 0; idx < FDMA_DCB_MAX_DBS; ++idx) {
-		val = mscc_fa_vcore_readll(priv, vcore_addr); 
-		vcore_addr += 8;
-		if (val != FDMA_DCB_INVALID_DATA) {
-			pr_debug(" dataptr[%02d]: 0x%09llx\n", idx, val);
-			val = mscc_fa_vcore_readll(priv, vcore_addr); 
-			pr_debug("  status[%02d]: 0x%09llx\n", idx, val);
-			vcore_addr += 8;
-		} else {
-			vcore_addr += 8;
-		}
+	pr_debug("%s:%d %s, Channel: %d, cpuport: %d, chipport: %d\n", 
+		__FILE__, __LINE__, __func__, channel, cpuport, chipport);
+
+	/* Channel: 
+	* INJ_PORT is set to cpuport
+	* DCB_DB_CNT = 15 for number of DCBs
+	* INTR_DB_EOF_ONLY = 1 for intr on EOF only 
+	* CFG_MEM = 1 (is no longer used)
+	*/
+	mscc_fa_fdma_writel(priv, FDMA_CH_CFG_R_OFF(channel),
+		       /* Use all data blocks */
+		       FDMA_CH_CFG_DCB_DB_CNT(FDMA_DCB_MAX_DBS) | 
+		       FDMA_CH_CFG_INTR_DB_EOF_ONLY |
+		       (cpuport ? FDMA_CH_CFG_INJ_PORT : 0) |
+		       FDMA_CH_CFG_MEM);
+
+	/* CPU Port: Enable FDMA Injection (mode 2) */
+	value = mscc_fa_fdma_readl(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(cpuport));
+	value &= ~DEVCPU_QS_INJ_GRP_CFG_MODE_M;
+	value |= DEVCPU_QS_INJ_GRP_CFG_MODE(2);
+	value |= DEVCPU_QS_INJ_GRP_CFG_BYTE_SWAP;
+	mscc_fa_fdma_writel(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(cpuport), value);
+
+	/* CPU Port: Set gap using IFH (gap 0) */
+	mscc_fa_fdma_writel(priv, DEVCPU_QS_INJ_CTRL_R_OFF(cpuport),
+		DEVCPU_QS_INJ_CTRL_GAP_SIZE(0));
+
+	/* CPU Port: Enable FDMA Extraction (mode 2) */
+	value = mscc_fa_fdma_readl(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(cpuport));
+	value &= ~DEVCPU_QS_XTR_GRP_CFG_MODE_M;
+	value |= DEVCPU_QS_XTR_GRP_CFG_MODE(2);
+	value |= DEVCPU_QS_XTR_GRP_CFG_BYTE_SWAP;
+	mscc_fa_fdma_writel(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(cpuport), value);
+
+	/* INJ CPU Port Format: IFH with no prefix, no preamble, no VSTAX2 aware */
+	value = mscc_fa_fdma_readl(priv, ASM_CFG_PORT_R_OFF(chipport));
+	value &= ~ASM_CFG_PORT_VSTAX2_AWR_ENA;
+	value |= ASM_CFG_PORT_INJ_FORMAT(1);
+	value |= ASM_CFG_PORT_NO_PREAMBLE_ENA;
+	mscc_fa_fdma_writel(priv, ASM_CFG_PORT_R_OFF(chipport), value);
+
+	/* XTR CPU Port Format: IFH with prefix */
+	value = mscc_fa_fdma_readl(priv, REW_COMMON_IFH_CTRL_CPUVD_OFF);
+	mask = ~(0x3 << (cpuport << 1));
+	value &= mask;
+	value |= 2 << (cpuport << 1);
+	mscc_fa_fdma_writel(priv, REW_COMMON_IFH_CTRL_CPUVD_OFF, value);
+
+	/* Set Disassembler Stop Watermark level */
+	value = mscc_fa_fdma_readl(priv, DSM_CFG_DEV_TX_STOP_WM_R_OFF(chipport));
+	value &= ~DSM_CFG_DEV_TX_STOP_WM_M;
+	value |= DSM_CFG_DEV_TX_STOP_WM(100);  /* Watermark at 100 packets */
+	mscc_fa_fdma_writel(priv, DSM_CFG_DEV_TX_STOP_WM_R_OFF(chipport), value);
+
+	/* Disable Disassembler buffer underrun watchdog (to avoid truncated
+	 * packets in XTR)
+	 */
+	value = mscc_fa_fdma_readl(priv, DSM_CFG_BUF_R_OFF(chipport));
+	value |= DSM_CFG_BUF_UNDERFLOW_WATCHDOG_DIS;
+	mscc_fa_fdma_writel(priv, DSM_CFG_BUF_R_OFF(chipport), value);
+
+	/* Copy frames in all fwd queues to the FDMA chipport */
+	for (idx = 0; idx < QFWD_SYSTEM_FRAME_COPY_CFG_MAX; ++idx) {
+		value = mscc_fa_fdma_readl(priv, QFWD_SYSTEM_FRAME_COPY_CFG_R_OFF(idx));
+		value &= ~QFWD_SYSTEM_FRAME_COPY_CFG_FRMC_PORT_VAL_M;
+		value |= QFWD_SYSTEM_FRAME_COPY_CFG_FRMC_PORT_VAL(chipport);
+		mscc_fa_fdma_writel(priv, QFWD_SYSTEM_FRAME_COPY_CFG_R_OFF(idx), value);
 	}
+
+	return 0;
 }
-#endif
-
-#ifdef FDMA_DCB_ERROR_LOG
-static struct mscc_fa_fdma_dcb *mscc_fa_fdma_get_previous_dcb(
-	struct mscc_fa_fdma *priv, u32 chan)
-{
-	struct mscc_fa_fdma_dcb *dcb = 0;
-	u64 dcb_phys = mscc_fa_readll(priv, 
-		FDMA_DCB_LLP_PREV_R_OFF(chan), 
-		FDMA_DCB_LLP_PREV1_R_OFF(chan));
-
-	if  (dcb_phys > 1 && dcb_phys != -1) {
-		dcb = phys_to_virt(dcb_phys) - FDMA_ATU_TARGET_SPACE;
-	}
-	return dcb;
-}
-#endif
-
-
-#ifdef FDMA_DCB_LOG
-static void mscc_fa_fdma_follow_queued_dcb_chain(
-	struct mscc_fa_fdma_dcb *first, u32 chan)
-{
-	struct mscc_fa_fdma_dcb *dcb;
-	struct dma_async_tx_descriptor *txd;
-	u64 dcb_phys = virt_to_phys(first) + FDMA_ATU_TARGET_SPACE;
-	int idx = 0;
-	int jdx;
-
-	pr_debug("%s:%d %s, Channel: %d\n", 
-		__FILE__, __LINE__, __func__, 
-		chan);
-	while (dcb_phys > 1 && dcb_phys != -1) {
-		dcb = phys_to_virt(dcb_phys) - FDMA_ATU_TARGET_SPACE;
-		txd = &dcb->txd;
-		pr_debug("        txd: 0x%px\n", txd);
-		pr_debug("   dcb_phys: 0x%09llx\n", dcb->txd.phys);
-		pr_debug("    nextptr: 0x%09llx\n", dcb->hw.nextptr);
-		pr_debug("       info: 0x%09llx\n", dcb->hw.info);
-		for (jdx = 0; jdx < FDMA_DCB_MAX_DBS; ++jdx) {
-			if (dcb->hw.block[jdx].dataptr != 
-			    FDMA_DCB_INVALID_DATA) {
-				pr_debug(" dataptr[%02d]: 0x%09llx\n", 
-					jdx, dcb->hw.block[jdx].dataptr);
-				pr_debug("  status[%02d]: 0x%09llx\n", 
-					jdx, dcb->hw.block[jdx].status);
-			}
-		}
-		++idx;
-		dcb_phys = dcb->hw.nextptr;
-	}
-	pr_debug("%s:%d %s, Channel: %d, end, total: %u\n",
-		__FILE__, __LINE__, __func__, chan, idx);
-}
-#endif
 
 static inline struct mscc_fa_fdma *to_mscc_fa_fdma(struct dma_device *dd)
 {
@@ -607,7 +735,7 @@ static void mscc_fa_fdma_free_dcb_list(struct dma_chan *chan)
 
 	list_for_each_entry(iter, &fdma_chan->queued_dcbs, node) {
 		pr_debug("%s:%d %s: Channel: %d, DCB: 0x%llx:"
-			" state: %u, cookie: %u\n", 
+			" state: %u, C%u\n",
 			__FILE__, __LINE__, __func__, 
 			fdma_chan->chan.chan_id,
 			iter->phys,
@@ -617,17 +745,18 @@ static void mscc_fa_fdma_free_dcb_list(struct dma_chan *chan)
 	}
 }
 
-static int mscc_fa_fdma_wait_for_xtr_buffer_empty(struct mscc_fa_fdma *priv)
+static int mscc_fa_fdma_wait_for_xtr_buffer_empty(struct mscc_fa_fdma *priv,
+						  int channel)
 {
 	unsigned long deadline;
-	int cpuport = 0; /* Using CPU port 0 */
+	int cpuport = channel % 2;
 	int empty;
 
 	pr_debug("%s:%d %s\n", __FILE__, __LINE__, __func__);
 	/* Wait here until the extraction buffer is empty */
 	deadline = jiffies + msecs_to_jiffies(FDMA_DISABLE_TIMEOUT_MS);
 	do {
-		empty = mscc_fa_readl(priv, 
+		empty = mscc_fa_fdma_readl(priv,
 			FDMA_PORT_CTRL_R_OFF(cpuport)) & 
 			FDMA_PORT_CTRL_XTR_BUF_IS_EMPTY;
 		pr_debug("%s:%d %s: empty: %u\n", 
@@ -640,24 +769,24 @@ static int mscc_fa_fdma_wait_for_xtr_buffer_empty(struct mscc_fa_fdma *priv)
 static void mscc_fa_fdma_start(struct dma_chan *chan)
 {
 	struct mscc_fa_fdma *priv = to_mscc_fa_fdma(chan->device);
-	int cpuport = 0; /* Using CPU port 0 */
+	int cpuport = chan->chan_id % 2;
 	u32 control;
 
 	pr_debug("%s:%d %s: Channel: %u\n", __FILE__, __LINE__, __func__, 
 		chan->chan_id);
 	priv->chans[chan->chan_id].state = DCS_ACTIVE;
-	if (chan->chan_id >= DMA_RX_CHANNEL) {
+	if (chan->chan_id >= FDMA_XTR_CHANNEL) {
 		/* Start extraction */
-		control = mscc_fa_readl(priv, 
+		control = mscc_fa_fdma_readl(priv,
 					FDMA_PORT_CTRL_R_OFF(cpuport));
 		control &= ~FDMA_PORT_CTRL_XTR_STOP;
-		mscc_fa_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
+		mscc_fa_fdma_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
 	} else {
 		/* Start injection */
-		control = mscc_fa_readl(priv, 
+		control = mscc_fa_fdma_readl(priv,
 					FDMA_PORT_CTRL_R_OFF(cpuport));
 		control &= ~FDMA_PORT_CTRL_INJ_STOP;
-		mscc_fa_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
+		mscc_fa_fdma_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
 	}
 
 }
@@ -665,30 +794,30 @@ static void mscc_fa_fdma_start(struct dma_chan *chan)
 static int mscc_fa_fdma_stop(struct dma_chan *chan)
 {
 	struct mscc_fa_fdma *priv = to_mscc_fa_fdma(chan->device);
-	int cpuport = 0; /* Using CPU port 0 */
+	int cpuport = chan->chan_id % 2;
 	int stopped = 0;
 	u32 control, empty;
 
 	pr_debug("%s:%d %s: Channel: %u\n", __FILE__, __LINE__, __func__, 
 		chan->chan_id);
 	priv->chans[chan->chan_id].state = DCS_STOPPING;
-	if (chan->chan_id >= DMA_RX_CHANNEL) {
-		empty = mscc_fa_fdma_wait_for_xtr_buffer_empty(priv);
+	if (chan->chan_id >= FDMA_XTR_CHANNEL) {
+		empty = mscc_fa_fdma_wait_for_xtr_buffer_empty(priv, chan->chan_id);
 		if (!empty) {
 			return stopped;
 		}
 		/* Stop extraction */
-		control = mscc_fa_readl(priv, 
+		control = mscc_fa_fdma_readl(priv,
 					FDMA_PORT_CTRL_R_OFF(cpuport));
 		control |= FDMA_PORT_CTRL_XTR_STOP;
-		mscc_fa_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
-		stopped = mscc_fa_fdma_wait_for_xtr_buffer_empty(priv);
+		mscc_fa_fdma_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
+		stopped = mscc_fa_fdma_wait_for_xtr_buffer_empty(priv, chan->chan_id);
 	} else {
 		/* Stop injection */
-		control = mscc_fa_readl(priv, 
+		control = mscc_fa_fdma_readl(priv,
 					FDMA_PORT_CTRL_R_OFF(cpuport));
 		control |= FDMA_PORT_CTRL_INJ_STOP;
-		mscc_fa_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
+		mscc_fa_fdma_writel(priv, FDMA_PORT_CTRL_R_OFF(cpuport), control);
 		stopped = 1;
 	}
 	return stopped;
@@ -703,15 +832,14 @@ static int mscc_fa_fdma_alloc_chan_resources(struct dma_chan *chan)
 	pr_debug("%s:%d %s: Channel: %u\n", __FILE__, __LINE__, __func__, 
 		chan->chan_id);
 	
+	mscc_fa_fdma_cpuport_config(priv, chan->chan_id);
 	mscc_fa_fdma_start(chan);
 
 	dma_cookie_init(chan);
 	/* Enable DB interrupts */
-	chan_mask = mscc_fa_readl(priv, FDMA_INTR_DB_ENA_OFF) 
+	chan_mask = mscc_fa_fdma_readl(priv, FDMA_INTR_DB_ENA_OFF)
 		| BIT(chan->chan_id);
-	spin_lock(&priv->lock);
-	mscc_fa_writel(priv, FDMA_INTR_DB_ENA_OFF, chan_mask);
-	spin_unlock(&priv->lock);
+	mscc_fa_fdma_writel(priv, FDMA_INTR_DB_ENA_OFF, chan_mask);
 	return 0;
 }
 
@@ -726,31 +854,422 @@ static void mscc_fa_fdma_free_chan_resources(struct dma_chan *chan)
 	mscc_fa_fdma_stop(chan);
 
 	/* Disable the channel */
-	spin_lock(&priv->lock);
-	mscc_fa_writel(priv, FDMA_CH_DISABLE_OFF, ~BIT(chan->chan_id));
-	spin_unlock(&priv->lock);
+	mscc_fa_fdma_writel(priv, FDMA_CH_DISABLE_OFF, ~BIT(chan->chan_id));
 
 	/* Disable the channels DB interrupt */
-	chan_mask = mscc_fa_readl(priv, FDMA_INTR_DB_ENA_OFF) & 
+	chan_mask = mscc_fa_fdma_readl(priv, FDMA_INTR_DB_ENA_OFF) &
 		~BIT(chan->chan_id);
-	spin_lock(&priv->lock);
-	mscc_fa_writel(priv, FDMA_INTR_DB_ENA_OFF, chan_mask);
-	spin_unlock(&priv->lock);
+	mscc_fa_fdma_writel(priv, FDMA_INTR_DB_ENA_OFF, chan_mask);
 }
 
 
 static dma_cookie_t mscc_fa_fdma_tx_submit(struct dma_async_tx_descriptor *txd)
 {
 	if (txd) {
-		pr_debug("%s:%d %s: Channel: %u", 
-			__FILE__, __LINE__, __func__,
-			txd->chan->chan_id);
-		return dma_cookie_assign(txd);
+		if (txd->cookie >= DMA_MIN_COOKIE) {
+			pr_debug("%s:%d %s: Channel: %u, reuse cookie: %u",
+				 __FILE__, __LINE__, __func__,
+				 txd->chan->chan_id, txd->cookie);
+			return txd->cookie;
+		}
+		dma_cookie_assign(txd);
+		pr_debug("%s:%d %s: Channel: %u, new cookie: %u",
+			 __FILE__, __LINE__, __func__,
+			 txd->chan->chan_id, txd->cookie);
+		return txd->cookie;
 	} else {
 		pr_err("%s:%d %s: Invalid TXD", 
-			__FILE__, __LINE__, __func__);
+		       __FILE__, __LINE__, __func__);
 		return 0;
 	}
+}
+
+static bool mscc_fa_fdma_get_dcb(struct mscc_fa_fdma *priv,
+	struct dma_chan *chan,
+	int sg_len,
+	struct mscc_fa_fdma_dcb **res,
+	int *residx)
+{
+	struct mscc_fa_fdma_channel *fdma_chan = to_mscc_fa_fdma_channel(chan);
+	struct mscc_fa_fdma_dcb *dcb;
+	int idx, jdx;
+
+	if (list_empty(&fdma_chan->free_dcbs)) {
+		return false;
+	}
+	dcb = list_first_entry(&fdma_chan->free_dcbs,
+			       struct mscc_fa_fdma_dcb, node);
+	/* Initialize the new DCB */
+	memset(dcb, 0, sizeof(struct  mscc_fa_fdma_dcb_hw));
+	memset(dcb->binfo, 0,
+	       sizeof(struct  mscc_fa_fdma_block_info));
+	dcb->state = DCBS_QUEUED;
+	dcb->valid_blocks = 0;
+	dcb->residue = 0;
+	dcb->is_last_dcb = 0;
+	/* No next DCB */
+	dcb->hw.nextptr = FDMA_DCB_INVALID_DATA;
+	for (jdx = 0; jdx < FDMA_DCB_MAX_DBS; ++jdx) {
+		dcb->hw.block[jdx].dataptr =
+			FDMA_DCB_INVALID_DATA;
+	}
+	dma_async_tx_descriptor_init(&dcb->txd, chan);
+	dcb->txd.tx_submit = mscc_fa_fdma_tx_submit;
+	/* Convert to VCORE address space */
+	dcb->txd.phys = dcb->phys + priv->dcb_offset;
+	/* Move item into the channel */
+	list_move_tail(&dcb->node, &fdma_chan->queued_dcbs);
+	/* Update free dcb statistics */
+	fdma_chan->stats.free_dcbs--;
+	if (fdma_chan->stats.free_dcbs < fdma_chan->stats.free_dcbs_low_mark) {
+		fdma_chan->stats.free_dcbs_low_mark =
+			fdma_chan->stats.free_dcbs;
+	}
+	idx = 0;
+	pr_debug("%s:%d %s: Channel: %u, new DCB: 0x%llx\n",
+		 __FILE__, __LINE__, __func__,
+		 chan->chan_id, dcb->phys);
+	*res = dcb;
+	*residx = idx;
+	return true;
+}
+
+static void mscc_fa_fdma_add_datablock(struct mscc_fa_fdma *priv,
+	struct mscc_fa_fdma_channel *fdma_chan,
+	struct mscc_fa_fdma_dcb *dcb,
+	enum dma_transfer_direction direction,
+	struct scatterlist *sg,
+	int sg_len,
+	int sidx,
+	int idx)
+{
+	u64 len, off;
+	dma_addr_t db_phys = 0;
+	/* Interrupt on DB status update */
+	u32 status_flags;
+
+	len = dcb->binfo[idx].size = sg_dma_len(sg);
+	db_phys = sg_dma_address(sg);
+	/* Convert to VCORE address space */
+	db_phys += priv->dcb_offset;
+	off = db_phys & 0x7;
+	db_phys &= ~0x7;
+	/* Adapt the DB Interrupt to the current load */
+	status_flags = (fdma_chan->dbirq_pattern >> idx) & 0x1 ?
+		FDMA_DCB_STATUS_INTR : 0;
+	if (direction == DMA_MEM_TO_DEV) {
+		if (sidx == 0) {
+			status_flags |= FDMA_DCB_STATUS_SOF;
+		}
+		if (sg_is_last(sg)) {
+			status_flags |= FDMA_DCB_STATUS_EOF;
+		}
+		dcb->hw.block[idx].dataptr = db_phys;
+		dcb->hw.block[idx].status =
+			FDMA_DCB_STATUS_BLOCKL(len) |
+			status_flags |
+			FDMA_DCB_STATUS_BLOCKO(off);
+	} else {
+		/* Length is a multipla of 128 */
+		dcb->hw.info = FDMA_DCB_INFO_DATAL(
+			len & ~FDMA_BUFFER_MASK);
+		dcb->hw.block[idx].dataptr = db_phys;
+		dcb->hw.block[idx].status = status_flags;
+	}
+	dcb->valid_blocks++;
+	pr_debug("%s:%d %s: DCB: 0x%llx, Block[%02d], "
+		 "dataptr: 0x%09llx, offset: 0x%llu, bytes: %llu\n",
+		 __FILE__, __LINE__, __func__,
+		 dcb->phys,
+		 idx, dcb->hw.block[idx].dataptr,
+		 off, len);
+}
+
+static void mscc_fa_fdma_xtr_eof(struct mscc_fa_fdma *priv,
+	struct mscc_fa_fdma_channel *fdma_chan,
+	struct mscc_fa_fdma_dcb *first,
+	struct mscc_fa_fdma_dcb *iter,
+	int idx,
+	int packet_size,
+	u64 status)
+{
+	struct dmaengine_result dma_result = {
+		.result = DMA_TRANS_NOERROR,
+		.residue = 0
+	};
+	struct dma_async_tx_descriptor *txd = &first->txd;
+
+	packet_size += FDMA_DCB_STATUS_BLOCKL(status);
+	if (first != iter) {
+		first->residue = 0;
+	}
+	iter->residue -= FDMA_DCB_STATUS_BLOCKL(status);
+	fdma_chan->tx_state.residue = iter->residue;
+	pr_debug("%s:%d %s: Channel: %d, notify client:"
+		 " txd: 0x%px, [C%u,I%u], packet size: %u\n",
+		 __FILE__, __LINE__, __func__,
+		 fdma_chan->chan.chan_id,
+		 txd,
+		 txd->cookie,
+		 idx,
+		 packet_size);
+	dma_result.residue = packet_size;
+	prof_sample_begin(&profstats[0]);
+	dmaengine_desc_get_callback_invoke(
+		txd, &dma_result);
+	prof_sample_end(&profstats[0]);
+	if (first != iter) {
+		do {
+			/* Last block in this DCB has been transferred  */
+			fdma_chan->tx_state.last = txd->cookie;
+			dma_cookie_complete(txd);
+			pr_debug("%s:%d %s: Channel: %d,"
+				 " completed DCB: 0x%llx"
+				 " [C%u,I%u]\n",
+				 __FILE__, __LINE__, __func__,
+				 fdma_chan->chan.chan_id,
+				 first->phys,
+				 fdma_chan->tx_state.last, idx);
+			iter->state = DCBS_IDLE;
+			spin_lock(&fdma_chan->lock);
+			list_move_tail(&first->node, &fdma_chan->free_dcbs);
+			fdma_chan->stats.free_dcbs++;
+			spin_unlock(&fdma_chan->lock);
+			first = list_first_entry(&fdma_chan->queued_dcbs,
+						 struct mscc_fa_fdma_dcb, node);
+		} while (first != iter) ;
+	}
+	idx++;
+	if (idx == iter->valid_blocks) {
+		/* Last block in this DCB has been transferred  */
+		fdma_chan->tx_state.last = txd->cookie;
+		dma_cookie_complete(txd);
+		pr_debug("%s:%d %s: Channel: %d,"
+			 " completed DCB: 0x%llx"
+			 " [C%u,I%u]\n",
+			 __FILE__, __LINE__, __func__,
+			 fdma_chan->chan.chan_id,
+			 iter->phys,
+			 fdma_chan->tx_state.last, idx);
+		iter->state = DCBS_IDLE;
+		spin_lock(&fdma_chan->lock);
+		list_move_tail(&iter->node, &fdma_chan->free_dcbs);
+		fdma_chan->stats.free_dcbs++;
+		spin_unlock(&fdma_chan->lock);
+		iter = list_first_entry(&fdma_chan->queued_dcbs,
+					struct mscc_fa_fdma_dcb, node);
+		idx = 0;
+	}
+	fdma_chan->next_dcb = iter;
+	fdma_chan->next_idx = idx;
+}
+
+
+static void mscc_fa_fdma_xtr_tasklet(unsigned long data)
+{
+	struct mscc_fa_fdma_channel *fdma_chan =
+		(struct mscc_fa_fdma_channel *)data;
+	struct mscc_fa_fdma *priv = fdma_chan->drv;
+	struct mscc_fa_fdma_dcb *iter;
+	int idx;
+	bool more = true;
+	u32 packet_size;
+	u64 status;
+	u64 pktstatus;
+	struct mscc_fa_fdma_dcb *first = NULL;
+
+	prof_sample_begin(&profstats[1]);
+	pr_debug("%s:%d %s: Channel: %d, begin\n",
+		__FILE__, __LINE__, __func__,
+		fdma_chan->chan.chan_id);
+
+	iter = fdma_chan->next_dcb;
+	idx = fdma_chan->next_idx;
+	status = iter->hw.block[idx].status;
+	more = !!(status & FDMA_DCB_STATUS_DONE);
+	pktstatus = status & (FDMA_DCB_STATUS_SOF | FDMA_DCB_STATUS_EOF | FDMA_DCB_STATUS_DONE);
+	while (more) {
+		pr_debug("%s:%d %s: Channel: %d, [C%u,I%u], status: 0x%llx\n",
+			 __FILE__, __LINE__, __func__,
+			 fdma_chan->chan.chan_id,
+			 iter->txd.cookie,
+			 idx,
+			 status);
+		if (pktstatus ==
+		    (FDMA_DCB_STATUS_SOF | FDMA_DCB_STATUS_EOF | FDMA_DCB_STATUS_DONE)) {
+			mscc_fa_fdma_xtr_eof(priv, fdma_chan, iter, iter, idx, 0, status);
+			iter = fdma_chan->next_dcb;
+			idx = fdma_chan->next_idx;
+		} else if (pktstatus & FDMA_DCB_STATUS_SOF) {
+			packet_size = FDMA_DCB_STATUS_BLOCKL(status);
+			first = iter;
+			pr_debug("%s:%d %s: Channel: %d, SOF:"
+				 " txd: 0x%px, [C%u,I%u], packet size: %u\n",
+				 __FILE__, __LINE__, __func__,
+				 fdma_chan->chan.chan_id,
+				 &iter->txd,
+				 iter->txd.cookie,
+				 idx,
+				 packet_size);
+			idx++;
+			if (idx == iter->valid_blocks) {
+				iter = list_next_entry(iter, node);
+				idx = 0;
+			}
+		} else if ((pktstatus & FDMA_DCB_STATUS_EOF) && first) {
+			mscc_fa_fdma_xtr_eof(priv, fdma_chan, first, iter, idx, packet_size, status);
+			iter = fdma_chan->next_dcb;
+			idx = fdma_chan->next_idx;
+		} else {
+			packet_size += FDMA_DCB_STATUS_BLOCKL(status);
+			pr_debug("%s:%d %s: Channel: %d, middle block: packet size: %u\n",
+				 __FILE__, __LINE__, __func__,
+				 fdma_chan->chan.chan_id,
+				 packet_size);
+			idx++;
+			if (idx == iter->valid_blocks) {
+				iter = list_next_entry(iter, node);
+				idx = 0;
+			}
+		}
+		status = iter->hw.block[idx].status;
+		more = !!(status & FDMA_DCB_STATUS_DONE);
+		pktstatus = status & (FDMA_DCB_STATUS_SOF | FDMA_DCB_STATUS_EOF | FDMA_DCB_STATUS_DONE);
+	}
+	pr_debug("%s:%d %s: Channel: %d, end\n",
+		__FILE__, __LINE__, __func__,
+		fdma_chan->chan.chan_id);
+	prof_sample_end(&profstats[1]);
+}
+
+static void mscc_fa_fdma_inj_tasklet(unsigned long data)
+{
+	struct mscc_fa_fdma_channel *fdma_chan =
+		(struct mscc_fa_fdma_channel *)data;
+	struct mscc_fa_fdma_dcb *request = 0;
+	struct mscc_fa_fdma_dcb *iter, *first = 0, *prev = 0, *tmp;
+	int idx;
+	struct dmaengine_result dma_result = {
+		.result = DMA_TRANS_ABORTED,
+		.residue = 0
+	};
+	u32 packet_size = 0;
+
+	pr_debug("%s:%d %s: Channel: %d, begin\n",
+		__FILE__, __LINE__, __func__,
+		fdma_chan->chan.chan_id);
+
+	spin_lock(&fdma_chan->lock);
+	list_for_each_entry_safe(iter, tmp,
+				 &fdma_chan->queued_dcbs, node) {
+		if (prev && prev->state == DCBS_COMPLETE &&
+		    prev->hw.nextptr != FDMA_DCB_INVALID_DATA) {
+			/* The previous completed DCB can be freed */
+			pr_debug("%s:%d %s: Channel: %d, previous completed DCB:"
+				 " 0x%llx move to free list\n",
+				 __FILE__, __LINE__, __func__,
+				 fdma_chan->chan.chan_id, prev->phys);
+			prev->state = DCBS_IDLE;
+			list_move_tail(&prev->node, &fdma_chan->free_dcbs);
+			fdma_chan->stats.free_dcbs++;
+		}
+		prev = iter;
+		if (iter->state != DCBS_ISSUED) {
+			continue;
+		}
+		for (idx = 0; idx < iter->valid_blocks; ++idx) {
+			u64 status = iter->hw.block[idx].status;
+			struct mscc_fa_fdma_block_info *blk = &iter->binfo[idx];
+
+			pr_debug("%s:%d %s: Channel: %d, DCB: 0x%llx,"
+				 " Block[%02d], dataptr: 0x%09llx, status:"
+				 " 0x%09llx: bytes: %u, C%u\n",
+				 __FILE__, __LINE__, __func__,
+				 fdma_chan->chan.chan_id,
+				 iter->phys,
+				 idx,
+				 iter->hw.block[idx].dataptr,
+				 status,
+				 blk->size,
+				 iter->txd.cookie);
+			if (iter->txd.cookie > DMA_MIN_COOKIE) {
+				/* Requests have valid cookies */
+				if (!request) {
+					/* First in queue is the used TXD */
+					fdma_chan->tx_state.used = iter->txd.cookie;
+				}
+				request = iter;
+			}
+			if (!request) {
+				continue;
+			}
+			if (blk->size == 0) {
+				continue;
+			}
+			if (!(status & FDMA_DCB_STATUS_DONE)) {
+				break;
+			}
+			if (status & FDMA_DCB_STATUS_SOF) {
+				first = iter;
+			}
+			if (!first) {
+				continue;
+			}
+			/* Update packet size and request residue with this
+			 * block
+			 */
+			packet_size += FDMA_DCB_STATUS_BLOCKL(status);
+			request->residue -= FDMA_DCB_STATUS_BLOCKL(status);
+			if (!(status & FDMA_DCB_STATUS_EOF)) {
+				continue;
+			}
+			if (idx == iter->valid_blocks - 1) {
+				/* Last block in this DCB has been transferred  */
+				pr_debug("%s:%d %s: Channel: %d, completed DCB:"
+					 " 0x%llx\n",
+					 __FILE__, __LINE__, __func__,
+					 fdma_chan->chan.chan_id, iter->phys);
+				iter->state = DCBS_COMPLETE;
+				/* Last DCB in this request has been transferred  */
+				if (iter->is_last_dcb) {
+					fdma_chan->tx_state.last =
+						iter->first_dcb->txd.cookie;
+					dma_cookie_complete(&iter->first_dcb->txd);
+					pr_debug("%s:%d %s: Channel: %d,"
+						 " completed cookie: %u\n",
+						 __FILE__, __LINE__, __func__,
+						 fdma_chan->chan.chan_id,
+						 fdma_chan->tx_state.last);
+				}
+			}
+			fdma_chan->tx_state.residue = request->residue;
+			dma_result.residue = request->residue;
+			dma_result.result = DMA_TRANS_NOERROR;
+			pr_debug("%s:%d %s: Channel: %d, notify client:"
+				 " txd: 0x%px, residue: %u, packet size: %u\n",
+				 __FILE__, __LINE__, __func__,
+				 fdma_chan->chan.chan_id,
+				 &request->txd,
+				 request->residue,
+				 packet_size);
+			if (fdma_chan->chan.chan_id >= FDMA_XTR_CHANNEL) {
+				dma_result.residue = packet_size;
+			}
+			prof_sample_begin(&profstats[0]);
+			spin_unlock(&fdma_chan->lock);
+			dmaengine_desc_get_callback_invoke(
+				&request->txd, &dma_result);
+			spin_lock(&fdma_chan->lock);
+			prof_sample_end(&profstats[0]);
+			packet_size = 0;
+			/* Mark data block as transferred */
+			blk->size = 0;
+		}
+	}
+	spin_unlock(&fdma_chan->lock);
+	pr_debug("%s:%d %s: Channel: %d, end\n",
+		__FILE__, __LINE__, __func__,
+		fdma_chan->chan.chan_id);
 }
 
 static struct dma_async_tx_descriptor *
@@ -764,10 +1283,11 @@ mscc_fa_fdma_prep_slave_sg(struct dma_chan *chan,
 	struct mscc_fa_fdma *priv = to_mscc_fa_fdma(chan->device);
 	struct mscc_fa_fdma_channel *fdma_chan = to_mscc_fa_fdma_channel(chan);
 	struct scatterlist *sg;
-	struct mscc_fa_fdma_dcb *first = 0;
-	struct mscc_fa_fdma_dcb *dcb = 0;
+	struct mscc_fa_fdma_dcb *first;
+	struct mscc_fa_fdma_dcb *dcb;
 	int sidx; /* Segment index */
 	int idx;  /* Block index */
+	u32 residue;
 
 	if (!sgl) {
 		return NULL;
@@ -783,92 +1303,52 @@ mscc_fa_fdma_prep_slave_sg(struct dma_chan *chan,
 		return NULL;
 	}
 
-	dev_dbg(&chan->dev->device, "%s: sg_len=%d, dir=%s,"
-		" flags=0x%lx, elems=%d\n",
-		__func__, sg_len,
-		direction == DMA_MEM_TO_DEV ? "to device" : "from device",
-		flags, sg_nents(sgl));
-
-	spin_lock(&priv->lock);
+	spin_lock(&fdma_chan->lock);
+	first = 0;
+	dcb = 0;
+	idx = 0;
+	residue = 0;
 	for_each_sg(sgl, sg, sg_len, sidx) {
-		u64 len, off;
-		dma_addr_t db_phys = 0;
-		/* Interrupt on DB status update */
-		u32 status_flags = FDMA_DCB_STATUS_INTR;
-		idx = sidx % FDMA_DCB_MAX_DBS;
-
 		/* One DCB has room for FDMA_DCB_MAX_DDBS blocks */
 		if (idx == 0) {
-			int jdx;
-
-			if (list_empty(&priv->free_dcbs)) {
+			if (!mscc_fa_fdma_get_dcb(priv, chan, sg_len,
+						  &dcb, &idx)) {
 				pr_err("%s:%d %s: no more DCBs\n", 
-					__FILE__, __LINE__, __func__);
-				return NULL;
+				       __FILE__, __LINE__, __func__);
+				goto unlock;
 			}
-			dcb = list_first_entry(&priv->free_dcbs, 
-					       struct mscc_fa_fdma_dcb, node);
-			memset(dcb, 0, sizeof(struct  mscc_fa_fdma_dcb_hw));
-			memset(dcb->binfo, 0, 
-			       sizeof(struct  mscc_fa_fdma_block_info));
-			dcb->state = DCBS_QUEUED;
-			dcb->valid_blocks = 0;
-			dcb->is_last_dcb = 0;
-			/* No next DCB */
-			dcb->hw.nextptr = FDMA_DCB_INVALID_DATA;
-			for (jdx = 0; jdx < FDMA_DCB_MAX_DBS; ++jdx) {
-				dcb->hw.block[jdx].dataptr = 
-					FDMA_DCB_INVALID_DATA;
-			}
-			dma_async_tx_descriptor_init(&dcb->txd, chan);
-			dcb->txd.tx_submit = mscc_fa_fdma_tx_submit;
-			/* Convert to PCIE address space */
-			dcb->txd.phys = dcb->phys + dcb->offset;
-			/* Move item into the channel */
-			list_move_tail(&dcb->node, &fdma_chan->queued_dcbs);
 		}
-		db_phys = sg_dma_address(sg);
-		/* Convert to PCIe address space */
-		db_phys += dcb->offset;
-		off = db_phys & 0x7;
-		db_phys &= ~0x7;
-		len = sg_dma_len(sg);
-		dcb->binfo[idx].size = len;
-		if (direction == DMA_MEM_TO_DEV) {
-			if (sidx == 0) {
-				status_flags |= FDMA_DCB_STATUS_SOF;
-			}
-			if (sg_is_last(sg)) {
-				status_flags |= FDMA_DCB_STATUS_EOF;
-			}
-			dcb->hw.block[idx].dataptr = db_phys;
-			dcb->hw.block[idx].status =
-				FDMA_DCB_STATUS_BLOCKL(len) | 
-				status_flags |
-				FDMA_DCB_STATUS_BLOCKO(off);
-		} else {
-			/* Length is a multipla of 128 */
-			dcb->hw.info = FDMA_DCB_INFO_DATAL(
-				len & ~FDMA_BUFFER_MASK);
-			dcb->hw.block[idx].dataptr = db_phys;
-			dcb->hw.block[idx].status = status_flags;
-		}
-		dcb->valid_blocks++;
+		mscc_fa_fdma_add_datablock(priv, fdma_chan, dcb, direction,
+						sg, sg_len, sidx, idx);
+		residue += dcb->binfo[idx].size;
+		pr_debug("%s:%d %s, Channel %d, residue: %u, block[%02u]: %u\n",
+			__FILE__, __LINE__, __func__,
+			chan->chan_id, residue, idx, dcb->binfo[idx].size);
 		if (!first) {
 			first = dcb;
+			pr_debug("%s:%d %s, Channel %d, dcb: 0x%llx, txd:"
+				 " 0x%px, block: %02u\n",
+				 __FILE__, __LINE__, __func__,
+				 chan->chan_id, dcb->phys, &dcb->txd, idx);
 		}
-		pr_debug("%s:%d %s: txd: 0x%px, DCB: 0x%llx, Block[%02d], "
-			"dataptr: 0x%09llx, offset: 0x%llu, bytes: %llu\n",
-			__FILE__, __LINE__, __func__,
-			&first->txd,
-			dcb->txd.phys,
-			idx, dcb->hw.block[idx].dataptr,
-			off, len);
+		++idx;
+		idx = idx % FDMA_DCB_MAX_DBS;
 	}
 	dcb->is_last_dcb = 1;
+	first->residue += residue;
 	dcb->first_dcb = first;
-	spin_unlock(&priv->lock);
+	spin_unlock(&fdma_chan->lock);
+	pr_debug("%s:%d %s, Channel %d, len: %d, dir: %s: txd: 0x%px\n",
+		__FILE__, __LINE__, __func__,
+		fdma_chan->chan.chan_id,
+		sg_len,
+		direction == DMA_MEM_TO_DEV ? "to device" : "from device",
+		&first->txd);
+
 	return &first->txd;
+unlock:
+	spin_unlock(&fdma_chan->lock);
+	return NULL;
 }
 
 static enum dma_status mscc_fa_fdma_tx_status(struct dma_chan *chan, 
@@ -930,11 +1410,12 @@ static void mscc_fa_fdma_issue_pending(struct dma_chan *chan)
 	int idx = 0;
 	int queued = 0;
 
+	prof_sample_begin(&profstats[1]);
 	pr_debug("%s:%d %s, Channel: %d\n", 
-		__FILE__, __LINE__, __func__, 
-		chan->chan_id);
-	spin_lock(&priv->lock);
+		 __FILE__, __LINE__, __func__,
+		 chan->chan_id);
 	fdma_chan = &priv->chans[chan->chan_id];
+	spin_lock(&fdma_chan->lock);
 	list_for_each_entry(dcb, &fdma_chan->queued_dcbs, node) {
 		if (dcb->state == DCBS_QUEUED) {
 			if (first == 0) {
@@ -944,16 +1425,16 @@ static void mscc_fa_fdma_issue_pending(struct dma_chan *chan)
 		}
 		++idx;
 	}
-	spin_unlock(&priv->lock);
+	spin_unlock(&fdma_chan->lock);
 	if (!first) {
 		pr_err("%s:%d %s, Channel: %d, nothing queued\n", 
-			__FILE__, __LINE__, __func__, 
-			chan->chan_id);
+		       __FILE__, __LINE__, __func__,
+		       chan->chan_id);
 		return;
 	}
 	pr_debug("%s:%d %s, Channel: %d, state: %u, len: %d, queued: %d\n", 
-		__FILE__, __LINE__, __func__, 
-		chan->chan_id, fdma_chan->state, idx, queued);
+		 __FILE__, __LINE__, __func__,
+		 chan->chan_id, fdma_chan->state, idx, queued);
 
 	switch (fdma_chan->state) {
 	case DCS_ACTIVE: {
@@ -961,85 +1442,89 @@ static void mscc_fa_fdma_issue_pending(struct dma_chan *chan)
 		int idx = 0;
 
 		pr_debug("%s:%d %s, Activate channel %d, DCB: 0x%llx\n", 
-			__FILE__, __LINE__, __func__, chan->chan_id, 
-			first->txd.phys);
-		spin_lock(&priv->lock);
+			 __FILE__, __LINE__, __func__, chan->chan_id,
+			 first->phys);
+		spin_lock(&fdma_chan->lock);
 		list_for_each_entry(dcb, &fdma_chan->queued_dcbs, node) {
-			if (dcb->state == DCBS_QUEUED && prev) {
-				pr_debug("%s:%d %s, Channel: %d: chain[%02d]:"
-					" DCB: 0x%llx -> 0x%llx\n", 
-					__FILE__, __LINE__, __func__,
-					chan->chan_id,
-					idx,
-					prev->txd.phys, dcb->txd.phys);
-				prev->hw.nextptr = dcb->txd.phys; /* Valid */
-#ifdef FDMA_DCB_LOG
-				mscc_fa_fdma_show_dcb_via_vcore(priv, prev);
-#endif
+			if (dcb->state == DCBS_QUEUED) {
+				dcb->state = DCBS_ISSUED;
+				pr_debug("%s:%d %s, Channel: %d: Issued: [%02d]:"
+					 " DCB: 0x%llx\n",
+					 __FILE__, __LINE__, __func__,
+					 chan->chan_id,
+					 idx,
+					 dcb->phys);
+				if (prev) {
+					pr_debug("%s:%d %s, Channel: %d:"
+						 " chain[%02d]:"
+						 " DCB: 0x%llx -> 0x%llx\n",
+						 __FILE__, __LINE__, __func__,
+						 chan->chan_id,
+						 idx,
+						 prev->phys, dcb->phys);
+					prev->hw.nextptr = dcb->phys; /* Valid */
+				}
 			}
 			prev = dcb;
 			++idx;
 		}
-#ifdef FDMA_DCB_LOG
-		mscc_fa_fdma_follow_queued_dcb_chain(first, chan->chan_id);
-#endif
-		spin_unlock(&priv->lock);
+		spin_unlock(&fdma_chan->lock);
+		fdma_chan->next_dcb = first;
+		fdma_chan->next_idx = 0;
 		/* Write the DCB address */
-		mscc_fa_writell(priv, 
-				FDMA_DCB_LLP_R_OFF(chan->chan_id), 
-				FDMA_DCB_LLP1_R_OFF(chan->chan_id), 
-				first->txd.phys);
+		mscc_fa_fdma_writell(priv,
+				     FDMA_DCB_LLP_R_OFF(chan->chan_id),
+				     FDMA_DCB_LLP1_R_OFF(chan->chan_id),
+				     first->phys);
 		/* Activate the channel */
-		mscc_fa_writel(priv, FDMA_CH_ACTIVATE_OFF, channel_bit);
+		mscc_fa_fdma_writel(priv, FDMA_CH_ACTIVATE_OFF, channel_bit);
 		fdma_chan->state = DCS_RUNNING;
 		break;
 	}
 	case DCS_RUNNING: {
 		struct mscc_fa_fdma_dcb *prev = 0;
 		int idx = 0;
-#ifdef FDMA_DCB_ERROR_LOG
-		struct mscc_fa_fdma_dcb *llp_prev = 
-			mscc_fa_fdma_get_previous_dcb(priv, chan->chan_id);
-#endif
 
-		spin_lock(&priv->lock);
+		spin_lock(&fdma_chan->lock);
 		list_for_each_entry(dcb, &fdma_chan->queued_dcbs, node) {
-			if (dcb->state == DCBS_QUEUED && prev) {
-				prev->hw.nextptr = dcb->txd.phys; /* Valid */
-				pr_debug("%s:%d %s, Channel: %d: chain[%02d]:"
-					" DCB: 0x%llx -> 0x%llx\n", 
-					__FILE__, __LINE__, __func__,
-					chan->chan_id,
-					idx,
-					prev->txd.phys, dcb->txd.phys);
-#ifdef FDMA_DCB_LOG
-				mscc_fa_fdma_show_dcb_via_vcore(priv, prev);
-#endif
+			if (dcb->state == DCBS_QUEUED) {
+				dcb->state = DCBS_ISSUED;
+				if (prev) {
+					prev->hw.nextptr = dcb->phys; /* Valid */
+					pr_debug("%s:%d %s, Channel: %d:"
+						 " chain[%02d]:"
+						 " DCB: 0x%llx -> 0x%llx\n",
+						 __FILE__, __LINE__, __func__,
+						 chan->chan_id,
+						 idx,
+						 prev->phys, dcb->phys);
+				}
 			}
 			prev = dcb;
 			++idx;
 		}
-		spin_unlock(&priv->lock);
+		spin_unlock(&fdma_chan->lock);
 		pr_debug("%s:%d %s, Reload channel %d\n", 
-			__FILE__, __LINE__, __func__, chan->chan_id);
-		mscc_fa_writel(priv, FDMA_CH_RELOAD_OFF, channel_bit);
+			 __FILE__, __LINE__, __func__, chan->chan_id);
+		mscc_fa_fdma_writel(priv, FDMA_CH_RELOAD_OFF, channel_bit);
 		break;
 	}
 	case DCS_STOPPING:
 		pr_debug("%s:%d %s, Stopping channel %d\n", 
-			__FILE__, __LINE__, __func__, chan->chan_id);
+			 __FILE__, __LINE__, __func__, chan->chan_id);
 		break;
 	case DCS_IDLE:
 		/* When is a reload needed ? */
 		pr_debug("%s:%d %s, Queue channel %d, DCB: 0x%llx\n", 
-			__FILE__, __LINE__, __func__, chan->chan_id, 
-			dcb->txd.phys);
+			 __FILE__, __LINE__, __func__, chan->chan_id,
+			 dcb->phys);
 		break;
 	case DCS_ERROR:
 		pr_err("%s:%d %s, Errored channel %d,\n", 
-			__FILE__, __LINE__, __func__, chan->chan_id);
+		       __FILE__, __LINE__, __func__, chan->chan_id);
 		break;
 	}
+	prof_sample_end(&profstats[1]);
 }
 
 static void mscc_fa_fdma_notify_clients_abort(struct dma_chan *chan)
@@ -1061,7 +1546,7 @@ static void mscc_fa_fdma_notify_clients_abort(struct dma_chan *chan)
 			" state: %u, cookie: %u\n", 
 			__FILE__, __LINE__, __func__, 
 			fdma_chan->chan.chan_id,
-			iter->txd.phys,
+			iter->phys,
 			iter->state,
 			iter->txd.cookie);
 		for (idx = 0; idx < FDMA_DCB_MAX_DBS; ++idx) {
@@ -1100,8 +1585,8 @@ static void mscc_fa_fdma_sync(struct dma_chan *chan)
 	/* Wait here until the FDMA has stopped */
 	deadline = jiffies + msecs_to_jiffies(FDMA_DISABLE_TIMEOUT_MS);
 	do {
-		status = mscc_fa_readl(priv, FDMA_CH_ACTIVE_OFF);
-		status |= mscc_fa_readl(priv, FDMA_CH_PENDING_OFF);
+		status = mscc_fa_fdma_readl(priv, FDMA_CH_ACTIVE_OFF);
+		status |= mscc_fa_fdma_readl(priv, FDMA_CH_PENDING_OFF);
 		pr_debug("%s:%d %s: Channel: %u, status: %u\n", 
 			__FILE__, __LINE__, __func__, 
 			chan->chan_id, status);
@@ -1118,336 +1603,55 @@ static int mscc_fa_fdma_terminate(struct dma_chan *chan)
 	return 0;
 }
 
-static void mscc_fa_fdma_handle_error(struct mscc_fa_fdma_channel *fdma_chan, 
-	struct mscc_fa_fdma_dcb *dcb)
+static void mscc_fa_fdma_notify_clients_error(
+	struct mscc_fa_fdma_channel *fdma_chan)
 {
-	struct dmaengine_result dma_result = {
-		.result = DMA_TRANS_ABORTED,
-		.residue = 0
-	};
 	struct mscc_fa_fdma_dcb *iter;
-	struct mscc_fa_fdma_dcb *first = dcb->first_dcb;
-
-	pr_err("%s:%d %s: DCB: 0x%llx: error: inform client\n", 
-		__FILE__, __LINE__, __func__, dcb->txd.phys);
-
-	dma_result.result = DMA_TRANS_WRITE_FAILED;
-	if (fdma_chan->chan.chan_id >= DMA_RX_CHANNEL) {
-		dma_result.result = DMA_TRANS_READ_FAILED;
-	}
-	
-	/* Mark all DCBs in the request as completed */
-	list_for_each_entry(iter, &fdma_chan->queued_dcbs, node) {
-		iter->state = DCBS_COMPLETE;
-		if (iter == dcb) {
-			break;
-		}
-	}
-
-	dma_cookie_complete(&first->txd);
-	fdma_chan->tx_state.last = first->txd.cookie;
-	dmaengine_desc_get_callback_invoke(&first->txd, &dma_result);
-}
-
-static u32 mscc_fa_fdma_update_completion(
-	struct mscc_fa_fdma_channel *fdma_chan, 
-	struct mscc_fa_fdma_dcb *request,
-	struct mscc_fa_fdma_dcb *from,
-	int from_index,
-	struct mscc_fa_fdma_dcb *to,
-	int to_index)
-{
-	struct mscc_fa_fdma_dcb *iter = from;
-	int idx = 0, max;
-	u32 packet_size = 0;
-	u32 residue = 0;
-
-	pr_debug("%s:%d %s: Channel: %d, begin: "
-		"From: 0x%llx [%02d], To: 0x%llx [%02d]\n", 
-		__FILE__, __LINE__, __func__,
-		fdma_chan->chan.chan_id,
-		from->txd.phys,
-		from_index,
-		to->txd.phys,
-		to_index);
-
-	/* Mark blocks as transferred.  Complete DCBs and requests */
-	list_for_each_entry_from(iter, &fdma_chan->queued_dcbs, node) {
-		pr_debug("%s:%d %s: Channel: %d, Marking: DCB: 0x%llx,"
-			" state: %u, valid_blocks: %u\n", 
-			__FILE__, __LINE__, __func__,
-			fdma_chan->chan.chan_id, 
-			iter->txd.phys,
-			iter->state,
-			iter->valid_blocks);
-		if (iter->state != DCBS_QUEUED) {
-			continue;
-		}
-		idx = 0;
-		max = iter->valid_blocks;
-		if (iter == from) {
-			idx = from_index;
-		}
-		if (iter == to) {
-			max = to_index;
-		}
-		for (; idx < max; ++idx) {
-			pr_debug("%s:%d %s: Channel: %d, Marking, DCB: 0x%llx,"
-				" Block[%02d], dataptr: 0x%09llx,"
-				" status: 0x%09llx, bytes: %u\n", 
-				__FILE__, __LINE__, __func__,
-				fdma_chan->chan.chan_id, 
-				iter->txd.phys,
-				idx,
-				iter->hw.block[idx].dataptr,
-				iter->hw.block[idx].status,
-				iter->binfo[idx].size);
-			/* Remove transferred data from the residue */
-			packet_size += iter->binfo[idx].size;
-			iter->binfo[idx].size = 0;
-		}
-		if (iter->valid_blocks == idx) {
-			/* Last block in this DCB has been transferred  */
-			pr_debug("%s:%d %s: Channel: %d, completed DCB:"
-				" 0x%llx\n", 
-				__FILE__, __LINE__, __func__,
-				fdma_chan->chan.chan_id, iter->txd.phys);
-			iter->state = DCBS_COMPLETE;
-			/* Last DCB in this request has been transferred  */
-			if (iter->is_last_dcb) {
-				fdma_chan->tx_state.last = 
-					iter->first_dcb->txd.cookie;
-				dma_cookie_complete(&iter->first_dcb->txd);
-				pr_debug("%s:%d %s: Channel: %d,"
-					" completed cookie: %u\n", 
-					__FILE__, __LINE__, __func__,
-					fdma_chan->chan.chan_id, 
-					fdma_chan->tx_state.last);
-			}
-		}
-		if (iter == to) {
-			break;
-		}
-	}
-	/* Continue to count the residue if not at the end of the request */
-	if (!(idx == iter->valid_blocks && iter->is_last_dcb)) {
-		list_for_each_entry_from(iter, &fdma_chan->queued_dcbs, node) {
-			pr_debug("%s:%d %s: Channel: %d, Calculating: DCB:"
-				" 0x%llx, state: %u, valid_blocks: %u\n", 
-				__FILE__, __LINE__, __func__,
-				fdma_chan->chan.chan_id, 
-				iter->txd.phys,
-				iter->state,
-				iter->valid_blocks);
-			if (iter->state != DCBS_QUEUED) {
-				continue;
-			}
-			idx = 0;
-			if (iter == to) {
-				idx = to_index;
-			}
-			for (; idx < iter->valid_blocks; ++idx) {
-				pr_debug("%s:%d %s: Channel: %d, Calculating,"
-					" DCB: 0x%llx, Block[%02d], dataptr:"
-					" 0x%09llx, status: 0x%09llx,"
-					" bytes: %u\n", 
-					__FILE__, __LINE__, __func__,
-					fdma_chan->chan.chan_id, 
-					iter->txd.phys,
-					idx,
-					iter->hw.block[idx].dataptr,
-					iter->hw.block[idx].status,
-					iter->binfo[idx].size);
-				residue += iter->binfo[idx].size;
-			}
-			idx = 0;
-			if (iter->is_last_dcb) {
-				break;
-			}
-		}
-	}
-
-	pr_debug("%s:%d %s: Channel: %d, end, packet size: %u, residue: %u\n", 
-		__FILE__, __LINE__, __func__,
-		fdma_chan->chan.chan_id, packet_size, residue);
-	return residue;
-}
-
-static void mscc_fa_fdma_notify_clients(struct mscc_fa_fdma_channel *fdma_chan)
-{
-	struct mscc_fa_fdma_dcb *request = 0;
-	struct mscc_fa_fdma_dcb *iter, *first = 0;
-	int idx, first_block = 0;
 	struct dmaengine_result dma_result = {
 		.result = DMA_TRANS_ABORTED,
 		.residue = 0
 	};
+	int idx;
 
 	pr_debug("%s:%d %s: Channel: %d, begin\n", 
 		__FILE__, __LINE__, __func__,
 		fdma_chan->chan.chan_id);
 
+	dma_result.result = DMA_TRANS_WRITE_FAILED;
+	if (fdma_chan->chan.chan_id >= FDMA_XTR_CHANNEL) {
+		dma_result.result = DMA_TRANS_READ_FAILED;
+	}
 	list_for_each_entry(iter, &fdma_chan->queued_dcbs, node) {
-		pr_debug("%s:%d %s: Channel: %d, DCB: 0x%llx: state: %u,"
-			" cookie: %u\n", 
+		pr_debug("%s:%d %s: Channel: %d, DCB: 0x%llx:"
+			" state: %u, cookie: %u\n",
 			__FILE__, __LINE__, __func__, 
 			fdma_chan->chan.chan_id,
-			iter->txd.phys,
+			iter->phys,
 			iter->state,
 			iter->txd.cookie);
+		for (idx = 0; idx < FDMA_DCB_MAX_DBS; ++idx) {
+			iter->binfo[idx].size = 0;
+		}
 		if (iter->txd.cookie > DMA_MIN_COOKIE) {
 			/* Requests have valid cookies */
-			if (!request) {
-				/* First in queue is the used TXD */
-				fdma_chan->tx_state.used = iter->txd.cookie;
-			}
-			request = iter;
-		}
-		for (idx = 0; idx < iter->valid_blocks; ++idx) {
-			u32 residue;
-
-			pr_debug("%s:%d %s: Channel: %d, DCB: 0x%llx,"
-				" Block[%02d], dataptr: 0x%09llx, status:"
-				" 0x%09llx: bytes: %u\n", 
-				__FILE__, __LINE__, __func__,
-				fdma_chan->chan.chan_id, 
-				iter->txd.phys,
-				idx,
-				iter->hw.block[idx].dataptr,
-				iter->hw.block[idx].status,
-				iter->binfo[idx].size);
-			if (iter->binfo[idx].size == 0) {
-				continue;
-			}
-			if (!(iter->hw.block[idx].status & 
-			      FDMA_DCB_STATUS_DONE)) {
-				break;
-			}
-			if (iter->hw.block[idx].status & FDMA_DCB_STATUS_SOF) {
-				first = iter;
-				first_block = idx;
-			}
-			if (!(iter->hw.block[idx].status & 
-			      FDMA_DCB_STATUS_EOF)) {
-				continue;
-			}
-			if (!request) {
-				break;
-			}
-			residue = mscc_fa_fdma_update_completion(
-				fdma_chan, request,
-				first, first_block, 
-				iter, idx + 1);
-			fdma_chan->tx_state.residue = residue;
-			dma_result.residue = residue;
-			dma_result.result = DMA_TRANS_NOERROR;
-			pr_debug("%s:%d %s: Channel: %d, notify client:"
-				" txd: 0x%px, residue: %u\n", 
+			fdma_chan->tx_state.used = iter->txd.cookie;
+			fdma_chan->tx_state.last = iter->txd.cookie;
+			fdma_chan->tx_state.residue = 0;
+			iter->state = DCBS_COMPLETE;
+			dma_cookie_complete(&iter->txd);
+			pr_debug("%s:%d %s: Channel: %d, notify client abort:"
+				" txd: 0x%px\n",
 				__FILE__, __LINE__, __func__,
 				fdma_chan->chan.chan_id,
-				&request->txd,
-				residue);
-			dmaengine_desc_get_callback_invoke(
-				&request->txd, &dma_result);
+				&iter->txd);
+			dmaengine_desc_get_callback_invoke(&iter->txd,
+							   &dma_result);
 		}
 	}
 	pr_debug("%s:%d %s: Channel: %d, end\n", 
 		__FILE__, __LINE__, __func__,
 		fdma_chan->chan.chan_id);
 }
-
-static void mscc_fa_fdma_tasklet(unsigned long data)
-{
-	struct mscc_fa_fdma *priv = (struct mscc_fa_fdma *)data;
-	struct mscc_fa_fdma_dcb *dcb;
-	struct mscc_fa_fdma_channel *fdma_chan;
-	struct dma_async_tx_descriptor *txd;
-	u32 chan;
-
-	pr_debug("%s:%d %s: begin\n", __FILE__, __LINE__, __func__);
-	for (chan = 0; chan < priv->nr_pchans; ++chan) {
-		int idx = 0;
-		struct mscc_fa_fdma_dcb *tmp;
-
-		fdma_chan = &priv->chans[chan];
-		if (fdma_chan->state == DCS_IDLE) {
-			pr_debug("%s:%d %s: Channel: %u, idle\n", 
-				__FILE__, __LINE__, __func__, chan);
-			continue;
-		}
-		fdma_chan->completed_dcbs = 0;
-		fdma_chan->queue_state_dcbs = 0;
-		mscc_fa_fdma_notify_clients(fdma_chan);
-		list_for_each_entry_safe(dcb, tmp, 
-					 &fdma_chan->queued_dcbs, node) {
-			txd = &dcb->txd;
-			switch (dcb->state) {
-			case DCBS_IDLE:
-				spin_lock(&priv->lock);
-				list_move_tail(&dcb->node, &priv->free_dcbs);
-				spin_unlock(&priv->lock);
-				break;
-			case DCBS_QUEUED:
-				++fdma_chan->queue_state_dcbs;
-				break;
-			case DCBS_COMPLETE:
-				++fdma_chan->completed_dcbs;
-				break;
-			case DCBS_ERROR:
-				fdma_chan->state = DCS_ERROR;
-				mscc_fa_fdma_handle_error(fdma_chan, dcb);
-				break;
-			}
-			++idx;
-		}
-	}
-	pr_debug("%s:%d %s: channel status\n", __FILE__, __LINE__, __func__);
-	for (chan = 0; chan < priv->nr_pchans; ++chan) {
-		int idx = 0;
-
-		fdma_chan = &priv->chans[chan];
-		if (fdma_chan->state == DCS_IDLE) {
-			pr_debug("%s:%d %s: Channel: %u, idle\n", 
-				__FILE__, __LINE__, __func__, chan);
-			continue;
-		}
-		if (fdma_chan->completed_dcbs >= 2) {
-			list_for_each_entry(dcb, 
-					    &fdma_chan->queued_dcbs, node) {
-				if (fdma_chan->completed_dcbs >= 2) {
-					if (dcb->state == DCBS_COMPLETE) {
-						dcb->state = DCBS_IDLE;
-						--fdma_chan->completed_dcbs;
-					}
-				} else {
-					break;
-				}
-			}
-		}
-		idx = 0;
-		list_for_each_entry(dcb, &fdma_chan->queued_dcbs, node) {
-			pr_debug("%s:%d %s: channel %u: idx: %02d,"
-				" state: %u, DCB: 0x%llx\n", 
-				__FILE__, __LINE__, __func__, 
-				chan, idx, dcb->state, dcb->txd.phys);
-			++idx;
-		}
-		pr_debug("%s:%d %s: channel %u: queued: %u\n", 
-			__FILE__, __LINE__, __func__, chan,
-			fdma_chan->queue_state_dcbs);
-	}
-	{
-		int count = 0;
-		struct list_head *node;
-
-		list_for_each(node, &priv->free_dcbs) {
-			++count;
-		}
-		pr_debug("%s:%d %s: end: free dcbs: %d\n", 
-			__FILE__, __LINE__, __func__, count);
-	}
-}
-
 
 static irqreturn_t mscc_fa_fdma_interrupt(int irq, void *dev_id)
 {
@@ -1456,31 +1660,44 @@ static irqreturn_t mscc_fa_fdma_interrupt(int irq, void *dev_id)
 
 	pr_debug("%s:%d %s: begin\n", 
 		__FILE__, __LINE__, __func__);
-	dcb = mscc_fa_readl(priv, FDMA_INTR_DCB_OFF);
-	db = mscc_fa_readl(priv, FDMA_INTR_DB_OFF);
-	err = mscc_fa_readl(priv, FDMA_INTR_ERR_OFF);
+	dcb = mscc_fa_fdma_readl(priv, FDMA_INTR_DCB_OFF);
+	db = mscc_fa_fdma_readl(priv, FDMA_INTR_DB_OFF);
+	err = mscc_fa_fdma_readl(priv, FDMA_INTR_ERR_OFF);
 	/* Clear interrupt */
 	if (dcb) {
-		mscc_fa_writel(priv, FDMA_INTR_DCB_OFF, dcb);
+		mscc_fa_fdma_writel(priv, FDMA_INTR_DCB_OFF, dcb);
 		pr_debug("%s:%d %s: DCB int: 0x%x\n", 
 			__FILE__, __LINE__, __func__, dcb);
 	}
 	if (db) {
-		mscc_fa_writel(priv, FDMA_INTR_DB_OFF, db);
+		mscc_fa_fdma_writel(priv, FDMA_INTR_DB_OFF, db);
 		pr_debug("%s:%d %s: DB int: 0x%x\n", 
 			__FILE__, __LINE__, __func__, db);
-		tasklet_schedule(&priv->tasklet);
+		while (db) {
+			u32 chan = __fls(db);
+			struct mscc_fa_fdma_channel *fdma_chan =
+				&priv->chans[chan];
+			tasklet_schedule(&fdma_chan->tasklet);
+			db &= ~(BIT(chan));
+		}
 	}
 	if (err) {
-		u32 err_type = mscc_fa_readl(priv, FDMA_ERRORS_OFF);
+		u32 err_type = mscc_fa_fdma_readl(priv, FDMA_ERRORS_OFF);
 
 		pr_err("%s:%d %s: ERR int: 0x%x\n", 
 			__FILE__, __LINE__, __func__, err);
 		pr_err("%s:%d %s: errtype: 0x%x\n", 
 			__FILE__, __LINE__, __func__,
 			err_type);
-		mscc_fa_writel(priv, FDMA_INTR_ERR_OFF, err);
-		mscc_fa_writel(priv, FDMA_ERRORS_OFF, err_type);
+		mscc_fa_fdma_writel(priv, FDMA_INTR_ERR_OFF, err);
+		mscc_fa_fdma_writel(priv, FDMA_ERRORS_OFF, err_type);
+		while (err) {
+			u32 chan = __fls(err);
+			struct mscc_fa_fdma_channel *fdma_chan =
+				&priv->chans[chan];
+			mscc_fa_fdma_notify_clients_error(fdma_chan);
+			err &= ~(BIT(chan));
+		}
 	}
 
 	pr_debug("%s:%d %s: end\n", 
@@ -1489,68 +1706,129 @@ static irqreturn_t mscc_fa_fdma_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int mscc_fa_access_test(struct mscc_fa_fdma *priv)
+static void mscc_fa_fdma_disable_acp_caching(struct mscc_fa_fdma *priv)
+{
+	/*
+	 * Force ACP caching but disable read/write allocation
+	 * This avoid cache skew where secure entries are allocated by the
+	 * FDMA and not seen by the host.
+	 */
+	u32 proc_ctrl = mscc_fa_fdma_readl(priv, CPU_REGS_PROC_CTRL_OFF);
+	proc_ctrl |= CPU_REGS_PROC_CTRL_ACP_CACHE_FORCE_ENA;
+	proc_ctrl &= ~(CPU_REGS_PROC_CTRL_ACP_AWCACHE
+		       | CPU_REGS_PROC_CTRL_ACP_ARCACHE);
+	mscc_fa_fdma_writel(priv, CPU_REGS_PROC_CTRL_OFF, proc_ctrl);
+	pr_debug("%s:%d %s: Setting to: 0x%x\n",
+		 __FILE__, __LINE__, __func__, proc_ctrl);
+}
+
+static int mscc_fa_buffer_access_test(struct mscc_fa_fdma *priv,
+				      char *message,
+				      int size,
+				      bool cached,
+				      u32 *buffer,
+				      dma_addr_t phys)
+{
+	u32 value1 = 0xdeadbeef;
+	u32 value2;
+
+	*buffer = value1;
+	if (cached) {
+		__flush_dcache_area(buffer, 64);
+	}
+
+	value2 = mscc_fa_vcore_readl(priv, phys);
+	if (value1 != value2) {
+		snprintf(message, size, "Read to %scached buffer via vcore:"
+			 " 0x%px, phys: 0x%09llx, "
+			 " 0x%x != 0x%x\n",
+			 cached ? "" : "un",
+			 buffer, phys,
+			 value1, value2);
+		return -1;
+	}
+	value1 = 0x12345678;
+	mscc_fa_fdma_vcore_writel(priv, phys, value1);
+	value2 = *buffer;
+	if (value1 != value2) {
+		snprintf(message, size, "Write to %scached buffer via vcore:"
+			 " 0x%px, phys: 0x%09llx, "
+			 " 0x%x != 0x%x\n",
+			 cached ? "" : "un",
+			 buffer, phys,
+			 value1, value2);
+		return -1;
+	}
+	return 0;
+}
+
+
+static int mscc_fa_access_test(struct platform_device *pdev, 
+			       struct mscc_fa_fdma *priv)
 {
 	/* Check VCore Access functionality by reading chip id */
 	u32 test0 = 0x12345678;
 	u32 test1 = 0xabcdef;
 	u32 value = 0;
-	struct mscc_fa_fdma_dcb_hw *dcb;
-	void *dma_buffer;
-	phys_addr_t phys = 0;
-	u64 vcore_addr = FDMA_ATU_TARGET_SPACE;
+	u32 vcore_chip_id;
+	u32 vaccess_chip_id;
+	char message[160];
+	u64 phys;
+	u32 *buffer;
+	int res;
 
-	u32 chip_id = mscc_fa_vcore_read_reg(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
-	if (chip_id != 0x07568445) {
-		pr_err("%s:%d %s: VCore access error: CSR space\n",
-			__FILE__, __LINE__, __func__);
+	vcore_chip_id = mscc_fa_fdma_readl(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
+	dev_info(&pdev->dev, "Chip ID: %08x\n", vcore_chip_id);
+	if (vcore_chip_id != CHIP_ID) {
+		snprintf(message, 160, "Chip ID error: 0x%08x != 0x%08x \n",
+			vcore_chip_id, CHIP_ID);
+		goto error;
+	}
+
+	vaccess_chip_id = mscc_fa_vcore_read_reg(priv,
+						 DEVCPU_GCB_CHIP_REGS_ID_OFF);
+	if (vaccess_chip_id != vcore_chip_id) {
+		snprintf(message, 160, "VCore access error: CSR space:"
+			 " chip_id: 0x%08x\n",
+			vaccess_chip_id);
+		goto error;
 	}
 	/* Write value to General CPU reg 0 */
-	mscc_fa_vcore_write_reg(priv, CPU_REGS_GPR_R_OFF(0), test0);
+	mscc_fa_fdma_vcore_write_reg(priv, CPU_REGS_GPR_R_OFF(0), test0);
 	/* Write value to General CPU reg 1 */
-	mscc_fa_vcore_write_reg(priv, CPU_REGS_GPR_R_OFF(1), test1);
+	mscc_fa_fdma_vcore_write_reg(priv, CPU_REGS_GPR_R_OFF(1), test1);
 	/* Read General CPU reg 0 */
 	value = mscc_fa_vcore_read_reg(priv, CPU_REGS_GPR_R_OFF(0));
 	if (test0 != value) {
-		pr_err("%s:%d %s: VCore access error: AMBA_TOP space\n",
-			__FILE__, __LINE__, __func__);
-		return -1;
+		snprintf(message, 160, "VCore access error: AMBA_TOP space\n");
+		goto error;
 	}
 	/* Read General CPU reg 1 */
 	value = mscc_fa_vcore_read_reg(priv, CPU_REGS_GPR_R_OFF(1));
 	if (test1 != value) {
-		pr_err("%s:%d %s: VCore access error: AMBA_TOP space\n",
-			__FILE__, __LINE__, __func__);
-		return -1;
+		snprintf(message, 160, "VCore access error: AMBA_TOP space\n");
+		goto error;
 	}
-
-	dma_buffer = devm_kmalloc(priv->dma.dev, 1024, GFP_KERNEL);
-	phys = virt_to_phys(dma_buffer);
-	dcb = dma_buffer;
-	dcb->nextptr = 0x12345678abcdef;
-	pr_debug("%s:%d %s: Allocation 0x%px at phys: 0x%px\n", 
-		__FILE__, __LINE__, __func__, dma_buffer, (void *)phys);
-	vcore_addr += phys;
-	pr_debug("%s:%d %s: Address in VCore Space: 0x%px\n", 
-		__FILE__, __LINE__, __func__, (void *)vcore_addr);
-
-	value = mscc_fa_vcore_readl(priv, vcore_addr);
-	if (0x78abcdef != value) {
-		pr_err("%s:%d %s: VCore PCIe space access error:"
-		       " AMBA_TOP space\n", 
-			__FILE__, __LINE__, __func__);
-		return -1;
+	mscc_fa_fdma_disable_acp_caching(priv);
+	buffer = dma_pool_zalloc(priv->dcb_pool, GFP_ATOMIC, &phys);
+	res = mscc_fa_buffer_access_test(priv, message, 160, 0, buffer, phys);
+	dma_pool_free(priv->dcb_pool, buffer, phys);
+	if (res) {
+		goto error;
 	}
-	value = mscc_fa_vcore_readl(priv, vcore_addr + 4);
-	if (0x00123456 != value) {
-		pr_err("%s:%d %s: VCore PCIe space access error:"
-		       " AMBA_TOP space\n",
-			__FILE__, __LINE__, __func__);
-		return -1;
+	buffer = kmalloc(64, GFP_KERNEL);
+	phys = virt_to_phys(buffer);
+	res = mscc_fa_buffer_access_test(priv, message, 160, 1, buffer, phys);
+	kfree(buffer);
+	if (res) {
+		goto error;
 	}
-	pr_debug("%s:%d %s: Successfully accessed host memory\n", 
-		__FILE__, __LINE__, __func__);
+	snprintf(message, 160, "Successfully accessed host via vcore access\n");
+	dev_info(&pdev->dev, message);
 	return 0;
+error:
+	dev_err(&pdev->dev, message);
+	return -ENODEV;
 }
 
 static void mscc_fa_setup_pcie_atu(struct mscc_fa_fdma *priv)
@@ -1562,100 +1840,56 @@ static void mscc_fa_setup_pcie_atu(struct mscc_fa_fdma *priv)
 	 * Set limit address =  PCI_TARGET_SPACE + 4GB (the vcore side)
 	 * Set target address = 0 (the host side)
 	 */
-	mscc_fa_vcore_write_reg(priv, 
+	mscc_fa_fdma_vcore_write_reg(priv,
 		PCIE_DM_EP_PF0_ATU_REGION_CTRL_2_OFF_OUTBOUND_0_OFF,
 		PCIE_DM_EP_PF0_ATU_REGION_CTRL_2_OFF_OUTBOUND_0_EN);
 
-	mscc_fa_vcore_write_reg(priv, 
+	mscc_fa_fdma_vcore_write_reg(priv,
 		PCIE_DM_EP_PF0_ATU_LWR_BASE_ADDR_OFF_OUTBOUND_0_OFF,
-		(u32)FDMA_ATU_TARGET_SPACE);
-	mscc_fa_vcore_write_reg(priv, 
+		(u32)PCIE_TARGET_OFFSET);
+	mscc_fa_fdma_vcore_write_reg(priv,
 		PCIE_DM_EP_PF0_ATU_UPPER_BASE_ADDR_OFF_OUTBOUND_0_OFF,
-		(u32)(FDMA_ATU_TARGET_SPACE >> 32));
-	mscc_fa_vcore_write_reg(priv, 
+		(u32)(PCIE_TARGET_OFFSET >> 32));
+	mscc_fa_fdma_vcore_write_reg(priv,
 		PCIE_DM_EP_PF0_ATU_LIMIT_ADDR_OFF_OUTBOUND_0_OFF,
 		~0x0);
-	mscc_fa_vcore_write_reg(priv, 
+	mscc_fa_fdma_vcore_write_reg(priv,
 		PCIE_DM_EP_PF0_ATU_UPPR_LIMIT_ADDR_OFF_OUTBOUND_0_OFF,
-		(u32)(FDMA_ATU_TARGET_SPACE >> 32));
-	mscc_fa_vcore_write_reg(priv, 
+		(u32)(PCIE_TARGET_OFFSET >> 32));
+	mscc_fa_fdma_vcore_write_reg(priv,
 		PCIE_DM_EP_PF0_ATU_LWR_TARGET_ADDR_OFF_OUTBOUND_0_OFF,
 		0);
-	mscc_fa_vcore_write_reg(priv, 
+	mscc_fa_fdma_vcore_write_reg(priv,
 		PCIE_DM_EP_PF0_ATU_UPPER_TARGET_ADDR_OFF_OUTBOUND_0_OFF,
 		0);
 }
 
-static int mscc_fa_configure_fdma(struct mscc_fa_fdma *priv, bool use_pcie)
+static void mscc_fa_reset_fdma(struct mscc_fa_fdma *priv)
 {
-	int group = 0;
-	int port = 0;
-	int channel = 0;
-	u32 value = 0;
-
 	pr_debug("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	mscc_fa_writel(priv, FDMA_CTRL_OFF, 0);
-	wmb();
-	mscc_fa_writel(priv, FDMA_CTRL_OFF, FDMA_CTRL_NRESET);
-
-	/* Group: Enable FDMA Injection (mode 2) */
-	value = mscc_fa_readl(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(group));
-	value &= ~DEVCPU_QS_INJ_GRP_CFG_MODE_M;
-	value |= DEVCPU_QS_INJ_GRP_CFG_MODE(2);
-	mscc_fa_writel(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(group), value);
-
-	/* Group: Set gap using IFH (gap 0) */
-	mscc_fa_writel(priv, DEVCPU_QS_INJ_CTRL_R_OFF(group),
-		DEVCPU_QS_INJ_CTRL_GAP_SIZE(0));
-
-	/* Channel:
-	* FDMA_CH_CFG[channel].CH_INJ_PORT is set to 0
-	* FDMA_CH_CFG[0-7].CH_DCB_DB_CNT = 1 for number of DCBs
-	* FDMA_CH_CFG[0-7].CH_INTR_DB_EOF_ONLY = 1 for intr on EOF only 
-	*/
-	for (channel = 0; channel < priv->nr_pchans; ++channel) {
-		if (use_pcie) {
-			mscc_fa_writel(priv, FDMA_CH_CFG_R_OFF(channel), 
-				/* Use all data blocks */
-				FDMA_CH_CFG_DCB_DB_CNT(FDMA_DCB_MAX_DBS) | 
-				FDMA_CH_CFG_INTR_DB_EOF_ONLY |
-				FDMA_CH_CFG_MEM);
-		}
-	}
-	/* Group: Enable FDMA Extraction (mode 2) */
-	value = mscc_fa_readl(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(group));
-	value &= ~DEVCPU_QS_XTR_GRP_CFG_MODE_M;
-	value |= DEVCPU_QS_XTR_GRP_CFG_MODE(2);
-	mscc_fa_writel(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(group), value);
-
-
-	/* This should be in the port handling: fireant_board.c */
-	/* Port Format: IFH with no prefix, no preamble, no VSTAX2 aware */
-	mscc_fa_writel(priv, ASM_CFG_PORT_R_OFF(port), 
-		ASM_CFG_PORT_INJ_FORMAT(1) | 
-		ASM_CFG_PORT_NO_PREAMBLE_ENA);
-
-	if (use_pcie) {
+	mscc_fa_fdma_writel(priv, FDMA_CTRL_OFF, 0);
+	mscc_fa_fdma_writel(priv, FDMA_CTRL_OFF, FDMA_CTRL_NRESET);
+	/* Use the Address Translation for PCIe */
+	if (priv->using_pcie) {
 		mscc_fa_setup_pcie_atu(priv);
-		mscc_fa_access_test(priv);
 	}
-
-	return 0;
+	/* Workaround for FDMA secure mode operations */
+	mscc_fa_fdma_disable_acp_caching(priv);
 }
 
-static int mscc_fa_init_region(struct platform_device *pdev,
+static bool mscc_fa_init_region(struct platform_device *pdev,
 	struct mscc_fa_fdma *priv, struct resource *res,
 	unsigned int top, phys_addr_t vcore_addr)
 {
-	struct mscc_fa_region *region = 0;
+	struct mscc_fa_fdma_region *region = 0;
 
 	if (!res->start || !res->end) {
-		return -ENOENT;
+		return 0;
 	}
 	region = &priv->regions[GET_REGION_INDEX(top)];
 	region->phys_addr = res->start;
 	region->size = res->end - res->start + 1;
-	region->io_addr = devm_ioremap_resource(&pdev->dev, res);
+	region->io_addr = ioremap(region->phys_addr, region->size);
 	region->vcore_addr = vcore_addr;
 	pr_debug("%s:%d %s: IO Mapping %u: 0x%llx -> 0x%px .. 0x%px,"
 		" vcore: 0x%llx\n",
@@ -1665,16 +1899,183 @@ static int mscc_fa_init_region(struct platform_device *pdev,
 		region->io_addr, 
 		region->io_addr + region->size - 1,
 		region->vcore_addr);
+	return region->phys_addr != region->vcore_addr;
+}
+
+static u64 mscc_fa_fdma_show_dcb_via_vcore(struct seq_file *s,
+					    struct mscc_fa_fdma *priv,
+					    u64 phys,
+					    bool show_data)
+{
+	u64 vcore_addr = phys;
+	int idx;
+	u64 nextptr, info;
+	u64 data_addr;
+	u64 data_info;
+
+	nextptr = mscc_fa_fdma_vcore_readll(priv, vcore_addr);
+	vcore_addr += 8;
+	info = mscc_fa_fdma_vcore_readll(priv, vcore_addr);
+	vcore_addr += 8;
+	seq_printf(s, "DCB: 0x%09llx nextptr: 0x%09llx info: 0x%09llx\n",
+		   phys, nextptr, info);
+	for (idx = 0; idx < FDMA_DCB_MAX_DBS; ++idx) {
+		data_addr = mscc_fa_fdma_vcore_readll(priv, vcore_addr);
+		vcore_addr += 8;
+		if (data_addr != FDMA_DCB_INVALID_DATA) {
+			data_info = mscc_fa_fdma_vcore_readll(priv, vcore_addr);
+			vcore_addr += 8;
+			seq_printf(s, "      [%02d] dataptr: 0x%09llx"
+				   " status: 0x%09llx\n",
+				   idx, data_addr, data_info);
+		} else {
+			vcore_addr += 8;
+			data_addr = 0;
+		}
+		if (show_data && data_addr) {
+			int wmax = ((data_info + 4) & 0xffff) >> 2;
+			int wcount;
+			vcore_addr = data_addr;
+			for (wcount = 0; wcount < wmax; wcount++) {
+				u32 val = mscc_fa_vcore_readl(priv, vcore_addr);
+				seq_printf(s, "      0x%llx: %02x %02x %02x %02x\n",
+					   vcore_addr,
+					   val & 0xff,
+					   (val >> 8) & 0xff,
+					   (val >> 16) & 0xff,
+					   (val >> 24) & 0xff);
+				vcore_addr += 4;
+			}
+		}
+	}
+	return nextptr;
+}
+
+static void proc_mscc_fa_fdma_stats(struct seq_file *s, struct prof_stat *stat)
+{
+	seq_printf(s, "%s min ns: %llu\n", stat->name, stat->result.min);
+	seq_printf(s, "%s max ns: %llu\n", stat->name, stat->result.max);
+	seq_printf(s, "%s avg ns: %llu\n", stat->name,
+		   stat->result.sum / stat->samples);
+}
+
+static int mscc_fa_fdma_seqfile_dcbqueue(struct seq_file *s, void *offset)
+{
+	struct mscc_fa_fdma *priv = dev_get_drvdata(s->private);
+	struct mscc_fa_fdma_channel *fdma_chan;
+	u32 chan;
+	static struct {
+		char *name;
+	} states[] = {
+		{"Idle"},      /* CBS_IDLE = 0 */
+		{"Queued"},    /* DCBS_QUEUED */
+		{"Issued"},    /* DCBS_ISSUED */
+		{"Error"},     /* DCBS_ERROR */
+		{"Complete"}   /* DCBS_COMPLETE */
+	};
+
+	seq_printf(s, "\nChannel Status:\n");
+	for (chan = 0; chan < priv->nr_pchans; ++chan) {
+		struct mscc_fa_fdma_dcb *dcb;
+		int idx = 0;
+
+		fdma_chan = &priv->chans[chan];
+		if (fdma_chan->state == DCS_IDLE) {
+			continue;
+		}
+		seq_printf(s, "  Channel %u\n", chan);
+		list_for_each_entry(dcb, &fdma_chan->queued_dcbs, node) {
+			seq_printf(s, "    {%02d} %8.8s C%u ",
+				   idx, states[dcb->state].name, dcb->txd.cookie);
+			mscc_fa_fdma_show_dcb_via_vcore(s,
+							priv,
+							dcb->phys,
+							false);
+			++idx;
+		}
+	}
 	return 0;
+}
+
+static int mscc_fa_fdma_seqfile_dcblinks(struct seq_file *s, void *offset)
+{
+	struct mscc_fa_fdma *priv = dev_get_drvdata(s->private);
+	struct mscc_fa_fdma_channel *fdma_chan;
+	u32 chan;
+
+	for (chan = 0; chan < priv->nr_pchans; ++chan) {
+		u64 dcb_phys;
+
+		fdma_chan = &priv->chans[chan];
+		if (fdma_chan->state == DCS_IDLE) {
+			continue;
+		}
+		dcb_phys = mscc_fa_fdma_readll(priv,
+					       FDMA_DCB_LLP_PREV_R_OFF(chan),
+					       FDMA_DCB_LLP_PREV1_R_OFF(chan));
+		seq_printf(s, "\nDCB Links: channel: %u\n", chan);
+		while (dcb_phys > FDMA_DCB_INVALID_DATA) {
+			dcb_phys = mscc_fa_fdma_show_dcb_via_vcore(s,
+								   priv,
+								   dcb_phys,
+								   false);
+		}
+	}
+	return 0;
+}
+
+static int mscc_fa_fdma_seqfile_stats(struct seq_file *s, void *offset)
+{
+	struct mscc_fa_fdma *priv = dev_get_drvdata(s->private);
+	u32 chan;
+
+	for (chan = 0; chan < priv->nr_pchans; ++chan) {
+		struct mscc_fa_fdma_channel *fdma_chan = &priv->chans[chan];
+		if (fdma_chan->state == DCS_IDLE) {
+			continue;
+		}
+		seq_printf(s, "Channel %u: Total dcbs: %d\n", chan, FDMA_DCB_MAX);
+		seq_printf(s, "Channel %u: Free dcbs: %d\n", chan,
+			   fdma_chan->stats.free_dcbs);
+		seq_printf(s, "Channel %u: Free dcbs low mark: %d\n", chan,
+			   fdma_chan->stats.free_dcbs_low_mark);
+	}
+	proc_mscc_fa_fdma_stats(s, &profstats[0]);
+	proc_mscc_fa_fdma_stats(s, &profstats[1]);
+	return 0;
+}
+
+static void mscc_fa_fdma_debugfs(struct mscc_fa_fdma *priv)
+{
+	u32 chan;
+
+	prof_sample_init(&profstats[0], 20000, "rx callback");
+	prof_sample_init(&profstats[1], 20000, "issue pending");
+
+	priv->rootfs = debugfs_create_dir("mscc_fa_fdma", NULL);
+	for (chan = 0; chan < priv->nr_pchans; ++chan) {
+		struct mscc_fa_fdma_channel *fdma_chan;
+		char buffer[15];
+
+		fdma_chan = &priv->chans[chan];
+		snprintf(buffer, 14, "channel%u_irq", chan);
+		debugfs_create_x64(buffer, 0666, priv->rootfs,
+				   &fdma_chan->dbirq_pattern);
+	}
+	debugfs_create_devm_seqfile(priv->dma.dev, "dcbqueue", priv->rootfs,
+				    mscc_fa_fdma_seqfile_dcbqueue);
+	debugfs_create_devm_seqfile(priv->dma.dev, "dcblinks", priv->rootfs,
+				    mscc_fa_fdma_seqfile_dcblinks);
+	debugfs_create_devm_seqfile(priv->dma.dev, "stats", priv->rootfs,
+				    mscc_fa_fdma_seqfile_stats);
 }
 
 static int mscc_fa_fdma_probe(struct platform_device *pdev)
 {
 	struct device_node *devnode = pdev->dev.of_node;
 	struct mscc_fa_fdma *priv;
-	int ret = -ENODEV, nr_channels, i;
+	int ret = -ENODEV, nr_channels, idx, jdx;
 	struct resource *res;
-	u32 chip_id;
 
 	/* Get Frame DMA info from Device Tree */
 	if (!devnode) {
@@ -1698,25 +2099,11 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 	priv->nr_pchans = nr_channels;
 	platform_set_drvdata(pdev, priv);
 
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);  /* Is this 64? */
-
-	spin_lock_init(&priv->lock);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
 
 	/* Use slave mode DMA */
 	dma_cap_set(DMA_SLAVE, priv->dma.cap_mask); 
 	priv->dma.dev = &pdev->dev;
-
-	tasklet_init(&priv->tasklet, mscc_fa_fdma_tasklet, (unsigned long)priv);
-
-	/* Create the channel list */
-	INIT_LIST_HEAD(&priv->dma.channels);
-	for (i = 0; i < nr_channels; i++) {
-		struct mscc_fa_fdma_channel *fdma_chan = &priv->chans[i];
-		fdma_chan->chan.device = &priv->dma;
-		fdma_chan->state = DCS_IDLE;
-		INIT_LIST_HEAD(&fdma_chan->queued_dcbs);
-		list_add_tail(&fdma_chan->chan.device_node, &priv->dma.channels);
-	}
 
 	/* Create a pool of consistent memory blocks for hardware descriptors */
 	priv->dcb_pool = dmam_pool_create("mscc-fdma-dcb", priv->dma.dev,
@@ -1728,17 +2115,43 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto out_free;
 	}
-	INIT_LIST_HEAD(&priv->free_dcbs);
-	for (i = 0; i < FDMA_DCB_MAX; ++i) {
-		struct mscc_fa_fdma_dcb *dcb;
-		dma_addr_t dcb_phys;
 
-		dcb = dma_pool_zalloc(priv->dcb_pool, GFP_ATOMIC, &dcb_phys);
-		if (dcb) {
-			dcb->phys = dcb_phys;
-			dcb->offset = FDMA_ATU_TARGET_SPACE;
-			list_add(&dcb->node, &priv->free_dcbs);
+	/* Create the channel list */
+	INIT_LIST_HEAD(&priv->dma.channels);
+	for (idx = 0; idx < nr_channels; idx++) {
+		struct mscc_fa_fdma_channel *fdma_chan = &priv->chans[idx];
+
+		fdma_chan->chan.device = &priv->dma;
+		fdma_chan->state = DCS_IDLE;
+		INIT_LIST_HEAD(&fdma_chan->queued_dcbs);
+		fdma_chan->dbirq_pattern = 0x7fff;
+		fdma_chan->drv = priv;
+		if (idx >= FDMA_XTR_CHANNEL) {
+			tasklet_init(&fdma_chan->tasklet,
+				     mscc_fa_fdma_xtr_tasklet,
+				     (unsigned long)fdma_chan);
+		} else {
+			tasklet_init(&fdma_chan->tasklet,
+				     mscc_fa_fdma_inj_tasklet,
+				     (unsigned long)fdma_chan);
 		}
+
+		spin_lock_init(&fdma_chan->lock);
+		list_add_tail(&fdma_chan->chan.device_node, &priv->dma.channels);
+
+		INIT_LIST_HEAD(&fdma_chan->free_dcbs);
+		for (jdx = 0; jdx < FDMA_DCB_MAX; ++jdx) {
+			struct mscc_fa_fdma_dcb *dcb;
+			dma_addr_t dcb_phys;
+
+			dcb = dma_pool_zalloc(priv->dcb_pool, GFP_ATOMIC, &dcb_phys);
+			if (dcb) {
+				dcb->phys = dcb_phys;
+				list_add(&dcb->node, &fdma_chan->free_dcbs);
+			}
+		}
+		fdma_chan->stats.free_dcbs = FDMA_DCB_MAX;
+		fdma_chan->stats.free_dcbs_low_mark = FDMA_DCB_MAX;
 	}
 
 	/* Provide DMA Engine device interface */
@@ -1776,7 +2189,9 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot get IO resource 0\n");
 		return -EINVAL;
 	}
-	mscc_fa_init_region(pdev, priv, res, FIREANT_DEFAULT, VCORE_CSR_SPACE);
+	priv->using_pcie = mscc_fa_init_region(pdev, priv, res, FIREANT_DEFAULT, 
+					       VCORE_CSR_SPACE);
+	priv->dcb_offset = priv->using_pcie ? PCIE_TARGET_OFFSET : 0;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
 		dev_err(&pdev->dev, "Cannot get IO resource 1\n");
@@ -1784,15 +2199,11 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 	}
 	mscc_fa_init_region(pdev, priv, res, FIREANT_AMBA_TOP, AMBA_TOP_SPACE);
 
-	chip_id = mscc_fa_readl(priv, DEVCPU_GCB_CHIP_REGS_ID_OFF);
-	pr_debug("%s:%d %s: Fireant: %x\n",
-		__FILE__, __LINE__, __func__, chip_id);
-
-	ret = mscc_fa_configure_fdma(priv, 1);
+	ret = mscc_fa_access_test(pdev, priv);
 	if (ret) {
-		dev_err(&pdev->dev, "Could not configure FDMA\n");
-		goto out_unregister;
+		goto out_free;
 	}
+	mscc_fa_reset_fdma(priv);
 
 	priv->irq = platform_get_irq(pdev, 0);
 	pr_debug("%s:%d %s: IRQ: %d\n", __FILE__, __LINE__, __func__, priv->irq);
@@ -1802,6 +2213,9 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Could not request IRQ\n");
 		goto out_unregister;
 	}
+
+	/* Provide debugfs access to data */
+	mscc_fa_fdma_debugfs(priv);
 
 	return 0;
 
@@ -1824,20 +2238,20 @@ static int mscc_fa_fdma_remove(struct platform_device *pdev)
 
 	pr_debug("%s:%d %s: begin\n", __FILE__, __LINE__, __func__);
 
+	debugfs_remove_recursive(priv->rootfs);
 	for (chan = 0; chan < priv->nr_pchans; ++chan) {
 		fdma_chan = &priv->chans[chan];
 		mscc_fa_fdma_free_chan_resources(&fdma_chan->chan);
 		mscc_fa_fdma_sync(&fdma_chan->chan);
 		mscc_fa_fdma_free_dcb_list(&fdma_chan->chan);
-	}
-
-	list_for_each_entry(iter, &priv->free_dcbs, node) {
-		pr_debug("%s:%d %s: DCB: 0x%llx: state: %u, cookie: %u\n", 
-			__FILE__, __LINE__, __func__, 
-			iter->phys,
-			iter->state,
-			iter->txd.cookie);
-		dma_pool_free(priv->dcb_pool, iter, iter->phys);
+		list_for_each_entry(iter, &fdma_chan->free_dcbs, node) {
+			pr_debug("%s:%d %s: DCB: 0x%llx: state: %u, C%u\n",
+				 __FILE__, __LINE__, __func__,
+				 iter->phys,
+				 iter->state,
+				 iter->txd.cookie);
+			dma_pool_free(priv->dcb_pool, iter, iter->phys);
+		}
 	}
 
 	/* Free interrupt */
@@ -1851,7 +2265,7 @@ static int mscc_fa_fdma_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mscc_fa_fdma_match[] = {
-	{ .compatible = "mscc,vsc7568-fdma", },
+	{ .compatible = "mscc,vsc7558-fdma", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mscc_fa_fdma_match);
