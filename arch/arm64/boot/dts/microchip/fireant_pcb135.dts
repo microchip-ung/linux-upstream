@@ -25,6 +25,16 @@
 		pins = "GPIO_44";
 		function = "si";
 	};
+	synce_pins: synce-pins {
+		// CS2
+		pins = "GPIO_17";
+		function = "si";
+	};
+	redwood_pins: redwood-pins {
+		// CS3
+		pins = "GPIO_18";
+		function = "si";
+	};
 };
 
 &spi0 {
@@ -44,6 +54,22 @@
 		pinctrl-names = "default";
 		spi-max-frequency = <28000000>;
 		reg = <14>;
+	};
+	// synce module
+	spi@2 {
+		compatible = "mchp,synce";
+		reg = <2>;
+		pinctrl-0 = <&synce_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+	// redwood ptp dpll
+	spi@3 {
+		compatible = "mchp,redwood";
+		reg = <3>;
+		pinctrl-0 = <&redwood_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
 	};
 };
 

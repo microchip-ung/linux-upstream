@@ -14,12 +14,41 @@
 	status = "okay";
 };
 
+&gpio {
+	synce_pins: synce-pins {
+		// CS7
+		pins = "GPIO_28";
+		function = "si";
+	};
+	redwood_pins: redwood-pins {
+		// CS8
+		pins = "GPIO_29";
+		function = "si";
+	};
+};
+
 &spi0 {
 	status = "okay";
 	spi-flash@0 {
 		compatible = "mx66l1g45g", "jedec,spi-nor";
 		spi-max-frequency = <8000000>;
 		reg = <0>;
+	};
+	// synce module
+	spi@7 {
+		compatible = "mchp,synce";
+		reg = <7>;
+		pinctrl-0 = <&synce_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+	// redwood ptp dpll
+	spi@8 {
+		compatible = "mchp,redwood";
+		reg = <8>;
+		pinctrl-0 = <&redwood_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
 	};
 };
 
