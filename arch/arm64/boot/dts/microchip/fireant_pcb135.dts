@@ -30,7 +30,7 @@
 		pins = "GPIO_17";
 		function = "si";
 	};
-	redwood_pins: redwood-pins {
+	synce_builtin_pins: synce-builtin-pins {
 		// CS3
 		pins = "GPIO_18";
 		function = "si";
@@ -57,17 +57,17 @@
 	};
 	// synce module
 	spi@2 {
-		compatible = "mchp,synce";
+		compatible = "mchp,synce_dpll";
 		reg = <2>;
 		pinctrl-0 = <&synce_pins>;
 		pinctrl-names = "default";
 		spi-max-frequency = <8000000>;
 	};
-	// redwood ptp dpll
+	// redwood onboard ptp dpll
 	spi@3 {
-		compatible = "mchp,redwood";
+		compatible = "mchp,synce_builtin";
 		reg = <3>;
-		pinctrl-0 = <&redwood_pins>;
+		pinctrl-0 = <&synce_builtin_pins>;
 		pinctrl-names = "default";
 		spi-max-frequency = <8000000>;
 	};
