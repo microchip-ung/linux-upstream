@@ -10,30 +10,6 @@
 	model = "FireAnt PCB134 Reference Board (NAND)";
 	compatible = "mscc,fireant-pcb134", "mscc,fireant";
 
-	aliases {
-            i2c0   = &i2c0;
-            i2c100 = &i2c100;
-            i2c101 = &i2c101;
-            i2c102 = &i2c102;
-            i2c103 = &i2c103;
-            i2c104 = &i2c104;
-            i2c105 = &i2c105;
-            i2c106 = &i2c106;
-            i2c107 = &i2c107;
-            i2c108 = &i2c108;
-            i2c109 = &i2c109;
-            i2c110 = &i2c110;
-            i2c111 = &i2c111;
-            i2c112 = &i2c112;
-            i2c113 = &i2c113;
-            i2c114 = &i2c114;
-            i2c115 = &i2c115;
-            i2c116 = &i2c116;
-            i2c117 = &i2c117;
-            i2c118 = &i2c118;
-            i2c119 = &i2c119;
-	};
-
 	memory@0 {
 		device_type = "memory";
 		reg = <0x00000000 0x00000000 0x10000000>;
