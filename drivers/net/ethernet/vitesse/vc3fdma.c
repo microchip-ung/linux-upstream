@@ -76,7 +76,7 @@ static u8 ifh_encap [] = {
 #define RX_MTU_MAX             16384
 #define IF_BUFSIZE_JUMBO       10400
 #define RX_BUF_CNT_DEFAULT     1024
-#define NAPI_BUDGET            ((RX_BUF_CNT_DEFAULT / 2) > NAPI_POLL_WEIGHT ? NAPI_POLL_WEIGHT : (RX_BUF_CNT_DEFAULT / 2))
+#define NAPI_BUDGET            ((RX_BUF_CNT_DEFAULT / 2) > NAPI_POLL_WEIGHT ? (NAPI_POLL_WEIGHT / 2) : (RX_BUF_CNT_DEFAULT / 2))
 #define DCACHE_LINE_SIZE_BYTES 32 /* Data Cache Line size. Currently, it's the same on all supported platforms */
 #define ZC_CDEV_NAME           "vc3fdma_zc"
 #define RX_MULTI_DCB_SUPPORT   1 /* 0 or 1 */
@@ -159,7 +159,7 @@ struct vc3fdma_private {
     struct rx_cfg      rx_cfg;
 
     // Rx state
-    int                rx_work_done;
+    int                rx_work_done;           // Number of frames received during a driver->poll() operation
     u32                rx_mtu_cur;             // Current frame size (incl. FCS, but excl. Rx IFH) put aside for one Rx buffer
     u32                rx_buf_cnt_cur;         // Current total number of Rx buffers.
     u32                rx_frame_part_size;     // SKB_DATA_ALIGN()ed size of the whole data part of one frame (uFDMA buffer state, NET_SKB_PAD, and frame data itself).
@@ -175,6 +175,10 @@ struct vc3fdma_private {
     u32 irq_ena_self_cnt;
     u32 irq_ena_napi_cnt;
     u8  irq_ena_last_was_napi;
+    u32 rx_work_done_max;       // Max number of Rx_callback() calls per call to driver->poll().
+    u32 netif_rx_cnt;
+    u32 netif_tx_cnt;
+    u32 netif_tx_drop_cnt;
 
     // Zero-copy state
     struct {
@@ -313,13 +317,22 @@ static int rx_buffer_add_to_ufdma(u8 *data, gfp_t flags)
     vtss_ufdma_buf_dscr_t  buf_dscr;
     int                    rc;
 
-    if ((skb = __build_skb(data, 1000 /* any size > 0 will work*/)) == NULL) {
+    // The second argument tells how much this SKB (excluding size of skb itself
+    // and skb_shinfo) uses. If the rcvbuf size of vtss.ifh is exceeded (see
+    // sk->sk_rcvbuf, SO_RCVBUF, SK_RMEM_MAX, and rmem_default),
+    // netif_skb_receive() (in fact .../net/packet/af_packet.c#packet_rcv#2074)
+    // will toss the frame and release the SKB right away. Since we have a fixed
+    // amount of frame buffers that get reused, we don't want to utilize this
+    // functionality, but let all extracted frames go to the vtss.ifh interface.
+    // This means that we must set a small value for this one and let the
+    // application set a large value for SO_RCVBUF.
+    if ((skb = __build_skb(data, 1000)) == NULL) {
         T_E("Unable to allocate Rx SKB");
         return -ENOMEM;
     }
 
     // Inspired by .../net/netlink/af_netlink.c
-    // alloc_skb_head() clears the whole SKB except for
+    // __build_skb() clears the whole SKB except for
     // tail, end, head, data, truesize, and users.
     // It then sets users.counter to 1 and truesize to sizeof(sk_buff).
     // We override that here.
@@ -817,6 +830,7 @@ enum {
     VTSS_PACKET_GENL_TRACE_CFG_SET,       /**< Set uFDMA trace level settings                     */
     VTSS_PACKET_GENL_RX_CFG_GET,          /**< Get Rx config                                      */
     VTSS_PACKET_GENL_RX_CFG_SET,          /**< Set Rx config                                      */
+    VTSS_PACKET_GENL_STATI_CLEAR,         /**< Clear statistics                                   */
     // Add new operations here
 };
 
@@ -1129,6 +1143,43 @@ static int rx_cmd_cfg_set(struct sk_buff *skb, struct genl_info *info)
 }
 
 /****************************************************************************/
+// stati_clear()
+// Clear statistics
+/****************************************************************************/
+static int stati_clear(struct sk_buff *skb, struct genl_info *info)
+{
+    struct vc3fdma_private *priv;
+
+    T_I("Clearing statistics");
+
+    if (!driver) {
+        T_E("No uFDMA driver");
+        return -EIO;
+    }
+
+    if (!vc3fdma_dev) {
+        T_E("No vc3fdma device");
+        return -EIO;
+    }
+
+    L();
+    driver->stati_clr(driver);
+
+    priv = netdev_priv(vc3fdma_dev);
+
+    priv->irq_ena_self_cnt  = 0;
+    priv->irq_ena_napi_cnt  = 0;
+    priv->netif_rx_cnt      = 0;
+    priv->netif_tx_cnt      = 0;
+    priv->netif_tx_drop_cnt = 0;
+    priv->rx_work_done_max  = 0;
+
+    U();
+
+    return 0;
+}
+
+/****************************************************************************/
 // Structure used to define the operations applicable to the rx throttle netlink family.
 /****************************************************************************/
 static const struct genl_ops packet_generic_netlink_operations[] = {
@@ -1160,6 +1211,12 @@ static const struct genl_ops packet_generic_netlink_operations[] = {
     {
         .cmd    = VTSS_PACKET_GENL_RX_CFG_SET,
         .doit   = rx_cmd_cfg_set,
+        .flags  = GENL_ADMIN_PERM
+    },
+    {
+        .cmd    = VTSS_PACKET_GENL_STATI_CLEAR,
+        .doit   = stati_clear,
+        .policy = packet_policy,
         .flags  = GENL_ADMIN_PERM
     },
 };
@@ -1366,7 +1423,9 @@ static void RX_callback(vtss_ufdma_platform_driver_t *unused, vtss_ufdma_buf_dsc
         priv->rx_bufs_owned_by_appl++;
     }
 
+    // The following call always returns NET_RX_SUCCESS.
     netif_receive_skb(skb);
+    priv->netif_rx_cnt++;
     priv->rx_work_done++;
 }
 
@@ -1538,6 +1597,10 @@ static int vc3fdma_poll(struct napi_struct *napi, int budget)
     // This call indirectly invokes RX_callback() and TX_callback()
     // driver->poll(driver, budget);
     driver->poll(driver, 0);
+
+    if (priv->rx_work_done > priv->rx_work_done_max) {
+        priv->rx_work_done_max = priv->rx_work_done;
+    }
 
     U();
 
@@ -1721,10 +1784,12 @@ static int vc3fdma_send_packet(struct sk_buff *skb, struct net_device *dev)
         if ((rc = driver->tx(driver, &tbd))) {
             T_E("uFDMA transmit error: %s", driver->error_txt(driver, rc));
             dev->stats.tx_dropped++;
+            priv->netif_tx_drop_cnt++;
             kfree(tbd.buf_state);
             kfree_skb(skb);
         } else {
             dev->stats.tx_packets++;
+            priv->netif_tx_cnt++;
             dev->stats.tx_bytes += skb->len;
         }
     } else {
@@ -1798,6 +1863,10 @@ static int show_ufdma(struct seq_file *m, void *v)
         seq_printf(m, "Network Driver state:\n=====================\n\n");
         seq_printf(m, "IRQ ena count made by us:   %10u\n", priv->irq_ena_self_cnt);
         seq_printf(m, "IRQ ena count made by NAPI: %10u\n", priv->irq_ena_napi_cnt);
+        seq_printf(m, "Max. Rx count per poll:     %10u\n", priv->rx_work_done_max);
+        seq_printf(m, "Net I/F Rx count:           %10u\n", priv->netif_rx_cnt);
+        seq_printf(m, "Net I/F Tx count:           %10u\n", priv->netif_tx_cnt);
+        seq_printf(m, "Net I/F Tx drop count:      %10u\n", priv->netif_tx_drop_cnt);
         seq_printf(m, "Last IRQ ena %s\n", priv->irq_ena_last_was_napi ? "supposed to be made by NAPI": "made by us");
         seq_printf(m, "Zero-copy chardev open: %s\n", priv->zc.dev_open ? "Yes" : "No");
         seq_printf(m, "Zero-copy chardev memory-mapped: %s\n", priv->zc.mmapped ? "Yes" : "No");
