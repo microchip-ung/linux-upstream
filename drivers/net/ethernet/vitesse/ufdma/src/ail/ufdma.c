@@ -142,7 +142,7 @@ static int AIL_debug_print_dcb_list(ufdma_state_t *state, BOOL full, int (*pr)(v
     while (dcb) {
         // Print all of them or the first four and the last.
         if (full || cnt <= 4 || dcb->next == NULL) {
-            pr(ref, " %3u: 0x%08x[&dscr=%p, dscr.buf=%p (%u), dscr.buf_state=%p, hw->next=%p\n", cnt, dcb, &dcb->buf_dscr, dcb->buf_dscr.buf, dcb->buf_dscr.buf_size_bytes, dcb->buf_dscr.buf_state, state->cil.hw_dcb_next(state, dcb));
+            pr(ref, " %3u: 0x%08x[&dscr=%px, dscr.buf=%px (%u), dscr.buf_state=%px, hw->next=%px]\n", cnt, dcb, &dcb->buf_dscr, dcb->buf_dscr.buf, dcb->buf_dscr.buf_size_bytes, dcb->buf_dscr.buf_state, state->cil.hw_dcb_next(state, dcb));
         } else if (cnt == 5) {
             pr(ref, " ...\n");
         }
@@ -353,7 +353,7 @@ static int AIL_rx_restart(ufdma_state_t *state)
         UFDMA_CIL_FUNC_RC(state, rx_start, state->rx_head_sw, &restarted);
 
         if (restarted) {
-            UFDMA_DG(RX, "Restarted with %p. rx_head_hw = %p", state->rx_head_sw, state->rx_head_hw);
+            UFDMA_DG(RX, "Restarted with %px. rx_head_hw = %px", state->rx_head_sw, state->rx_head_hw);
 
             // Update S/W pointers.
             if (state->rx_head_hw) {
@@ -837,7 +837,7 @@ static void AIL_callback_all(ufdma_state_t *state, ufdma_dcb_t *head, void (*cal
         ufdma_dcb_t           *next    = head->next;
         vtss_ufdma_buf_dscr_t buf_dscr = head->buf_dscr;
 
-        UFDMA_D("%s: Freeing head = %p, buf_dscr = %p", who, head, &buf_dscr);
+        UFDMA_D("%s: Freeing head = %px, buf_dscr = %px", who, head, &buf_dscr);
 
         buf_dscr.result = UFDMA_RC_UNINIT;
         buf_dscr.next   = NULL;
