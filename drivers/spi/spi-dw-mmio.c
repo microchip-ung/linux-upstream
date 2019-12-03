@@ -212,6 +212,7 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 			    const struct dw_spi_mscc_props *props)
 {
 	struct dw_spi_mscc *dwsmscc;
+	struct resource *res;
 
 	dwsmscc = devm_kzalloc(&pdev->dev, sizeof(*dwsmscc), GFP_KERNEL);
 	if (!dwsmscc)
