@@ -105,30 +105,33 @@ enum vtss_if_mux_filter_type {
 static struct genl_family vtss_if_mux_genl_family;
 
 #define VLAN_MASK_LEN 512
+#define PORT_MASK_BITS 128
+#define PORT_MASK_LEN (PORT_MASK_BITS/8)
 
 static struct nla_policy genel_policy[VTSS_IF_MUX_ATTR_END] = {
-		[VTSS_IF_MUX_ATTR_NONE] = {.type = NLA_UNSPEC},
-		[VTSS_IF_MUX_ATTR_ID] = {.type = NLA_U32},
-		[VTSS_IF_MUX_ATTR_OWNER] = {.type = NLA_U64},
-		[VTSS_IF_MUX_ATTR_LIST] = {.type = NLA_U32},
-		[VTSS_IF_MUX_ATTR_ACTION] = {.type = NLA_U32},
-		[VTSS_IF_MUX_ATTR_RULE] = {.type = NLA_NESTED},
-		[VTSS_IF_MUX_ATTR_ELEMENT] = {.type = NLA_NESTED},
-		[VTSS_IF_MUX_ATTR_ELEMENT_TYPE] = {.type = NLA_U32},
-		[VTSS_IF_MUX_ATTR_ELEMENT_PORT_MASK] = {.type = NLA_U64},
-		[VTSS_IF_MUX_ATTR_ELEMENT_ADDR] = {.type = NLA_BINARY,
-						   .len = MAX_ADDR_LEN},
-		[VTSS_IF_MUX_ATTR_ELEMENT_INT] = {.type = NLA_U32},
-                [VTSS_IF_MUX_ATTR_PORT_CONF] = {.type = NLA_NESTED},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_ENTRY] = {.type = NLA_NESTED},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_CHIP_PORT] = {.type = NLA_U32},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_ETYPE] = {.type = NLA_U32},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_ETYPE_CUSTOM] = {.type = NLA_U32},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_RX_FILTER] = {.type = NLA_U32},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_RX_FORWARD] = {.type = NLA_U32},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_TX_FORWARD] = {.type = NLA_U32},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_VLAN_MASK] =  {.type = NLA_BINARY,
-                                                           .len = VLAN_MASK_LEN}
+	[VTSS_IF_MUX_ATTR_NONE] = {.type = NLA_UNSPEC},
+	[VTSS_IF_MUX_ATTR_ID] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_OWNER] = {.type = NLA_U64},
+	[VTSS_IF_MUX_ATTR_LIST] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_ACTION] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_RULE] = {.type = NLA_NESTED},
+	[VTSS_IF_MUX_ATTR_ELEMENT] = {.type = NLA_NESTED},
+	[VTSS_IF_MUX_ATTR_ELEMENT_TYPE] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_ELEMENT_PORT_MASK] = {.type = NLA_BINARY,
+		.len = PORT_MASK_LEN},
+	[VTSS_IF_MUX_ATTR_ELEMENT_ADDR] = {.type = NLA_BINARY,
+		.len = MAX_ADDR_LEN},
+	[VTSS_IF_MUX_ATTR_ELEMENT_INT] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_PORT_CONF] = {.type = NLA_NESTED},
+	[VTSS_IF_MUX_ATTR_PORT_CONF_ENTRY] = {.type = NLA_NESTED},
+	[VTSS_IF_MUX_ATTR_PORT_CONF_CHIP_PORT] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_PORT_CONF_ETYPE] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_PORT_CONF_ETYPE_CUSTOM] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_PORT_CONF_RX_FILTER] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_PORT_CONF_RX_FORWARD] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_PORT_CONF_TX_FORWARD] = {.type = NLA_U32},
+	[VTSS_IF_MUX_ATTR_PORT_CONF_VLAN_MASK] =  {.type = NLA_BINARY,
+		.len = VLAN_MASK_LEN}
 };
 
 struct vtss_if_mux_filter_element {
@@ -144,7 +147,8 @@ struct vtss_if_mux_filter_element {
 
 		// Used as port mask - must be converted to physical ports in
 		// user-space
-		u64 mask;
+		unsigned long mask_value[BITS_TO_LONGS(PORT_MASK_BITS)];
+		u8 mask[PORT_MASK_LEN];
 
 		// We need 16 bytes to hold a IPv6 address
 		char address[16];
@@ -208,9 +212,10 @@ static u16 vsi2vid[VLAN_N_VID];
 
 #define VTSS_HDR (vtss_if_mux_chip->ifh_len + 2)
 #define ETHERTYPE_LENGTH 2
-static inline int vtss_port_check(struct frame_data *d, u64 mask)
+
+static inline int vtss_port_check(struct frame_data *d, unsigned long *mask)
 {
-	u64 p = 0, m = 0;
+	u64 p = 0;
 	if (vtss_if_mux_chip->soc == SOC_LUTON) {
 		p = d->skb->data[3];
 		p = (p >> 3);
@@ -227,15 +232,16 @@ static inline int vtss_port_check(struct frame_data *d, u64 mask)
 		p <<= 5;
 		p |= (d->skb->data[26] >> 3) & 0x1f;
 		//printk(KERN_ERR "CHIP-PORT: %llu - delete line when tested!", p);
+	} else if (vtss_if_mux_chip->soc == SOC_FIREANT) {
+		p = ((d->skb->data[31] << 2) |
+		     (d->skb->data[32] >> 6)) & 0x3f;
+		// pr_info("port: %llu: enabled: %d ", p, test_bit(p, mask));
 	} else {
-	    if (printk_ratelimit())
-		    printk("Invalid architecture type\n");
-	    return 0;
+		if (printk_ratelimit())
+			printk("Invalid architecture type\n");
+		return 0;
 	}
-
-	m = 1llu << p;
-
-	return (mask & m) != 0llu;
+	return test_bit(p, mask);
 }
 
 static inline int vtss_mac_src_check(struct frame_data *d, char *mac)
@@ -466,7 +472,7 @@ static inline int element_match(struct vtss_if_mux_filter_element *e,
 {
 	switch (e->type) {
 	case VTSS_IF_MUX_FILTER_TYPE_port_mask:
-		return vtss_port_check(d, e->data.mask);
+		return vtss_port_check(d, e->data.mask_value);
 
 	case VTSS_IF_MUX_FILTER_TYPE_mac_src:
 		return vtss_mac_src_check(d, e->data.address);
@@ -837,8 +843,10 @@ static int parse_elements(struct vtss_if_mux_filter_element *e,
 			printk(KERN_ERR "No port mask!\n");
 			return -EINVAL;
 		}
-		e->data.mask = nla_get_u64(
-			element_attr[VTSS_IF_MUX_ATTR_ELEMENT_PORT_MASK]);
+		memcpy(e->data.mask,
+		       nla_data(element_attr[VTSS_IF_MUX_ATTR_ELEMENT_PORT_MASK]), 
+		       PORT_MASK_LEN);
+		pr_debug("Port Mask: %*pbl\n", PORT_MASK_BITS, e->data.mask_value);
 		break;
 
 	case VTSS_IF_MUX_FILTER_TYPE_mac_src:
@@ -1522,7 +1530,7 @@ static void debug_dump_element(struct seq_file *s, struct vtss_if_mux_filter_ele
 
 	switch (e->type) {
 	case VTSS_IF_MUX_FILTER_TYPE_port_mask:
-		seq_printf(s, "0x%08llx", e->data.mask);
+		seq_printf(s, "%*pbl", PORT_MASK_BITS, e->data.mask_value);
 		break;
 
 	case VTSS_IF_MUX_FILTER_TYPE_mac_src:
