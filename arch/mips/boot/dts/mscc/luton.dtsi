@@ -123,6 +123,17 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
+
+		fdma: fdma@0 {
+			compatible = "mscc,luton-fdma";
+			status = "okay";
+			reg = <0x60000000 0x01000000>, <0x70000000 0x00200000>;
+			interrupts = <10>;
+		};
+		ifmux: ifmux@0 {
+			compatible = "mscc,luton-ifmux";
+			status = "okay";
+		};
 	};
 
 	pi_nand: nand@50000000 {

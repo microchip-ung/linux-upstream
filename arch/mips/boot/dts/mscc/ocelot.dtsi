@@ -44,6 +44,14 @@
 		clock-mult = <1>;
 	};
 
+	uio0: vcoreiii_switch@70000000 {
+		compatible = "generic-uio";
+		interrupt-parent = <&cpuintc>;
+		reg = <0x70000000 0x02000000>;
+		reg-names = "origin1_2";
+		interrupts = <3>;
+	};
+
 	ahb@70000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -138,8 +146,8 @@
 				    "port2", "port3", "port4", "port5", "port6",
 				    "port7", "port8", "port9", "port10", "qsys",
 				    "ana", "s2";
-			interrupts = <18 21 22>;
-			interrupt-names = "ptp_rdy", "xtr", "inj";
+			interrupts = <21 22>;
+			interrupt-names = "xtr", "inj";
 
 			ethernet-ports {
 				#address-cells = <1>;
@@ -256,9 +264,9 @@
 			status = "disabled";
 		};
 
-		hsio: syscon@10d0000 {
+		hsio: syscon@710d0000 {
 			compatible = "mscc,ocelot-hsio", "syscon", "simple-mfd";
-			reg = <0x10d0000 0x10000>;
+			reg = <0x710d0000 0x10000>;
 
 			serdes: serdes {
 				compatible = "mscc,vsc7514-serdes";

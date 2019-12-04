@@ -46,6 +46,14 @@
 		clock-mult = <1>;
 	};
 
+	uio0: vcoreiii_switch@70000000 {
+		compatible = "generic-uio";
+		interrupt-parent = <&cpuintc>;
+		reg = <0x70000000 0x02000000>;
+		reg-names = "origin1_2";
+		interrupts = <3>;
+	};
+
 	ahb@70000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -146,6 +154,18 @@
 			gpio-ranges = <&sgpio 0 0 64>; // 32*<sgpio-bitcount>
 			sgpio-clock = <0x14>;
 			sgpio-bitcount = <2>;
+		};
+
+		fdma: fdma@0 {
+			compatible = "mscc,serval1-fdma";
+			status = "okay";
+			reg = <0x70000000 0x00200000>, <0x71000000 0x01000000>;
+			interrupts = <15>;
+		};
+
+		ifmux: ifmux@0 {
+			compatible = "mscc,serval1-ifmux";
+			status = "okay";
 		};
 	};
 };
