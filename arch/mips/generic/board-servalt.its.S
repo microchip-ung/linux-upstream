@@ -14,7 +14,7 @@
 	};
 
 	configurations {
-		conf@servalt_pcb116 {
+		pcb116 {
 			description = "Servalt Linux kernel";
 			kernel = "kernel@0";
 			fdt = "fdt@servalt_pcb116";

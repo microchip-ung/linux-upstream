@@ -34,19 +34,19 @@
 	};
 
 	configurations {
-		conf@jaguar2_pcb110 {
+		pcb110 {
 			description = "Jaguar2 Linux kernel";
 			kernel = "kernel@0";
 			fdt = "fdt@jaguar2_pcb110";
 			ramdisk = "ramdisk";
 		};
-		conf@jaguar2_pcb111 {
+		pcb111 {
 			description = "Jaguar2 Linux kernel";
 			kernel = "kernel@0";
 			fdt = "fdt@jaguar2_pcb111";
 			ramdisk = "ramdisk";
 		};
-		conf@serval2_pcb112 {
+		pcb112 {
 			description = "Serval2 Linux kernel";
 			kernel = "kernel@0";
 			fdt = "fdt@serval2_pcb112";

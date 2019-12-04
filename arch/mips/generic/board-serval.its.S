@@ -14,7 +14,7 @@
 	};
 
 	configurations {
-		conf@serval_pcb105 {
+		pcb105 {
 			description = "Serval Linux kernel";
 			kernel = "kernel@0";
 			fdt = "fdt@serval_pcb105";

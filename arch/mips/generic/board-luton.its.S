@@ -14,7 +14,7 @@
 	};
 
 	configurations {
-		conf@luton_pcb090 {
+		pcb090 {
 			description = "Luton Linux kernel";
 			kernel = "kernel@0";
                         ramdisk = "ramdisk";
