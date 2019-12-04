@@ -92,10 +92,10 @@ static const u8 hdr_tmpl_vlan_fireant[IFH_ENCAP_LEN(IFH_LEN_FIREANT)+4] = {
         _encap(IFH_ID_FIREANT),
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        /* v-rsv1 = 1 */
-        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        /* f-update-fcs 1 f-src-port 66 m-pipeline-act 2 */ 
-        0x00, 0x00, 0x00, 0x08, 0x00, 0x10, 0x88, 0x00,
+        /* v-rsv1 1 vq-ingr-drop-mode 1 */
+        0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        /* f-update-fcs 1 f-src-port 65 m-pipeline-act 2 */
+        0x00, 0x00, 0x00, 0x08, 0x00, 0x10, 0x48, 0x00,
         0x00, 0x00, 0x00, 0x00,
         _vlantag,
 };
@@ -147,8 +147,8 @@ static const u8 hdr_tmpl_port_fireant[IFH_ENCAP_LEN(IFH_LEN_FIREANT)] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         /* v-rsv1 1 vq-ingr-drop-mode 1 */
         0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
-        /* f-update-fcs 1 f-src-port 66 f-do-not-rew m-pipeline-act 1 m-pipeline-pt 17 */
-        0x00, 0x00, 0x00, 0x08, 0x00, 0x10, 0xa6, 0x20,
+        /* f-update-fcs 1 f-src-port 65 f-do-not-rew m-pipeline-act 1 m-pipeline-pt 16 */
+        0x00, 0x00, 0x00, 0x08, 0x00, 0x10, 0x66, 0x00,
         0x00, 0x00, 0x00, 0x00
 };
 
@@ -713,7 +713,7 @@ static const struct ifmux_chip fireant_chip = {
         .ifh_id             = IFH_ID_FIREANT,
         .ifh_len            = IFH_LEN_FIREANT,
         .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_FIREANT,
-        .cpu_port            = 66, /* CPU port 1 == chipport 66 on FA */
+        .cpu_port            = 65, /* CPU port 0 == chipport 65 on FA */
         .hdr_tmpl_vlan            = hdr_tmpl_vlan_fireant,
         .hdr_tmpl_port            = hdr_tmpl_port_fireant,
         .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_fireant),

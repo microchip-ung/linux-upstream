@@ -308,7 +308,7 @@
 	status = "okay";
 };
 
-&ifh1 {
+&ifh0 {
 	status = "okay";
 };
 
