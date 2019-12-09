@@ -122,16 +122,17 @@ static struct nla_policy genel_policy[VTSS_IF_MUX_ATTR_END] = {
 		[VTSS_IF_MUX_ATTR_ELEMENT_ADDR] = {.type = NLA_BINARY,
 						   .len = MAX_ADDR_LEN},
 		[VTSS_IF_MUX_ATTR_ELEMENT_INT] = {.type = NLA_U32},
+		[VTSS_IF_MUX_ATTR_ELEMENT_PREFIX] = {.type = NLA_U32},
                 [VTSS_IF_MUX_ATTR_PORT_CONF] = {.type = NLA_NESTED},
                 [VTSS_IF_MUX_ATTR_PORT_CONF_ENTRY] = {.type = NLA_NESTED},
                 [VTSS_IF_MUX_ATTR_PORT_CONF_CHIP_PORT] = {.type = NLA_U32},
                 [VTSS_IF_MUX_ATTR_PORT_CONF_ETYPE] = {.type = NLA_U32},
                 [VTSS_IF_MUX_ATTR_PORT_CONF_ETYPE_CUSTOM] = {.type = NLA_U32},
+                [VTSS_IF_MUX_ATTR_PORT_CONF_VLAN_MASK] =  {.type = NLA_BINARY,
+                                                           .len = VLAN_MASK_LEN},
                 [VTSS_IF_MUX_ATTR_PORT_CONF_RX_FILTER] = {.type = NLA_U32},
                 [VTSS_IF_MUX_ATTR_PORT_CONF_RX_FORWARD] = {.type = NLA_U32},
                 [VTSS_IF_MUX_ATTR_PORT_CONF_TX_FORWARD] = {.type = NLA_U32},
-                [VTSS_IF_MUX_ATTR_PORT_CONF_VLAN_MASK] =  {.type = NLA_BINARY,
-                                                           .len = VLAN_MASK_LEN}
 };
 
 struct vtss_if_mux_filter_element {
