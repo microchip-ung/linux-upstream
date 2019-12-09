@@ -4,7 +4,7 @@
  */
 
 /dts-v1/;
-#include "fireant-soc.dtsi"
+#include "fireant_pcb_common.dtsi"
 
 /{
 	aliases {
@@ -302,20 +302,4 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-};
-
-&dma {
-	status = "okay";
-};
-
-&ifh0 {
-	status = "okay";
-};
-
-&ifmux {
-	status = "okay";
-};
-
-&uio0 {
-	status = "okay";
 };

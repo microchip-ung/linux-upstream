@@ -4,7 +4,7 @@
   */
 
 /dts-v1/;
-#include "fireant-soc.dtsi"
+#include "fireant_pcb_common.dtsi"
 
 / {
 	model = "FireAnt PCB125 Reference Board";

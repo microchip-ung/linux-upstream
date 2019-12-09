@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2018 Microsemi Corporation
+ */
+
+/dts-v1/;
+#include "fireant-soc.dtsi"
+
+&dma {
+	status = "okay";
+};
+
+&ifh0 {
+	status = "okay";
+};
+
+&ifmux {
+	status = "okay";
+};
+
+&uio0 {
+	status = "okay";
+};
