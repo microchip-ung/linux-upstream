@@ -179,7 +179,8 @@ static const struct sdhci_ops sdhci_fireant_ops = {
 
 static const struct sdhci_pltfm_data sdhci_fireant_pdata = {
 	.quirks  = 0,
-	.quirks2 = SDHCI_QUIRK2_NO_1_8_V, /* No sdr104, ddr50, etc */
+	.quirks2 = SDHCI_QUIRK2_HOST_NO_CMD23 | /* Card quirk */
+		   SDHCI_QUIRK2_NO_1_8_V, /* No sdr104, ddr50, etc */
 	.ops = &sdhci_fireant_ops,
 };
 
