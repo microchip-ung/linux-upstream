@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2018 Microsemi Corporation
+ */
+
+/dts-v1/;
+#include "fireant_pcb_common.dtsi"
+
+&uart0 {
+        status = "okay";
+};
+
+&gpio {
+	synce_pins: synce-pins {
+		// CS2
+		pins = "GPIO_17";
+		function = "si";
+	};
+	synce_builtin_pins: synce-builtin-pins {
+		// CS3
+		pins = "GPIO_18";
+		function = "si";
+	};
+};
+
+&spi0 {
+	status = "okay";
+	spi-flash@0 {
+		compatible = "mx66l1g45g", "jedec,spi-nor";
+		spi-max-frequency = <8000000>;
+		reg = <0>;
+	};
+	// synce module
+	spi@2 {
+		compatible = "mchp,synce_dpll";
+		reg = <2>;
+		pinctrl-0 = <&synce_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+	// redwood onboard ptp dpll
+	spi@3 {
+		compatible = "mchp,synce_builtin";
+		reg = <3>;
+		pinctrl-0 = <&synce_builtin_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&ifh0 {
+	status = "okay";
+};
+
+&ifmux {
+	status = "okay";
+};
+
+&uio0 {
+	status = "okay";
+};
