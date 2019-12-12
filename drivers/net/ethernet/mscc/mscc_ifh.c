@@ -177,7 +177,8 @@
 /* Structures */
 
 struct fdma_config {
-	u8 first_cpu_port;
+	u16 first_cpu_port;
+	u16 last_cpu_port;
 	u8 ifh_id;
 	u16 ifh_len;
 	u16 ifh_encap_len;
@@ -818,6 +819,31 @@ static struct sk_buff *mscc_ifh_create_receive_skb(
 	return skb;
 }
 
+#define IFH_OFF  2  /* We have IFH ID first (2 bytes) */
+
+static bool mscc_ifh_drop_received_skb(struct mscc_ifh_priv *priv, 
+				       struct sk_buff *skb)
+{
+	/*
+	 * We discard all frames that are transmitted by the CPU itself.
+	 * In reality, we should check whether the frame was sFlow
+	 * marked and only drop those that were, but the sflow_marking
+	 * bit of the IFH will not be set in case the CPU originally
+	 * transmitted the frame directly to a port (rather than onto
+	 * a VLAN, a.k.a. switched).
+	 */
+	u16 src_chip_port = ((skb->data[IFH_OFF + 29] & 0x1f) << 2) | 
+			     ((skb->data[IFH_OFF + 30] & 0xc0) >> 6);
+
+#ifdef DEBUG
+	pr_debug("%s:%d %s: src chip port: %d\n", __FILE__, __LINE__, __func__, 
+		src_chip_port);
+	mscc_ifh_dump_byte_array("IFH", skb->data + IFH_OFF, priv->config->ifh_len);
+#endif
+	return (src_chip_port >= priv->config->first_cpu_port && 
+		src_chip_port <= priv->config->last_cpu_port);
+}
+
 static void mscc_ifh_receive_cb(void *data,
 	const struct dmaengine_result *result)
 {
@@ -908,6 +934,14 @@ static void mscc_ifh_receive_cb(void *data,
 	prof_sample_begin(&profstats[2]);
 	mscc_ifh_prepare_rx_request(priv);
 	prof_sample_end(&profstats[2]);
+
+	if (mscc_ifh_drop_received_skb(priv, skb)) {
+		priv->netdev->stats.rx_dropped++;
+		pr_debug("%s:%d %s: RX Dropped\n",
+		 __FILE__, __LINE__, __func__);
+		dev_kfree_skb_any(skb);
+		return;
+	}
 
 	priv->netdev->stats.rx_packets++;
 	priv->netdev->stats.rx_bytes += skb->len;
@@ -1468,6 +1502,7 @@ static int mscc_ifh_remove(struct platform_device *pdev)
 
 static const struct fdma_config fireant_data = {
 	.first_cpu_port = 65,
+	.last_cpu_port = 66,
 	.ifh_id = 0xb,
 	.ifh_len = 36,
 	.ifh_encap_len = 16,

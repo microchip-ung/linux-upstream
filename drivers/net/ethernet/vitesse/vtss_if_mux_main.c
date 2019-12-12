@@ -294,13 +294,13 @@ rx_handler_result_t vtss_if_mux_rx_handler(struct sk_buff **pskb)
                     return RX_HANDLER_CONSUMED;
             }
     } else if (vtss_if_mux_chip->soc == SOC_FIREANT) {
-        pr_debug("Fireant IFH detected: Now check various IFH flags\n");
-        /* TODO: check for drop conditions */
-        chip_port = ((skb->data[IFH_OFF + 29] << 2) | (skb->data[IFH_OFF + 30] >> 6)) & 0x3f;
-        vid = (((skb->data[IFH_OFF + 23] << 7) | (skb->data[IFH_OFF + 24] >> 1)) & 0xfff);
-        pr_debug("%s:%d %s: chip port: %d, vid: %d\n", 
-                 __FILE__, __LINE__, __func__, 
-                 chip_port, vid);
+            pr_debug("Fireant IFH detected: Now check various IFH flags\n");
+            /* TODO: check for drop conditions */
+            chip_port = ((skb->data[IFH_OFF + 29] & 0x1f) << 2) | ((skb->data[IFH_OFF + 30] & 0xc0) >> 6);
+            vid = (((skb->data[IFH_OFF + 23] << 7) | (skb->data[IFH_OFF + 24] >> 1)) & 0xfff);
+            pr_debug("%s:%d %s: chip port: %d, vid: %d\n", 
+                    __FILE__, __LINE__, __func__, 
+                    chip_port, vid);
     } else {
             if (printk_ratelimit())
                     printk("Invalid architecture type\n");
