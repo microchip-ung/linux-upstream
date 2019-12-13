@@ -23,7 +23,7 @@
 # Makefile for the network device drivers.
 #
 
-ccflags-$(CONFIG_VC3FDMA) := -Idrivers/net/ethernet/vitesse/ufdma/include
+ccflags-$(CONFIG_VC3FDMA) := -I$(srctree)/drivers/net/ethernet/vitesse/ufdma/include
 
 # We want all warnings to produce an error and lead to a failed build.
 ccflags-$(CONFIG_VC3FDMA) += -Werror
