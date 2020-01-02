@@ -320,6 +320,12 @@
 			clocks = <&ahb_clk>;
 		};
 
+		tmon0: tmon@610508110 {
+			compatible = "mscc,fa-temp";
+			reg = <6 0x10508110 0xc>;
+			#thermal-sensor-cells = <0>;
+		};
+
 		uio0: vcoreiii_switch@600000000 {
 			compatible = "mscc,uio_fireant_irqmux";
 			reg = <6 0x00000000 0x12000000>;

@@ -451,6 +451,16 @@ config SENSORS_I5K_AMB
 	  This driver can also be built as a module. If so, the module
 	  will be called i5k_amb.
 
+config SENSORS_FIREANT
+	tristate "Fireant SoC temperature sensor"
+	depends on ARCH_FIREANT
+	help
+	  If you say yes here you get support for temperature monitoring
+	  with the Microchip Fireant SoC.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called fa-temp.
+
 config SENSORS_F71805F
 	tristate "Fintek F71805F/FG, F71806F/FG and F71872F/FG"
 	depends on !PPC
