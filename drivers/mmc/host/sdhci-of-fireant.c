@@ -304,7 +304,7 @@ int sdhci_fireant_probe(struct platform_device *pdev)
 	/* Set AXI bus master to use un-cached access (for DMA) */
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA) &&
 	    IS_ENABLED(CONFIG_DMA_DECLARE_COHERENT))
-		fireant_set_cacheable(host, ACP_CACHE_FORCE_ENA|ACP_AWCACHE);
+		fireant_set_cacheable(host, ACP_CACHE_FORCE_ENA);
 
 	pr_debug("SDHC version: 0x%08x\n", sdhci_readl(host, MSHC2_VERSION));
 	pr_debug("SDHC type:    0x%08x\n", sdhci_readl(host, MSHC2_TYPE));
