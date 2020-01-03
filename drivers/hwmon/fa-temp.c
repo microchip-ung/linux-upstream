@@ -60,7 +60,7 @@ static int fa_read(struct device *dev, enum hwmon_sensor_types type,
 		if (stat & TEMP_STAT_VALID) {
 			value = (stat & TEMP_STAT_TEMP);
 			value = DIV_ROUND_CLOSEST(value * 3522, 4096) - 1094;
-			value = DIV_ROUND_CLOSEST(value, 10);
+			value *= 100;
 			*temp = value;
 		} else
 			rc = -EINVAL;
