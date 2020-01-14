@@ -370,16 +370,25 @@ static const struct uio_fireant_irqmux_config fireant_data = {
 };
 
 static const struct uio_fireant_irqmux_config jaguar2_data = {
-	.reg_off_ident = 0x000000a8,
+	.reg_off_ident = 0x00000094,
 	.reg_off_force = 0x0000007c,
 	.reg_off_clr   = 0x0000008c,
 	.reg_off_set   = 0x00000090,
 	.master_mask   = BIT(11),  /* SW0 */
 };
 
+static const struct uio_fireant_irqmux_config ocelot_data = {
+	.reg_off_ident = 0x00000094,
+	.reg_off_force = 0x0000007c,
+	.reg_off_clr   = 0x0000008c,
+	.reg_off_set   = 0x00000090,
+	.master_mask   = BIT(10),  /* SW0 */
+};
+
 static const struct of_device_id uio_of_fireant_irqmux_match[] = {
 	{ .compatible = "mscc,uio_fireant_irqmux", .data = &fireant_data },
 	{ .compatible = "mscc,uio_jaguar2_irqmux", .data = &jaguar2_data },
+	{ .compatible = "mscc,uio_ocelot_irqmux", .data = &ocelot_data },
 	{},
 };
 
