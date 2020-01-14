@@ -90,11 +90,3 @@
 &uio0 {
 	status = "okay";
 };
-
-&fdma {
-	status = "okay";
-};
-
-&ifmux {
-	status = "okay";
-};
