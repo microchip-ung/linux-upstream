@@ -350,8 +350,8 @@ OCELOT_P(16, TWI,       NONE,      SI);
 OCELOT_P(17, TWI,       TWI_SCL_M, SI);
 OCELOT_P(18, PTP0,      TWI_SCL_M, NONE);
 OCELOT_P(19, PTP1,      TWI_SCL_M, NONE);
-OCELOT_P(20, RECO_CLK,  TACHO,     NONE);
-OCELOT_P(21, RECO_CLK,  PWM,       NONE);
+OCELOT_P(20, RECO_CLK,  TACHO,     TWI_SCL_M);
+OCELOT_P(21, RECO_CLK,  PWM,       TWI_SCL_M);
 
 #define OCELOT_PIN(n) {						\
 	.number = n,						\
