@@ -30,6 +30,14 @@
 		i2c121  = &i2c121;
 		i2c122  = &i2c122;
 		i2c123  = &i2c123;
+		i2c124  = &i2c124;
+		i2c125  = &i2c125;
+		i2c126  = &i2c126;
+		i2c127  = &i2c127;
+		i2c128  = &i2c128;
+		i2c129  = &i2c129;
+		i2c130  = &i2c130;
+		i2c131  = &i2c131;
 		i2c149  = &i2c149;
 		i2c150  = &i2c150;
 		i2c151  = &i2c151;
@@ -135,6 +143,62 @@
 &i2c0 {
 	status = "okay";
 	i2c-sda-hold-time-ns = <300>;
+	pca9545@70 {
+		compatible = "nxp,pca9545";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+		i2c124: i2c_x2sfp_1_a {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+		i2c125: i2c_x2sfp_1_b {
+			/* FMC B */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+		i2c126: i2c_x2sfp_1_c {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+		i2c127: i2c_x2sfp_1_d {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+	};
+	pca9545@71 {
+		compatible = "nxp,pca9545";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+		i2c128: i2c_x2sfp_1_a {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+		i2c129: i2c_x2sfp_2_b {
+			/* FMC B */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+		i2c130: i2c_x2sfp_3_c {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+		i2c131: i2c_x2sfp_4_d {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+	};
 };
 
 &ahb {
