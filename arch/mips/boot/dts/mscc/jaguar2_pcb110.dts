@@ -3,6 +3,7 @@
  * Copyright (c) 2020 Microsemi Corporation
  */
 
+/dts-v1/;
 #include "jaguar2_common.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
