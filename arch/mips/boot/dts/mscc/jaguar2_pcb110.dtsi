@@ -3,7 +3,7 @@
  * Copyright (c) 2020 Microsemi Corporation
  */
 
-#include "jaguar2.dtsi"
+#include "jaguar2_common.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
 / {
@@ -11,8 +11,6 @@
 	compatible = "mscc,jr2-pcb110", "mscc,jr2";
 
 	aliases {
-		spi0    = &spi0;
-		serial0 = &uart0;
 		i2c0    = &i2c0;
 		i2c108  = &i2c108;
 		i2c109  = &i2c109;
@@ -43,14 +41,6 @@
 		i2c151  = &i2c151;
 		i2c152  = &i2c152;
 	};
-
-	chosen {
-		stdout-path = "serial0:115200n8";
-	};
-};
-
-&uart0 {
-	status = "okay";
 };
 
 &uart2 {
@@ -141,8 +131,6 @@
 };
 
 &i2c0 {
-	status = "okay";
-	i2c-sda-hold-time-ns = <300>;
 	pca9545@70 {
 		compatible = "nxp,pca9545";
 		reg = <0x70>;
@@ -327,8 +315,4 @@
 			#size-cells = <0>;
 		};
 	};
-};
-
-&uio0 {
-	status = "okay";
 };
