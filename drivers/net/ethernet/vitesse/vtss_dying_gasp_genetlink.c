@@ -60,13 +60,6 @@ enum vtss_dying_gasp_genl {
      * applications */
 };
 
-/* dying gasp policy */
-static struct nla_policy genl_policy[VTSS_DYING_GASP_ATTR_END] = {
-    [VTSS_DYING_GASP_ATTR_ID] = {.type = NLA_U32},
-    [VTSS_DYING_GASP_ATTR_INTERFACE] = {.type= NLA_NUL_STRING},
-    [VTSS_DYING_GASP_ATTR_MSG] = {.type = NLA_BINARY},
-};
-
 /* dying gasp helper functions */
 static struct vtss_dying_gasp_genl_buf *find_buf_by_id(int id)
 {
@@ -331,25 +324,21 @@ static struct genl_ops vtss_dying_gasp_genl_ops[] = {
     {
         .cmd    = VTSS_DYING_GASP_GENL_BUF_ADD,
         .doit   = vtss_dying_gasp_genl_buf_add,
-        .policy = genl_policy,
         .flags  = GENL_ADMIN_PERM,
     },
     {
         .cmd    = VTSS_DYING_GASP_GENL_BUF_MODIFY,
         .doit   = vtss_dying_gasp_genl_buf_modify,
-        .policy = genl_policy,
         .flags  = GENL_ADMIN_PERM,
     },
     {
         .cmd    = VTSS_DYING_GASP_GENL_BUF_DELETE,
         .doit   = vtss_dying_gasp_genl_buf_delete,
-        .policy = genl_policy,
         .flags  = GENL_ADMIN_PERM,
     },
     {
         .cmd    = VTSS_DYING_GASP_GENL_BUF_DELETE_ALL,
         .doit   = vtss_dying_gasp_genl_buf_delete_all,
-        .policy = genl_policy,
         .flags  = GENL_ADMIN_PERM,
     },
 };

@@ -31,6 +31,16 @@
 	};
 };
 
+&ahb {
+	dying_gasp: dying_gasp@0 {
+		compatible = "mscc,serval2-dying-gasp";
+		reg = <0 0>;
+		interrupts = <1>;
+		pinctrl-0 = <&irqext0_pins>;
+		pinctrl-names = "ext0_irq";
+	};
+};
+
 &uart0 {
 	status = "okay";
 };
@@ -132,6 +142,10 @@
 		pins = "GPIO_42";
 		function = "twi_scl_m";
 		output-high;
+	};
+	irqext0_pins: irqext0-pins {
+		pins = "GPIO_6";
+		function = "irq0_in";
 	};
 };
 

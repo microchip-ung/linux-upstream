@@ -50,7 +50,6 @@ config VC3MUX
 
 config DYING_GASP
 	tristate "VCore-III Dying Gasp support"
-	depends on VTSS_VCOREIII_ARCH
 	default n
 	---help---
 	  This driver creates a user defined buffer for dying gasp

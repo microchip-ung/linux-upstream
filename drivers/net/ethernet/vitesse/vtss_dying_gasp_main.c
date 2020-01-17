@@ -26,168 +26,134 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/skbuff.h>
-
-#include <asm/vcoreiii.h>
-#include <asm/vcoreiii-gpio.h>
+#include <linux/of_platform.h>
 
 #include "vtss_dying_gasp.h"
+
+struct vtss_dying_gasp_private {
+	struct net_device *ndev;
+	struct tasklet_struct tasklet;
+};
 
 /* dying gasp link list, defined genetlink file */
 extern struct list_head VTSS_DYING_GASP_GENL_BUF;
 
-/* net_device named as vtss.ifh */
-struct net_device *vtss_dying_gasp_parent_dev = NULL;
-
-/* function for getting the "vtss.ifh" net_device */
-static struct net_device *vtss_dying_gasp_parent_dev_get(void)
+/* Dying gasp transmit tasklet */
+static void vtss_dying_gasp_tasklet(unsigned long data)
 {
-    if (vtss_dying_gasp_parent_dev) {
-        /* immediately return if we already know */
-        return vtss_dying_gasp_parent_dev;
-    }
+	struct vtss_dying_gasp_private *priv =
+		(struct vtss_dying_gasp_private *)data;
+	struct vtss_dying_gasp_genl_buf *b;
+	struct sk_buff *skb_dying_gasp;
 
-    vtss_dying_gasp_parent_dev = dev_get_by_name(&init_net, "vtss.ifh");
-    if (!vtss_dying_gasp_parent_dev) {
-        return NULL;
-    }
-    return vtss_dying_gasp_parent_dev;
+	/* Get vtss.ifh in the isr, so there is no dependency on the order
+	 * of module initialization */
+	if (!priv->ndev) {
+		priv->ndev = dev_get_by_name(&init_net, "vtss.ifh");
+	}
+
+	pr_debug("%s: net_device: %px\n", __func__, priv->ndev);
+	/* Send dying gasp pdu only if vtss.ifh interface is available */
+	if (priv->ndev && priv->ndev->netdev_ops->ndo_start_xmit) {
+		rcu_read_lock();
+		list_for_each_entry_rcu (b, &VTSS_DYING_GASP_GENL_BUF, list) {
+			/* allocate a sk_buff for dying gasp buf */
+			skb_dying_gasp = alloc_skb(ETH_FRAME_LEN, GFP_ATOMIC);
+			if (skb_dying_gasp) {
+				skb_dying_gasp->len = b->msg_len;
+				memcpy(skb_dying_gasp->data, (unsigned char *)b->msg, b->msg_len);
+
+				pr_debug("%s: TX: %px: skb: %px\n", __func__, priv->ndev, skb_dying_gasp);
+				priv->ndev->netdev_ops->ndo_start_xmit(
+					skb_dying_gasp, priv->ndev);
+				/* skb_dying_gasp will be freed after transmit */
+			}
+		}
+		rcu_read_unlock();
+	}
 }
 
-
-/* dying gasp interrupt handler */
-static irqreturn_t vtss_dying_gasp_isr(int irq, void *dev_id)
+/* Dying gasp interrupt handler */
+static irqreturn_t vtss_dying_gasp_isr(int irq, void *data)
 {
-    struct vtss_dying_gasp_genl_buf *b;
-    struct sk_buff *skb_dying_gasp;
+	struct vtss_dying_gasp_private *priv = data;
 
-    /* get vtss.ifh inside isr, so no dependency with the sequence of module
-     * initialization sequence */
-    vtss_dying_gasp_parent_dev = vtss_dying_gasp_parent_dev_get();
-
-    /* sending dying gasp pdu only if vtss.ifh interface is available */
-    if (vtss_dying_gasp_parent_dev &&
-        vtss_dying_gasp_parent_dev->netdev_ops->ndo_start_xmit) {
-        rcu_read_lock();
-        list_for_each_entry_rcu (b, &VTSS_DYING_GASP_GENL_BUF, list) {
-            /* allocate a sk_buff for dying gasp buf */
-            skb_dying_gasp = alloc_skb(ETH_FRAME_LEN, GFP_ATOMIC);
-            if (skb_dying_gasp) {
-                skb_dying_gasp->len = b->msg_len;
-                memcpy(skb_dying_gasp->data, (unsigned char *)b->msg, b->msg_len);
-
-                vtss_dying_gasp_parent_dev->netdev_ops->ndo_start_xmit(
-                    skb_dying_gasp, vtss_dying_gasp_parent_dev);
-                /* skb_dying_gasp will be freed after transmit */
-            }
-        }
-        rcu_read_unlock();
-    }
-
-    /* NOTE: disable irq, otherwise fdma irq would be serviced */
-#if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-    disable_irq_nosync(EXT1_IRQ);
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    disable_irq_nosync(EXT0_IRQ);
-#endif  /* CONFIG_VTSS_VCOREIII_SERVAL1,
-           CONFIG_VTSS_VCOREIII_JAGUAR2C,
-           CONFIG_VTSS_VCOREIII_SERVALT
-         */
-
-    return IRQ_HANDLED;
+	/* Net device TX cannot be done from an ISR */
+	tasklet_schedule(&priv->tasklet);
+	/* Disable IRQ, otherwise FDMA IRQ would be serviced */
+	pr_debug("%s: irq: %d\n", __func__, irq);
+	disable_irq_nosync(irq);
+	return IRQ_HANDLED;
 }
 
-static int __init vtss_dying_gasp_init_module(void) {
-    int ret;
-    u32 intr_mask;
+static int vtss_dying_gasp_probe(struct platform_device *pdev)
+{
+	int ret;
+	int irq;
+	struct vtss_dying_gasp_private *priv;
 
-    printk(KERN_INFO "Loading module vtss-dying-gasp\n");
+	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv) {
+		ret = -ENOMEM;
+		dev_err(&pdev->dev, "Allocation failed\n");
+		goto exit;
+	}
+	platform_set_drvdata(pdev, priv);
+	priv->ndev = dev_get_by_name(&init_net, "vtss.ifh");
 
-    /* init dying gasp generic netlink */
-    ret = vtss_dying_gasp_genetlink_init();
-    if (ret < 0) {
-        printk(KERN_ERR "%s FAILED!\n", __FUNCTION__);
-        goto exit;
-    }
+	ret = vtss_dying_gasp_genetlink_init();
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Netlink failed\n");
+		goto exit;
+	}
 
-#if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-    /**
-     * EXT1_IRQ can be forcefully generated by sw
-     * # debug sym write icpu_cfg:intr:intr_force 4
-     * Register                 Value      Decimal    31     24 23     16 15      8 7       0
-     * ICPU_CFG:INTR:INTR_FORCE 0x00000004          4 0000.0000.0000.0000.0000.0000.0000.0100
-     * 1 match found
-     * or by hw
-     * shortcut GND and intr_pin (e.g. pin1 of U66 on serval1 PCB105) would
-     * continusly generating EXT1_IRQ (level_trigged by default)
-     */
-    /* register a interrupt handler */
-    ret = request_irq(EXT1_IRQ, vtss_dying_gasp_isr, 0,
-                      "vtss_dying_gasp", NULL);
-    if (ret) {
-        printk(KERN_ERR "dying_gasp: failed to register IRQ %d\n", EXT1_IRQ);
-        return -EIO;
-    }
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    ret = request_irq(EXT0_IRQ, vtss_dying_gasp_isr, 0,
-                      "vtss_dying_gasp", NULL);
-    if (ret) {
-        printk(KERN_ERR "dying_gasp: failed to register IRQ %d\n", EXT0_IRQ);
-        return -EIO;
-    }
-#endif  /* CONFIG_VTSS_VCOREIII_SERVAL1,
-           CONFIG_VTSS_VCOREIII_JAGUAR2C,
-           CONFIG_VTSS_VCOREIII_SERVALT
-        */
+	irq = platform_get_irq(pdev, 0);
+	ret = devm_request_irq(&pdev->dev, irq, vtss_dying_gasp_isr, 0,
+		dev_name(&pdev->dev), priv);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register IRQ %d\n", irq);
+		goto exit;
+	}
 
-#if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-    /* PCB105: GPIO#29, ALT"01", IRQ1_IN */
-    /* PCB106: GPIO#29, ALT"01", IRQ1_IN */
-    vcoreiii_gpio_set_mode(29, 1);
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C)
-    /* PCB112: GPIO#06, ALT"01", IRQ0_IN */
-    vcoreiii_gpio_set_mode( 6, 1);
- #elif defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    /* PCB116: GPIO#04, ALT"01", IRQ0_IN */
-    vcoreiii_gpio_set_mode( 4, 1);
-#endif  /* CONFIG_VTSS_VCOREIII_SERVAL1,
-           CONFIG_VTSS_VCOREIII_JAGUAR2C,
-           CONFIG_VTSS_VCOREIII_SERVALT
-        */
+#if defined(CONFIG_VTSS_VCOREIII_SERVALT)
+	/* PCB116: GPIO#04, ALT"01", IRQ0_IN */
+	vcoreiii_gpio_set_mode( 4, 1);
+#endif
+	tasklet_init(&priv->tasklet, vtss_dying_gasp_tasklet,
+		     (unsigned long)priv);
 
-    intr_mask = readl(VTSS_ICPU_CFG_INTR_INTR_ENA);
-#if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-    intr_mask |= (VTSS_BIT(EXT1_IRQ - ICPU_IRQ0_BASE));
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C)
-    intr_mask |= (VTSS_BIT(EXT0_IRQ - ICPU_IRQ0_BASE));
-#elif defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    intr_mask |= (VTSS_BIT(EXT0_IRQ - ICPU_IRQ0_BASE));
-#endif  /* CONFIG_VTSS_VCOREIII_SERVAL1,
-           CONFIG_VTSS_VCOREIII_JAGUAR2C,
-           CONFIG_VTSS_VCOREIII_SERVALT
-        */
-    writel(intr_mask, VTSS_ICPU_CFG_INTR_INTR_ENA);  /* enable irq */
+	dev_info(&pdev->dev, "Ready on irq: %d\n", irq);
+	/* return zero on success */
+	return 0;
 
-    /* return zero on success */
-    return 0;
 exit:
-    vtss_dying_gasp_genetlink_uninit();
-    return ret;
+	vtss_dying_gasp_genetlink_uninit();
+	return ret;
 }
 
-static void __exit vtss_dying_gasp_exit_module(void) {
-#if defined(CONFIG_VTSS_VCOREIII_SERVAL1)
-    free_irq(EXT1_IRQ, NULL);  /* no device id */
-#elif defined(CONFIG_VTSS_VCOREIII_JAGUAR2C) || defined(CONFIG_VTSS_VCOREIII_SERVALT)
-    free_irq(EXT0_IRQ, NULL);  /* no device id */
-#endif  /* CONFIG_VTSS_VCOREIII_SERVAL1,
-           CONFIG_VTSS_VCOREIII_JAGUAR2C,
-           CONFIG_VTSS_VCOREIII_SERVALT
-        */
+static int vtss_dying_gasp_remove(struct platform_device *pdev)
+{
+	vtss_dying_gasp_genetlink_uninit();
+	return 0;
 }
 
-module_init(vtss_dying_gasp_init_module);
-module_exit(vtss_dying_gasp_exit_module);
+static const struct of_device_id vtss_dying_gasp_match[] = {
+	{ .compatible = "mscc,serval2-dying-gasp" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, vtss_dying_gasp_match);
+
+static struct platform_driver vtss_dying_gasp_driver = {
+	.probe = vtss_dying_gasp_probe,
+	.remove = vtss_dying_gasp_remove,
+	.driver = {
+		.name = "vtss_dying_gasp",
+		.of_match_table = vtss_dying_gasp_match,
+	},
+};
+
+module_platform_driver(vtss_dying_gasp_driver);
 
 MODULE_AUTHOR("Wenxi Jin <wenxi.jin@microsemi.com>");
-MODULE_DESCRIPTION("Dying gasp module");
+MODULE_DESCRIPTION("Dying gasp driver");
 MODULE_LICENSE("GPL v2");
