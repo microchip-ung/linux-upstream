@@ -9,6 +9,34 @@
 / {
 	model = "Serval2 NID PCB112 Reference Board";
 	compatible = "mscc,serval2-pcb112", "mscc,jr2";
+
+	aliases {
+		spi0    = &spi0;
+		i2c0    = &i2c0;
+		serial0 = &uart0;
+		i2c112  = &i2c112;
+		i2c113  = &i2c113;
+		i2c114  = &i2c114;
+		i2c115  = &i2c115;
+		i2c116  = &i2c116;
+		i2c117  = &i2c117;
+		i2c118  = &i2c118;
+		i2c119  = &i2c119;
+		i2c149  = &i2c149;
+		i2c150  = &i2c150;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
 };
 
 &spi0 {
@@ -34,6 +62,149 @@
 				    label = "rootfs_data";
 				    reg = <0x0000000 0x10000000>;
 			};
+		};
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	i2c-sda-hold-time-ns = <300>;
+};
+
+&uio0 {
+	status = "okay";
+};
+
+
+&gpio {
+	i2cmux_pins_i: i2cmux-pins-i {
+		pins = "GPIO_35", "GPIO_34", "GPIO_37", "GPIO_36", "GPIO_39",
+		       "GPIO_38", "GPIO_41", "GPIO_40", "GPIO_43", "GPIO_42";
+		function = "twi_scl_m";
+		output-low;
+	};
+	i2cmux_0: i2cmux-0 {
+		pins = "GPIO_35";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_1: i2cmux-1 {
+		pins = "GPIO_34";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_2: i2cmux-2 {
+		pins = "GPIO_37";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_3: i2cmux-3 {
+		pins = "GPIO_36";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_4: i2cmux-4 {
+		pins = "GPIO_39";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_5: i2cmux-5 {
+		pins = "GPIO_38";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_6: i2cmux-6 {
+		pins = "GPIO_41";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_7: i2cmux-7 {
+		pins = "GPIO_40";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_8: i2cmux-8 {
+		pins = "GPIO_43";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_9: i2cmux-9 {
+		pins = "GPIO_42";
+		function = "twi_scl_m";
+		output-high;
+	};
+};
+
+&ahb {
+	i2c0_imux: i2c0-imux@0 {
+		compatible = "i2c-mux-pinctrl";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&i2c0>;
+		pinctrl-names =
+			"i2c112", "i2c113", "i2c114", "i2c115", "i2c116",
+			"i2c117", "i2c118", "i2c119", "i2c149", "i2c150",
+			"idle";
+		pinctrl-0 = <&i2cmux_0>;
+		pinctrl-1 = <&i2cmux_1>;
+		pinctrl-2 = <&i2cmux_2>;
+		pinctrl-3 = <&i2cmux_3>;
+		pinctrl-4 = <&i2cmux_4>;
+		pinctrl-5 = <&i2cmux_5>;
+		pinctrl-6 = <&i2cmux_6>;
+		pinctrl-7 = <&i2cmux_7>;
+		pinctrl-8 = <&i2cmux_8>;
+		pinctrl-9 = <&i2cmux_9>;
+		pinctrl-10 = <&i2cmux_pins_i>;
+		i2c112: i2c_sfp112 {
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c113: i2c_sfp113 {
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c114: i2c_sfp114 {
+			reg = <0x2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c115: i2c_sfp115 {
+			reg = <0x3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c116: i2c_sfp116 {
+			reg = <0x4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c117: i2c_sfp117 {
+			reg = <0x5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c118: i2c_sfp118 {
+			reg = <0x6>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c119: i2c_sfp119 {
+			reg = <0x7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c149: i2c_sfp149 {
+			reg = <0x8>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c150: i2c_sfp150 {
+			reg = <0x9>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 		};
 	};
 };
