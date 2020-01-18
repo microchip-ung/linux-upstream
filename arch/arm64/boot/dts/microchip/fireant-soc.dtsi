@@ -110,7 +110,7 @@
 
                 reset@611010008 {
 			compatible = "mscc,fireant-chip-reset";
-			reg = <0x6 0x11010008 0x4>;
+			reg = <0x6 0x11010008 0x4>, <6 0x00000000 0xd0>;
 			mscc,reset-switch-core;
 		};
 
