@@ -8,21 +8,12 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/notifier.h>
-#include <linux/mfd/syscon.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
-#include <linux/regmap.h>
-
-static const struct regmap_config syscon_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
-};
 
 struct reset_mscc_props {
-	const char *syscon_name;
 	u32 protect_reg_off;
 	u32 vcore_protect;
 };
@@ -30,7 +21,6 @@ struct reset_mscc_props {
 struct ocelot_reset_context {
 	void __iomem *base;
 	void __iomem *icpu_base;
-	struct regmap *cpu_ctrl;
 	const struct reset_mscc_props *props;
 	struct notifier_block restart_handler;
 	bool cpu_reset_only;
@@ -220,7 +210,6 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 	struct ocelot_reset_context *ctx;
 	struct resource *res;
 	struct device *dev = &pdev->dev;
-	struct regmap_config syscon_config = syscon_regmap_config;
 	struct device_node *np = pdev->dev.of_node;
 	int err;
 
@@ -251,15 +240,6 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 	if (of_property_read_bool(np, "mscc,reset-switch-core"))
 		ocelot_switch_core_reset(ctx->base, ctx->icpu_base, ctx->props);
 
-	syscon_config.max_register = res->end - res->start - 3;
-	syscon_config.name = ctx->props->syscon_name;
-	ctx->cpu_ctrl = devm_regmap_init_mmio(dev, ctx->icpu_base,
-					      &syscon_config);
-	if (IS_ERR(ctx->cpu_ctrl)) {
-		dev_err(dev, "regmap init failed\n");
-		return PTR_ERR(ctx->cpu_ctrl);
-	}
-
 	ctx->restart_handler.notifier_call = ocelot_restart_handle;
 	ctx->restart_handler.priority = 192;
 	err = register_restart_handler(&ctx->restart_handler);
@@ -270,13 +250,11 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 }
 
 static const struct reset_mscc_props reset_mscc_props_ocelot = {
-	.syscon_name = "mscc,ocelot-cpu-syscon",
 	.protect_reg_off = 0x20,
 	.vcore_protect   = BIT(2),
 };
 
 static const struct reset_mscc_props reset_mscc_props_fireant = {
-	.syscon_name = "mscc,fireant-cpu-syscon",
 	.protect_reg_off = 0x84,
 	.vcore_protect   = BIT(10),
 };

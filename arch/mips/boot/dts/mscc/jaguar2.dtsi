@@ -108,7 +108,7 @@
 		};
 
 		reset@71010008 {
-			compatible = "mscc,ocelot-cpu-syscon", "mscc,ocelot-chip-reset", "syscon";
+			compatible = "mscc,ocelot-chip-reset";
 			reg = <0x71010008 0x4>, <0x70000000 0x2c>;
 			mscc,cpu-reset-only;
 			mscc,reset-switch-core;
