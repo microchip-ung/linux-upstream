@@ -3,12 +3,38 @@ Microsemi Ocelot reset controller
 The DEVCPU_GCB:CHIP_REGS have a SOFT_RST register that can be used to reset the
 SoC MIPS core.
 
+The driver will expose the second address region as the
+"mscc,ocelot-cpu-syscon" (MIPS) or "mscc,fireant-cpu-syscon" (arm64)
+regmap. This regmap contain registers that are needed for other
+drivers.
+
+Since the driver may need to perform a switch core reset, and since it
+expose a regmap needed by other drivers, the driver installs itself
+during postcore_initcall.
+
 Required Properties:
  - compatible: "mscc,ocelot-chip-reset"
+ - compatible: "mscc,fireant-chip-reset"
+
+Optional properties:
+
+ - mscc,cpu-reset-only:		At reset, only the CPU will be reset.
+				This may be required in order to avoid
+				DDR reset on some boards. This is
+				opposed to the the default behaviour
+				of doing a full system reset.
+
+ - mscc,reset-switch-core:	Perform a switch core reset at the
+				time of driver load. This is typically
+				used to initialize the switch core to
+				a know state after reboot/bootloader
+				having used the network interfaces.
 
 Example:
-	reset@1070008 {
-		compatible = "mscc,ocelot-chip-reset";
-		reg = <0x1070008 0x4>;
-	};
 
+	reset@71010008 {
+		compatible = "mscc,ocelot-chip-reset";
+		reg = <0x71010008 0x4>, <0x70000000 0x2c>;
+		mscc,cpu-reset-only;
+		mscc,reset-switch-core;
+	};
