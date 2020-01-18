@@ -183,7 +183,8 @@
 
 		reset@71070008 {
 			compatible = "mscc,ocelot-chip-reset";
-			reg = <0x71070008 0x4>;
+			reg = <0x71070008 0x4>, <0x70000000 0x2c>;
+			mscc,reset-switch-core;
 		};
 
 		gpio: pinctrl@71070034 {

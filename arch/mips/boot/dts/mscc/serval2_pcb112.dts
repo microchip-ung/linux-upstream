@@ -4,24 +4,11 @@
  */
 
 /dts-v1/;
-#include "jaguar2.dtsi"
+#include "jaguar2_common.dtsi"
 
 / {
 	model = "Serval2 NID PCB112 Reference Board";
 	compatible = "mscc,serval2-pcb112", "mscc,jr2";
-
-	aliases {
-		spi0 = &spi0;
-		serial0 = &uart0;
-	};
-
-	chosen {
-		stdout-path = "serial0:115200n8";
-	};
-};
-
-&uart0 {
-	status = "okay";
 };
 
 &spi0 {
@@ -49,9 +36,4 @@
 			};
 		};
 	};
-};
-
-&i2c0 {
-	status = "okay";
-	i2c-sda-hold-time-ns = <300>;
 };
