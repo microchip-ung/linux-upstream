@@ -265,7 +265,5 @@
 		compatible = "mscc,jaguar2-nand";
 		status = "disabled";
 		reg = <0x50000000 0x100>, <0x70000030 4>;
-		nand-ecc-mode = "soft";
-		nand-ecc-algo = "hamming";
 	};
 };
