@@ -160,14 +160,12 @@
 &axi {
 	i2c0_imux: i2c0-imux@0 {
 		compatible = "i2c-mux-pinctrl";
-		status = "disabled";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		i2c-parent = <&i2c0>;
 	};
 	i2c0_emux: i2c0-emux@0 {
 		compatible = "i2c-mux-gpio";
-		status = "disabled";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		i2c-parent = <&i2c0>;
@@ -175,7 +173,6 @@
 };
 
 &i2c0_imux {
-	status = "okay";
 	pinctrl-names =
 		"i2c100", "i2c101", "i2c102", "i2c103",
 		"i2c104", "i2c105", "i2c106", "i2c107",
@@ -256,7 +253,6 @@
 };
 
 &i2c0_emux {
-	status = "okay";
 	mux-gpios = <&gpio 55 GPIO_ACTIVE_HIGH
 		     &gpio 60 GPIO_ACTIVE_HIGH
 		     &gpio 61 GPIO_ACTIVE_HIGH
