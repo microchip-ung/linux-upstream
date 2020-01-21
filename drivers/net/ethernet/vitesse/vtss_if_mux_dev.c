@@ -322,6 +322,15 @@ static int internal_dev_set_mac_address(struct net_device *dev, void *p) {
     return 0;
 }
 
+static int internal_dev_change_carrier(struct net_device *dev, bool new_carrier) {
+    if (new_carrier) {
+        netif_carrier_on(dev);
+    } else {
+        netif_carrier_off(dev);
+    }
+    return 0;
+}
+
 static const struct net_device_ops internal_dev_netdev_ops = {
     .ndo_init                  = internal_dev_init,
     .ndo_uninit                = internal_dev_uninit,
@@ -333,6 +342,7 @@ static const struct net_device_ops internal_dev_netdev_ops = {
     .ndo_set_rx_mode           = internal_dev_set_rx_mode,
     .ndo_set_mac_address       = internal_dev_set_mac_address,
     .ndo_fdb_dump              = internal_dev_fdb_dump,
+    .ndo_change_carrier        = internal_dev_change_carrier,
 };
 
 void vtss_if_mux_setup(struct net_device *netdev) {
