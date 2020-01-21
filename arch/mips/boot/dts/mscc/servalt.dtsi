@@ -96,7 +96,7 @@
 
 		reset@71010008 {
 			compatible = "mscc,ocelot-chip-reset";
-			reg = <0x71010008 0x4>, <0x70000000 0x2c>;
+			reg = <0x71010008 0x4>, <0x70000000 0x2c>, <0x71170000 0x190>;
 			mscc,cpu-reset-only;
 			mscc,reset-switch-core;
 		};

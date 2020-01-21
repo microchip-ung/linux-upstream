@@ -21,6 +21,7 @@ struct reset_mscc_props {
 struct ocelot_reset_context {
 	void __iomem *base;
 	void __iomem *icpu_base;
+	void __iomem *hsio_base;
 	const struct reset_mscc_props *props;
 	struct notifier_block restart_handler;
 	bool cpu_reset_only;
@@ -42,6 +43,12 @@ struct ocelot_reset_context {
 #define IF_SI_OWNER_SIMC			2
 #define IF_SI_OWNER_OFFSET			4
 #define ICPU_GENERAL_CTRL_BOOT_MODE_ENA         BIT(0)
+
+/* HSIO PLL5G reset registers (serval-t) */
+#define HSIO_PLL5G_CFG0_PLL5G_CFG2		0x04
+#define HSIO_PLL5G_CFG0_PLL5G_CFG3		0x0c
+#define HSIO_PLL5G_CFG0_PLL5G_CFG6		0x18
+#define HSIO_HW_CFGSTAT_CLK_CFG			0x018c
 
 static inline void set_bits(void __iomem *reg, u32 set_mask)
 {
@@ -143,6 +150,16 @@ static void cpu_reset(struct ocelot_reset_context *ctx)
 {
 	u32 reg_ctl, reg_rst;
 
+	if (ctx->hsio_base) {
+		// Selected registers of Serval-T's 5G PLL need to have their
+		// values restored to defaults prior to the boot, or the system
+		// will hang (see Bugzilla#20926).
+		writel(0x00106114, ctx->hsio_base + HSIO_PLL5G_CFG0_PLL5G_CFG2);
+		writel(0x00224028, ctx->hsio_base + HSIO_PLL5G_CFG0_PLL5G_CFG3);
+		writel(0x000014ce, ctx->hsio_base + HSIO_PLL5G_CFG0_PLL5G_CFG6);
+		writel(0x00000000, ctx->hsio_base + HSIO_HW_CFGSTAT_CLK_CFG);
+	}
+
 	/*
 	 * Note: Reset is done by first resetting switch-core only, and
 	 * then the CPU core only to avoid resetting DDR controlller.
@@ -235,6 +252,14 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 	ctx->icpu_base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!ctx->icpu_base)
 		return -ENOMEM;
+
+	/* Optional PLL5G workaround for CPU reset (serval-t) */
+	if (ctx->cpu_reset_only) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+		if (res)
+			ctx->hsio_base = devm_ioremap(dev, res->start,
+						      resource_size(res));
+	}
 
 	/* Optionally, call switch reset function */
 	if (of_property_read_bool(np, "mscc,reset-switch-core"))
