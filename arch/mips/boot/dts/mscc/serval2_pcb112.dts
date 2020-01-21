@@ -33,7 +33,7 @@
 
 &ahb {
 	dying_gasp: dying_gasp@0 {
-		compatible = "mscc,serval2-dying-gasp";
+		compatible = "mscc,dying-gasp";
 		reg = <0 0>;
 		interrupts = <1>;
 		pinctrl-0 = <&irqext0_pins>;
