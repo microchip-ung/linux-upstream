@@ -152,9 +152,7 @@
 			reg = <0x710700f8 0x100>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			gpio-ranges = <&sgpio 0 0 64>; // 32*<sgpio-bitcount>
-			sgpio-clock = <0x14>;
-			sgpio-bitcount = <2>;
+			gpio-ranges = <&sgpio 0 0 64>;
 		};
 
 		fdma: fdma@0 {

@@ -222,6 +222,11 @@
 				function = "miim1";
 			};
 
+			sgpio_pins: sgpio-pins {
+				pins = "GPIO_0", "GPIO_2", "GPIO_3", "GPIO_1";
+				function = "sg0";
+			};
+
 		};
 
 		uio0: vcoreiii_switch@70000000 {
@@ -277,6 +282,18 @@
 				compatible = "mscc,vsc7514-serdes";
 				#phy-cells = <2>;
 			};
+		};
+
+		sgpio: gpio@710700f8 {
+			compatible = "mscc,ocelot-sgpio";
+			status = "disabled";
+			clocks = <&ahb_clk>;
+			pinctrl-0 = <&sgpio_pins>;
+			pinctrl-names = "default";
+			reg = <0x710700f8 0x100>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&sgpio 0 0 64>;
 		};
 
 		fdma: fdma@0 {

@@ -77,12 +77,12 @@
 		pinctrl-2 = <&i2cmux_2>;
 		pinctrl-3 = <&i2cmux_pins_i>;
 		i2c108: i2c_sfp1 {
-			reg = <0x0>;
+			reg = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
 		i2c109: i2c_sfp2 {
-			reg = <0x1>;
+			reg = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};

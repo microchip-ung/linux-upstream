@@ -3,6 +3,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/gpio/mscc-sgpio.h>
 #include "ocelot.dtsi"
 
 / {
@@ -10,6 +11,19 @@
 
 	chosen {
 		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+	    i2c0   = &i2c0;
+	    i2c201 = &i2c0;
+	    i2c104 = &i2c104;
+	    i2c105 = &i2c105;
+	    i2c106 = &i2c106;
+	    i2c107 = &i2c107;
+	    i2c108 = &i2c108;
+	    i2c109 = &i2c109;
+	    i2c110 = &i2c110;
+	    i2c111 = &i2c111;
 	};
 
 	memory@0 {
@@ -27,9 +41,74 @@
 };
 
 &i2c0 {
+	status = "okay";
 	clock-frequency = <100000>;
 	i2c-sda-hold-time-ns = <300>;
+};
+
+&sgpio {
 	status = "okay";
+	mscc,sgpio-ports = <0x00FFFFFF>;
+};
+
+&ahb {
+	i2c0_emux: i2c0-emux@0 {
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&i2c0>;
+		mux-gpios = <&sgpio MSCC_SGPIO(13,0) GPIO_ACTIVE_HIGH>, // p13b0
+			    <&sgpio MSCC_SGPIO(13,1) GPIO_ACTIVE_HIGH>, // p13b1
+			    <&sgpio MSCC_SGPIO(14,0) GPIO_ACTIVE_HIGH>; // p14b0
+		i2c104: i2c_sfp1 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c105: i2c_sfp2 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c106: i2c_sfp3 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c107: i2c_sfp4 {
+			reg = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c108: i2c_sfp5 {
+			reg = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c109: i2c_sfp6 {
+			reg = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c110: i2c_sfp7 {
+			reg = <6>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c111: i2c_sfp8 {
+			reg = <7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+};
+
+&gpio {
+	synce_pins: synce-pins {
+		// CS2
+		pins = "GPIO_9";
+		function = "si";
+	};
 };
 
 &spi {
@@ -57,6 +136,13 @@
 			};
 		};
 	};
+	spi@2 {
+		compatible = "mchp,synce_dpll";
+		reg = <2>;
+		pinctrl-0 = <&synce_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
 };
 
 &mdio0 {
@@ -77,4 +163,8 @@
 
 &port3 {
 	phy-handle = <&phy3>;
+};
+
+&uio0 {
+	status = "okay";
 };
