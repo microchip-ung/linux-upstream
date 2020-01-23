@@ -7,6 +7,7 @@
 #include "ocelot.dtsi"
 
 / {
+	model = "Ocelot PCB123 Reference Board";
 	compatible = "mscc,ocelot-pcb123", "mscc,ocelot";
 
 	chosen {

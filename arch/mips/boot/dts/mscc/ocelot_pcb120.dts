@@ -8,6 +8,7 @@
 #include "ocelot.dtsi"
 
 / {
+	model = "Ocelot PCB120 DIN rail Reference Board";
 	compatible = "mscc,ocelot-pcb120", "mscc,ocelot";
 
 	chosen {
