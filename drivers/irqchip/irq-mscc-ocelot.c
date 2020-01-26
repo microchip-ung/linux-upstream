@@ -15,13 +15,17 @@
 #define ICPU_CFG_INTR_DST_INTR_IDENT(_p,x)	(_p->reg_off_ident + 0x4 * (x))
 #define ICPU_CFG_INTR_INTR_TRIGGER(_p,x)	(_p->reg_off_trigger + 0x4 * (x))
 
+#define FLAGS_NEED_INIT_ENABLE	BIT(0)
+
 struct chip_props {
+	u32 flags;
 	u32 reg_off_sticky;
 	u32 reg_off_ena;
 	u32 reg_off_ena_clr;
 	u32 reg_off_ena_set;
 	u32 reg_off_ident;
 	u32 reg_off_trigger;
+	u32 reg_off_ena_irq0;
 	u32 n_irq;
 };
 
@@ -46,12 +50,14 @@ static const struct chip_props serval_props = {
 };
 
 static const struct chip_props luton_props = {
+	.flags			= FLAGS_NEED_INIT_ENABLE,
 	.reg_off_sticky 	= 0x84 - 0x84,
 	.reg_off_ena		= 0x88 - 0x84,
 	.reg_off_ena_clr	= 0x8c - 0x84,
 	.reg_off_ena_set	= 0x90 - 0x84,
 	.reg_off_ident		= 0x9c - 0x84,
 	.reg_off_trigger	= 0,
+	.reg_off_ena_irq0	= 0x98 - 0x84,
 	.n_irq			= 28,
 };
 
@@ -152,6 +158,10 @@ static int __init vcoreiii_irq_init(struct device_node *node,
 	/* Mask and ack all interrupts */
 	irq_reg_writel(gc, 0, p->reg_off_ena);
 	irq_reg_writel(gc, 0xffffffff, p->reg_off_sticky);
+
+	/* Overall init */
+	if (p->flags & FLAGS_NEED_INIT_ENABLE)
+		irq_reg_writel(gc, BIT(0), p->reg_off_ena_irq0);
 
 	domain->host_data = (void*) p;
 	irq_set_chained_handler_and_data(parent_irq, ocelot_irq_handler,
