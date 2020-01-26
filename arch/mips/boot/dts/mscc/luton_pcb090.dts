@@ -13,6 +13,10 @@
 	aliases {
 		serial0 = &uart0;
 		spi0 = &spi0;
+		i2c0    = &i2c0;
+		i2c108  = &i2c108;
+		i2c109  = &i2c109;
+		i2c203  = &i2c203;
 	};
 
 	chosen {
@@ -46,6 +50,41 @@
 		partition@0 {
 			    label = "rootfs_data";
 			    reg = <0x0000000 0x08000000>;
+		};
+	};
+};
+
+&uio0 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+	i2c-sda-hold-time-ns = <300>;
+};
+
+&ahb {
+	i2c0_emux: i2c0-emux@0 {
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&i2c0>;
+		mux-gpios = <&gpio 11 GPIO_ACTIVE_HIGH>;
+		idle-state = <0>;
+		i2c108: i2c_sfp1 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c109: i2c_sfp2 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c203: pd69xxx {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 		};
 	};
 };

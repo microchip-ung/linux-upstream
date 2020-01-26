@@ -47,7 +47,7 @@
 		clock-mult = <1>;
 	};
 
-	ahb {
+	ahb: ahb@6000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -85,7 +85,6 @@
 		reset@60070090 {
 			compatible = "mscc,ocelot-chip-reset";
 			reg = <0x60070090 0x4>, <0x70000000 0x2c>;
-			mscc,reset-switch-core;
 		};
 
 		gpio: pinctrl@60070068 {
@@ -103,6 +102,35 @@
 				pins = "GPIO_30", "GPIO_31";
 				function = "uart";
 			};
+			i2c_pins: i2c-pins {
+				pins = "GPIO_5", "GPIO_6";
+				function = "twi";
+			};
+		};
+
+		i2c0: i2c@70100400 {
+			compatible = "mscc,ocelot-i2c", "snps,designware-i2c";
+			status = "disabled";
+			pinctrl-0 = <&i2c_pins>;
+			pinctrl-names = "default";
+			reg = <0x70100400 0x100>, <0x700002a4 0x8>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <11>;
+			clock-frequency = <100000>;
+			clocks = <&ahb_clk>;
+		};
+
+		uio0: vcoreiii_switch@70000000 {
+			compatible = "mscc,uio_luton_irqmux";
+			reg = <0x60000000 0x10200000>;
+			reg-names = "origin1_2";
+			interrupt-parent = <&intc>;
+			interrupts = <2>, // VCore SW0
+				     <13>, <26>;
+			interrupt-names = "master",
+					  "sgpio0", "ptp_sync";
+			status = "disabled";
 		};
 
 		sgpio: gpio@60070130 {
