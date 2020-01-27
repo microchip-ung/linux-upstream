@@ -343,6 +343,7 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 		dev_err(dev, "sysfs register error\n");
 
 	platform_set_drvdata(pdev, priv);
+	dev_info(dev, "Mapping %pR\n", &pdev->resource[0]);
 	return 0;
 }
 

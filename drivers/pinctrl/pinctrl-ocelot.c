@@ -1486,7 +1486,7 @@ static int ocelot_pinctrl_probe(struct platform_device *pdev)
 	info->dev = dev;
 
 	/* Pinconf registers */
-	res = res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res == NULL ||
 	    IS_ERR((base = devm_ioremap_resource(dev, res)))) {
 		dev_dbg(dev, "Failed to ioremap config registers (no extended pinconf)\n");
