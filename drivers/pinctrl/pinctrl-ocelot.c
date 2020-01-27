@@ -960,7 +960,10 @@ static int ocelot_hw_set_value(struct ocelot_pinctrl *info,
 			break;
 
 		case PINCONF_DRIVE_STRENGTH:
-			clrsetbits(regaddr, DRIVE_BITS, val);
+			if (val <= 3)
+				clrsetbits(regaddr, DRIVE_BITS, val);
+			else
+				ret = -EINVAL;
 			break;
 
 		default:
@@ -1073,15 +1076,12 @@ noinline int ocelot_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			break;
 
 		case PIN_CONFIG_DRIVE_STRENGTH:
-			if (arg <= 3) {
-				err = ocelot_hw_set_value(info, pin, param,
-							  arg);
-				if (err)
-					goto err;
+			err = ocelot_hw_set_value(info, pin,
+						  PINCONF_DRIVE_STRENGTH,
+						  arg);
+			if (err)
+				goto err;
 
-			} else {
-				err = -ENOTSUPP;
-			}
 			break;
 
 		case PIN_CONFIG_OUTPUT_ENABLE:
