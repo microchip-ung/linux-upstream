@@ -104,6 +104,17 @@ static const struct spi_controller_mem_ops vcoreiii_bb_mem_ops = {
 	.exec_op = vcoreiii_bb_exec_mem_op,
 };
 
+static void vcoreiii_bb_cs_gpio(struct spi_device *spi, bool start)
+{
+	if (spi->cs_gpiod) {
+		/* Activate/deactivate observing polarity */
+		if (start)
+			gpiod_set_value(spi->cs_gpiod, (spi->mode & SPI_CS_HIGH) ? 0 : 1);
+		else
+			gpiod_set_value(spi->cs_gpiod, (spi->mode & SPI_CS_HIGH) ? 1 : 0);
+	}
+}
+
 static void vcoreiii_bb_cs_activate(struct spi_vcoreiii *priv, struct spi_device *spi)
 {
 	u32 cpha = spi->mode & SPI_CPHA;
@@ -127,12 +138,13 @@ static void vcoreiii_bb_cs_activate(struct spi_vcoreiii *priv, struct spi_device
 			ICPU_SW_MODE_SW_SPI_SDO_OE);   /* SDO OE */
 
 	/* Add CS */
-	if (spi->chip_select < MAX_CS) {
+	if (spi->cs_gpiod) {
+		vcoreiii_bb_cs_gpio(spi, true);
+		cs_value = 0;
+	} else {
 		cs_value =
 			ICPU_SW_MODE_SW_SPI_CS_OE(BIT(spi->chip_select)) |
 			ICPU_SW_MODE_SW_SPI_CS(BIT(spi->chip_select));
-	} else {
-		cs_value = 0;
 	}
 
 	priv->svalue |= cs_value;
@@ -168,6 +180,9 @@ static void vcoreiii_bb_cs_deactivate(struct spi_vcoreiii *priv, struct spi_devi
 	/* Deselect hold time delay */
 	if (unlikely(priv->deactivate_delay))
 		udelay(priv->deactivate_delay);
+
+	/* (Drop GPIO CS) */
+	vcoreiii_bb_cs_gpio(spi, false);
 
 	/* Drop everything */
 	vcoreiii_bb_writel_hold(priv, 0);

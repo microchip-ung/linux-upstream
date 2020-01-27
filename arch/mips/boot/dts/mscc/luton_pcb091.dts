@@ -4,36 +4,9 @@
  */
 
 /dts-v1/;
-#include "luton.dtsi"
+#include "luton_common.dtsi"
 
 / {
 	model = "Luton10 PCB091 Reference Board";
 	compatible = "mscc,luton-pcb091", "mscc,luton";
-
-	aliases {
-		serial0 = &uart0;
-		spi0 = &spi0;
-	};
-
-	chosen {
-		stdout-path = "serial0:115200n8";
-	};
-};
-
-&uart0 {
-	status = "okay";
-};
-
-&spi0 {
-	status = "okay";
-	spi-flash@0 {
-		label = "spi_flash";
-		compatible = "jedec,spi-nor";
-		spi-max-frequency = <18000000>; /* input clock */
-		reg = <0>; /* CS0 */
-	};
-};
-
-&uio0 {
-	status = "okay";
 };
