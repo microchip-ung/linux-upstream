@@ -16,10 +16,6 @@
 	};
 };
 
-&uart0 {
-        status = "okay";
-};
-
 &gpio {
 	synce_pins: synce-pins {
 		// CS2

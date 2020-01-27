@@ -6,6 +6,14 @@
 /dts-v1/;
 #include "fireant-soc.dtsi"
 
+&uart0 {
+        status = "okay";
+};
+
+&uart1 {
+        status = "okay";
+};
+
 &dma {
 	status = "okay";
 };
