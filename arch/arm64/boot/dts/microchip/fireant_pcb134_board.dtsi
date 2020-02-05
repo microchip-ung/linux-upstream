@@ -57,10 +57,6 @@
 	};
 };
 
-&i2c0 {
-	status = "okay";
-};
-
 &sgpio0 {
 	status = "okay";
 	mscc,sgpio-ports = <0x00FFFFFF>;
