@@ -7,8 +7,8 @@
 #include "serval_common.dtsi"
 
 / {
-	model = "Serval PCB105 Reference Board";
-	compatible = "mscc,serval-pcb105", "mscc,serval";
+	model = "Serval PCB106 Reference Board";
+	compatible = "mscc,serval-pcb106", "mscc,serval";
 
 	aliases {
 	};
