@@ -52,6 +52,7 @@ struct dw_spi_mscc_props {
 	u32 cs_bit_off;
 	u32 ss_force_ena_off;
 	u32 ss_force_val_off;
+	u32 bootmaster_cs;
 };
 
 static const struct dw_spi_mscc_props dw_spi_mscc_props_ocelot = {
@@ -60,6 +61,7 @@ static const struct dw_spi_mscc_props dw_spi_mscc_props_ocelot = {
 	.si_owner_bit		= 4,
 	.pinctrl_bit_off	= 13,
 	.cs_bit_off		= 5,
+	.bootmaster_cs		= 0,
 };
 
 static const struct dw_spi_mscc_props dw_spi_mscc_props_jaguar2 = {
@@ -68,6 +70,7 @@ static const struct dw_spi_mscc_props dw_spi_mscc_props_jaguar2 = {
 	.si_owner_bit		= 6,
 	.pinctrl_bit_off	= 13,
 	.cs_bit_off		= 5,
+	.bootmaster_cs		= 0,
 };
 
 static const struct dw_spi_mscc_props dw_spi_mscc_props_fireant = {
@@ -77,6 +80,7 @@ static const struct dw_spi_mscc_props dw_spi_mscc_props_fireant = {
 	.si_owner2_bit		= 4,
 	.ss_force_ena_off	= 0xa4,
 	.ss_force_val_off	= 0xa8,
+	.bootmaster_cs		= 0,
 };
 
 struct dw_spi_mscc {
@@ -128,6 +132,7 @@ static void dw_spi_mscc_set_cs_owner(struct dw_spi_mscc *dwsmscc,
  * selects then needs to be either driven as GPIOs or, for the first 4 using the
  * the SPI boot controller registers. the final chip select is an OR gate
  * between the Designware SPI controller and the SPI boot controller.
+ * nselect is an active low signal
  */
 static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
 {
@@ -194,6 +199,9 @@ static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
 		struct dw_spi_mscc *dwsmscc = dwsmmio->priv;
 		const struct dw_spi_mscc_props *props = dwsmscc->props;
 		u8 __iomem *src = dwsmmio->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
+		if (props->bootmaster_cs != spi->chip_select) {
+			return ret;
+		}
 		/* Make boot master owner of SI interface */
 		dw_spi_mscc_set_cs_owner(dwsmscc, props, spi->chip_select, MSCC_IF_SI_OWNER_SIBM);
 		memcpy(op->data.buf.in, src, op->data.nbytes);
