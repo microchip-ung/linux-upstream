@@ -136,7 +136,7 @@ static int __init mscc_nand_probe(struct platform_device *pdev)
 
 	nand->legacy.IO_ADDR_R = nand->legacy.IO_ADDR_W = host->pi_region;
 	nand->legacy.cmd_ctrl = vcoreiii_nand_cmd_ctrl;
-	nand->ecc.mode = NAND_ECC_SOFT;
+	nand->ecc.engine_type = NAND_ECC_ENGINE_SOFT;
 	nand->ecc.algo = NAND_ECC_HAMMING;
 
 	if (!of_property_read_u32(pdev->dev.of_node,
