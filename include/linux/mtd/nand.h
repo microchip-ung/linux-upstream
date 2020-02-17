@@ -127,6 +127,7 @@ struct nand_page_io_req {
 		void *in;
 	} oobbuf;
 	int mode;
+	void *page;
 };
 
 extern const struct mtd_ooblayout_ops nand_ooblayout_sp_ops;
@@ -772,6 +773,7 @@ static inline void nanddev_pos_next_page(struct nand_device *nand,
 static inline void nanddev_io_iter_init(struct nand_device *nand,
 					enum nand_page_io_req_type reqtype,
 					loff_t offs, struct mtd_oob_ops *req,
+					void *pagebuf,
 					struct nand_io_iter *iter)
 {
 	struct mtd_info *mtd = nanddev_to_mtd(nand);
@@ -791,6 +793,7 @@ static inline void nanddev_io_iter_init(struct nand_device *nand,
 	iter->req.ooblen = min_t(unsigned int,
 				 iter->oobbytes_per_page - iter->req.ooboffs,
 				 iter->oobleft);
+	iter->req.page = pagebuf;
 }
 
 /**
@@ -801,13 +804,19 @@ static inline void nanddev_io_iter_init(struct nand_device *nand,
  * Updates the @iter to point to the next page.
  */
 static inline void nanddev_io_iter_next_page(struct nand_device *nand,
+					     struct mtd_oob_ops *req,
 					     struct nand_io_iter *iter)
 {
 	nanddev_pos_next_page(nand, &iter->req.pos);
 	iter->dataleft -= iter->req.datalen;
 	iter->req.databuf.in += iter->req.datalen;
-	iter->oobleft -= iter->req.ooblen;
-	iter->req.oobbuf.in += iter->req.ooblen;
+	if (req->oobbuf) {
+		iter->oobleft -= iter->req.ooblen;
+		iter->req.oobbuf.in += iter->req.ooblen;
+	} else {
+		iter->oobleft = req->ooblen;
+		iter->req.oobbuf.in = req->oobbuf;
+	}
 	iter->req.dataoffs = 0;
 	iter->req.ooboffs = 0;
 	iter->req.datalen = min_t(unsigned int, nand->memorg.pagesize,
@@ -842,14 +851,15 @@ static inline bool nanddev_io_iter_end(struct nand_device *nand,
  * @nand: NAND device
  * @start: start address to read/write from
  * @req: MTD I/O request
+ * @pagebuf: page buffer for ecc operations
  * @iter: NAND I/O iterator
  *
  * Should be used for iterate over pages that are contained in an MTD request.
  */
-#define nanddev_io_for_each_page(nand, type, start, req, iter)		\
-	for (nanddev_io_iter_init(nand, type, start, req, iter);	\
-	     !nanddev_io_iter_end(nand, iter);				\
-	     nanddev_io_iter_next_page(nand, iter))
+#define nanddev_io_for_each_page(nand, type, start, req, pagebuf, iter)   \
+	for (nanddev_io_iter_init(nand, type, start, req, pagebuf, iter); \
+	     !nanddev_io_iter_end(nand, iter);				  \
+	     nanddev_io_iter_next_page(nand, req, iter))
 
 bool nanddev_isbad(struct nand_device *nand, const struct nand_pos *pos);
 bool nanddev_isreserved(struct nand_device *nand, const struct nand_pos *pos);

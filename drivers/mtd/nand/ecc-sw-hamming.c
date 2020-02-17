@@ -438,7 +438,6 @@ int ecc_sw_hamming_correct(unsigned char *buf, unsigned char *read_ecc,
 	if ((bitsperbyte[b0] + bitsperbyte[b1] + bitsperbyte[b2]) == 1)
 		return 1;	/* error in ECC data; no action needed */
 
-	pr_err("%s: uncorrectable ECC error\n", __func__);
 	return -EBADMSG;
 }
 EXPORT_SYMBOL(ecc_sw_hamming_correct);
@@ -589,7 +588,7 @@ static int nand_ecc_sw_hamming_finish_io_req(struct nand_device *nand,
 	u8 *ecccalc = engine_conf->calc_buf;
 	u8 *ecccode = engine_conf->code_buf;
 	unsigned int max_bitflips = 0;
-	u8 *data = req->databuf.in;
+	u8 *data = req->page;
 	int i, ret;
 
 	/* Nothing to do for a raw operation */
@@ -618,13 +617,14 @@ static int nand_ecc_sw_hamming_finish_io_req(struct nand_device *nand,
 		nand_ecc_sw_hamming_calculate(nand, data, &ecccalc[i]);
 
 	/* Finish a page read: compare and correct */
-	for (eccsteps = engine_conf->nsteps, i = 0, data = req->databuf.in;
+	for (eccsteps = engine_conf->nsteps, i = 0, data = req->page;
 	     eccsteps;
 	     eccsteps--, i += eccbytes, data += eccsize) {
 		int stat =  nand_ecc_sw_hamming_correct(nand, data,
 							&ecccode[i],
 							&ecccalc[i]);
 		if (stat < 0) {
+			pr_info_ratelimited("hamming ECC failed: block,page [%u,%u]\n", req->pos.eraseblock, req->pos.page);
 			mtd->ecc_stats.failed++;
 		} else {
 			mtd->ecc_stats.corrected += stat;

@@ -116,6 +116,8 @@ EXPORT_SYMBOL(nand_ecc_cleanup_ctx);
 int nand_ecc_prepare_io_req(struct nand_device *nand,
 			    struct nand_page_io_req *req)
 {
+	if (!nand->ecc.engine)
+		return 0;
 	if (!nand->ecc.engine->ops->prepare_io_req)
 		return 0;
 
@@ -126,6 +128,8 @@ EXPORT_SYMBOL(nand_ecc_prepare_io_req);
 int nand_ecc_finish_io_req(struct nand_device *nand,
 			   struct nand_page_io_req *req)
 {
+	if (!nand->ecc.engine)
+		return 0;
 	if (!nand->ecc.engine->ops->finish_io_req)
 		return 0;
 

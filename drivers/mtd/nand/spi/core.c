@@ -382,7 +382,7 @@ static int spinand_read_from_cache_op(struct spinand_device *spinand,
 		       req->datalen);
 
 	if (req->ooblen)
-		memcpy(req->oobbuf.in, spinand->oobbuf + req->ooboffs,
+		memcpy(req->oobbuf.in, spinand->oobbuf,
 		       req->ooblen);
 
 	return 0;
@@ -422,7 +422,7 @@ static int spinand_write_to_cache_op(struct spinand_device *spinand,
 						    req->ooboffs,
 						    req->ooblen);
 		else
-			memcpy(spinand->oobbuf + req->ooboffs, req->oobbuf.out,
+			memcpy(spinand->oobbuf, req->oobbuf.out,
 			       req->ooblen);
 	}
 
@@ -598,7 +598,8 @@ static int spinand_mtd_read(struct mtd_info *mtd, loff_t from,
 
 	mutex_lock(&spinand->lock);
 
-	nanddev_io_for_each_page(nand, NAND_PAGE_READ, from, ops, &iter) {
+	nanddev_io_for_each_page(nand, NAND_PAGE_READ, from, ops,
+				 spinand->databuf, &iter) {
 		if (disable_ecc)
 			iter.req.mode = MTD_OPS_RAW;
 
@@ -645,7 +646,8 @@ static int spinand_mtd_write(struct mtd_info *mtd, loff_t to,
 
 	mutex_lock(&spinand->lock);
 
-	nanddev_io_for_each_page(nand, NAND_PAGE_WRITE, to, ops, &iter) {
+	nanddev_io_for_each_page(nand, NAND_PAGE_WRITE, to, ops,
+				 spinand->databuf, &iter) {
 		if (disable_ecc)
 			iter.req.mode = MTD_OPS_RAW;
 
