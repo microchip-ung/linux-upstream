@@ -230,6 +230,13 @@ config SPI_DW_MMIO
 	tristate "Memory-mapped io interface driver for DW SPI core"
 	depends on SPI_DESIGNWARE
 
+config SPI_DW_MSCC
+	tristate "Memory-mapped io interface driver using DW SPI core of MSCC SoCs"
+	default y if ARCH_FIREANT
+	default y if SOC_VCOREIII
+	select SPI_DESIGNWARE
+	select SPI_DW_MMIO
+
 config SPI_DLN2
        tristate "Diolan DLN-2 USB SPI adapter"
        depends on MFD_DLN2
