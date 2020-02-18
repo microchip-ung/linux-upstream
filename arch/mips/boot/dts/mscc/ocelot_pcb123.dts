@@ -4,15 +4,11 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/mscc-sgpio.h>
-#include "ocelot.dtsi"
+#include "ocelot_common.dtsi"
 
 / {
 	model = "Ocelot PCB123 Reference Board";
 	compatible = "mscc,ocelot-pcb123", "mscc,ocelot";
-
-	chosen {
-		stdout-path = "serial0:115200n8";
-	};
 
 	aliases {
 	    i2c0   = &i2c0;
@@ -31,20 +27,6 @@
 		device_type = "memory";
 		reg = <0x0 0x0e000000>;
 	};
-};
-
-&uart0 {
-	status = "okay";
-};
-
-&uart2 {
-	status = "okay";
-};
-
-&i2c0 {
-	status = "okay";
-	clock-frequency = <100000>;
-	i2c-sda-hold-time-ns = <300>;
 };
 
 &sgpio {
@@ -104,52 +86,6 @@
 	};
 };
 
-&gpio {
-	synce_pins: synce-pins {
-		// CS2
-		pins = "GPIO_9";
-		function = "si";
-	};
-};
-
-&spi {
-	status = "okay";
-	spi-flash@0 {
-		label = "spi_flash";
-		compatible = "macronix,mx25l25635f", "jedec,spi-nor";
-		spi-max-frequency = <20000000>;
-		reg = <0>;
-	};
-	spi-flash@1 {
-		compatible = "spi-nand";
-		pinctrl-0 = <&cs1_pins>;
-		pinctrl-names = "default";
-		spi-max-frequency = <31000000>;
-		reg = <1>; /* CS1 */
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			/* 128MiB */
-			partition@0 {
-				    label = "rootfs_data";
-				    reg = <0x0000000 0x8000000>;
-			};
-		};
-	};
-	spi@2 {
-		compatible = "mchp,synce_dpll";
-		reg = <2>;
-		pinctrl-0 = <&synce_pins>;
-		pinctrl-names = "default";
-		spi-max-frequency = <8000000>;
-	};
-};
-
-&mdio0 {
-	status = "okay";
-};
-
 &port0 {
 	phy-handle = <&phy0>;
 };
@@ -164,8 +100,4 @@
 
 &port3 {
 	phy-handle = <&phy3>;
-};
-
-&uio0 {
-	status = "okay";
 };

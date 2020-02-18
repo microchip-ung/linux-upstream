@@ -5,26 +5,17 @@
 
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/phy/phy-ocelot-serdes.h>
-#include "ocelot.dtsi"
+#include "ocelot_common.dtsi"
 
 / {
 	model = "Ocelot PCB120 DIN rail Reference Board";
 	compatible = "mscc,ocelot-pcb120", "mscc,ocelot";
-
-	chosen {
-		stdout-path = "serial0:115200n8";
-	};
 
 	aliases {
 	    i2c0   = &i2c0;
 	    i2c108 = &i2c108;
 	    i2c109 = &i2c109;
 	    i2c201 = &i2c201;
-	};
-
-	memory@0 {
-		device_type = "memory";
-		reg = <0x0 0x0e000000>;
 	};
 };
 
@@ -59,12 +50,6 @@
 	};
 };
 
-&i2c0 {
-	clock-frequency = <100000>;
-	i2c-sda-hold-time-ns = <300>;
-	status = "okay";
-};
-
 &ahb {
 	i2c0_imux: i2c0-imux@0 {
 		compatible = "i2c-mux-pinctrl";
@@ -93,10 +78,6 @@
 			#size-cells = <0>;
 		};
 	};
-};
-
-&mdio0 {
-	status = "okay";
 };
 
 &mdio1 {
@@ -164,16 +145,4 @@
 	phy-handle = <&phy5>;
 	phy-mode = "sgmii";
 	phys = <&serdes 9 SERDES1G(4)>;
-};
-
-&uart0 {
-	status = "okay";
-};
-
-&uart2 {
-	status = "okay";
-};
-
-&uio0 {
-	status = "okay";
 };
