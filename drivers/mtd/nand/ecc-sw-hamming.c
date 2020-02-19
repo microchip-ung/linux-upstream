@@ -568,8 +568,12 @@ static int nand_ecc_sw_hamming_prepare_io_req(struct nand_device *nand,
 	if (req->type == NAND_PAGE_READ)
 		return 0;
 
+	/* Start at the changed subpage ECC */
+	memset(ecccalc, 0xff, total);
+	i = DIV_ROUND_UP(req->dataoffs, eccsize) * eccbytes;
+	eccsteps = DIV_ROUND_UP(req->datalen, eccsize);
 	/* Preparation for page write: derive the ECC bytes and place them */
-	for (i = 0; eccsteps; eccsteps--, i += eccbytes, data += eccsize)
+	for (; eccsteps; eccsteps--, i += eccbytes, data += eccsize)
 		nand_ecc_sw_hamming_calculate(nand, data, &ecccalc[i]);
 
 	return mtd_ooblayout_set_eccbytes(mtd, ecccalc, (void *)req->oobbuf.out,
@@ -611,6 +615,13 @@ static int nand_ecc_sw_hamming_finish_io_req(struct nand_device *nand,
 					 total);
 	if (ret)
 		return ret;
+
+	/* Erased ECC is valid */
+	for (i = 0; i < total; i++)
+		if (ecccode[i] != 0xff)
+			break;
+	if (i == total)
+		return 0;
 
 	/* Calculate the ECC bytes */
 	for (i = 0; eccsteps; eccsteps--, i += eccbytes, data += eccsize)

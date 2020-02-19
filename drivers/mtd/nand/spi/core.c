@@ -422,7 +422,7 @@ static int spinand_write_to_cache_op(struct spinand_device *spinand,
 						    req->ooboffs,
 						    req->ooblen);
 		else
-			memcpy(spinand->oobbuf, req->oobbuf.out,
+			memcpy(spinand->oobbuf + req->ooboffs, req->oobbuf.out,
 			       req->ooblen);
 	}
 
