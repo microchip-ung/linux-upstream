@@ -60,6 +60,8 @@
 		pinctrl-names = "default";
 		spi-max-frequency = <15625000>;
 		reg = <1>; /* CS1 */
+		nand-ecc-mode = "soft";
+		nand-ecc-algo = "hamming";
 		partitions {
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
