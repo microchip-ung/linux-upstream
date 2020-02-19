@@ -143,7 +143,7 @@
 		spi0: spi@600104000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "mscc,fireant-spi", "snps,dw-apb-ssi";
+			compatible = "mscc,fireant-spi";
 			reg = <6 0x00104000 0x40>, <0 0 0>, <0x3 0x0 0x4000000>;
 			num-cs = <16>;
 			reg-io-width = <4>;
