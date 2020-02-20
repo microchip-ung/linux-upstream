@@ -117,7 +117,7 @@
 };
 
 &pci0 {
-	pci0,0 {
+	pci@0,0 {
 		#address-cells = <3>;
 		#size-cells = <2>;
 		reg = <0 0 0 0 0>;
