@@ -334,7 +334,7 @@ static void mscc_ifh_writel(struct mscc_ifh_priv *priv, u32 reg, u32 data)
 {
 	void __iomem *addr = priv->io_addr + reg;
 #ifdef DEBUG_VCORE_ACCESS
-	pr_debug("%s:%d %s: addr 0x%px, data 0x%08x\n", 
+	pr_debug("%s:%d %s: addr 0x%px, data 0x%08x\n",
 		__FILE__, __LINE__, __func__,
 		addr,
 		data);
@@ -347,8 +347,8 @@ static u32 mscc_ifh_readl(struct mscc_ifh_priv *priv, u32 reg)
 	void __iomem *addr = priv->io_addr + reg;
 	u32 data = readl(addr);
 #ifdef DEBUG_VCORE_ACCESS
-	pr_debug("%s:%d %s: addr 0x%px, data 0x%08x\n", 
-		__FILE__, __LINE__, __func__, 
+	pr_debug("%s:%d %s: addr 0x%px, data 0x%08x\n",
+		__FILE__, __LINE__, __func__,
 		addr,
 		data);
 #endif
@@ -364,17 +364,17 @@ static int mscc_ifh_xtr_word(struct mscc_ifh_priv *priv, bool first_word,
 	val = mscc_ifh_readl(priv, DEVCPU_QS_XTR_RD_R_OFF(priv->inj_port));
 	if (val == XTR_NOT_READY) {
 		/*
-		 * XTR_NOT_READY means two different things depending on whether 
-		 * this is the first word read of a frame or after at least one 
-		 * word has been read. When the first word, the group is empty, 
-		 * and we return an error. Otherwise we have to wait for the 
-		 * FIFO to have received some more data. 
+		 * XTR_NOT_READY means two different things depending on whether
+		 * this is the first word read of a frame or after at least one
+		 * word has been read. When the first word, the group is empty,
+		 * and we return an error. Otherwise we have to wait for the
+		 * FIFO to have received some more data.
 		 */
 		if (first_word) {
 			return 2; /* Error */
 		}
 		do {
-			val = mscc_ifh_readl(priv, 
+			val = mscc_ifh_readl(priv,
 				DEVCPU_QS_XTR_RD_R_OFF(priv->inj_port));
 		} while (val == XTR_NOT_READY);
 	}
@@ -390,14 +390,14 @@ static int mscc_ifh_xtr_word(struct mscc_ifh_priv *priv, bool first_word,
 		*bytes_valid = XTR_VALID_BYTES(val);
 		val = mscc_ifh_readl(priv, DEVCPU_QS_XTR_RD_R_OFF(priv->inj_port));
 		if (val == XTR_ESCAPE) {
-			*rval = mscc_ifh_readl(priv, 
+			*rval = mscc_ifh_readl(priv,
 					DEVCPU_QS_XTR_RD_R_OFF(priv->inj_port));
 		} else {
 			*rval = val;
 		}
 		return 1; /* EOF */
 	case XTR_ESCAPE:
-		*rval = mscc_ifh_readl(priv, 
+		*rval = mscc_ifh_readl(priv,
 				DEVCPU_QS_XTR_RD_R_OFF(priv->inj_port));
 		*bytes_valid = 4;
 		return 0;
@@ -495,7 +495,7 @@ static irqreturn_t mscc_ifh_xtr_irq_handler(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
-static int mscc_ifh_transmit_register_based(struct mscc_ifh_priv *priv, 
+static int mscc_ifh_transmit_register_based(struct mscc_ifh_priv *priv,
 					  struct sk_buff *skb)
 {
 	u32 status;
@@ -510,12 +510,12 @@ static int mscc_ifh_transmit_register_based(struct mscc_ifh_priv *priv,
 #endif
 	status = mscc_ifh_readl(priv, DEVCPU_QS_INJ_STATUS_OFF);
 	if (!(DEVCPU_QS_INJ_STATUS_FIFO_RDY_X(status) & mask)) {
-		pr_debug("%s:%d %s: FIFO not ready\n", 
+		pr_debug("%s:%d %s: FIFO not ready\n",
 			 __FILE__, __LINE__, __func__);
 		return -1;
 	}
 	if (DEVCPU_QS_INJ_STATUS_WMARK_REACHED_X(status) & mask) {
-		pr_debug("%s:%d %s: Watermark reached\n", 
+		pr_debug("%s:%d %s: Watermark reached\n",
 			 __FILE__, __LINE__, __func__);
 		return -1;
 	}
@@ -528,7 +528,7 @@ static int mscc_ifh_transmit_register_based(struct mscc_ifh_priv *priv,
 	last = skb->len % 4;
 	buffer = (u32 *)skb->data;
 	for (idx = 0; idx < count; idx++, skb->data += 4) {
-		pr_debug("%s:%d %s: Data: %08x\n", 
+		pr_debug("%s:%d %s: Data: %08x\n",
 			 __FILE__, __LINE__, __func__, *buffer);
 		mscc_ifh_writel(priv, DEVCPU_QS_INJ_WR_R_OFF(priv->inj_port),
 				*buffer++);
@@ -547,7 +547,7 @@ static int mscc_ifh_transmit_register_based(struct mscc_ifh_priv *priv,
 	/* Add dummy CRC */
 	mscc_ifh_writel(priv, DEVCPU_QS_INJ_WR_R_OFF(priv->inj_port), 0);
 	idx++;
-	pr_debug("%s:%d %s: written: %d bytes\n", 
+	pr_debug("%s:%d %s: written: %d bytes\n",
 		 __FILE__, __LINE__, __func__, idx * 4);
 
 	return 0;
@@ -563,10 +563,10 @@ static void mscc_ifh_register_based_injection(struct mscc_ifh_priv *priv)
 	 * these registes endianness.
 	 */
 	mscc_ifh_writel(priv, DEVCPU_QS_INJ_GRP_CFG_R_OFF(priv->inj_port),
-			DEVCPU_QS_INJ_GRP_CFG_BYTE_SWAP | 
+			DEVCPU_QS_INJ_GRP_CFG_BYTE_SWAP |
 			DEVCPU_QS_INJ_GRP_CFG_MODE(1));
 	mscc_ifh_writel(priv, DEVCPU_QS_XTR_GRP_CFG_R_OFF(priv->inj_port),
-			DEVCPU_QS_XTR_GRP_CFG_BYTE_SWAP | 
+			DEVCPU_QS_XTR_GRP_CFG_BYTE_SWAP |
 			DEVCPU_QS_XTR_GRP_CFG_MODE(1));
 
 	/* INJ CPU Port Format: IFH without prefix, no preamble, no VSTAX2 aware */
@@ -622,13 +622,13 @@ static struct mscc_ifh_tx_request *mscc_ifh_prepare_tx_request(
 	void *buffer;
 
 	blocks = skb_shinfo(skb)->nr_frags + 1;
-	pr_debug("%s:%d %s: skb: frags: %d, size: %u, headsize: %u\n", 
+	pr_debug("%s:%d %s: skb: frags: %d, size: %u, headsize: %u\n",
 		__FILE__, __LINE__, __func__,
 		skb_shinfo(skb)->nr_frags,
 		skb->len,
 		skb_headlen(skb));
 	if (blocks > SGL_MAX) {
-		pr_err("%s:%d %s: too many blocks\n", 
+		pr_err("%s:%d %s: too many blocks\n",
 		       __FILE__, __LINE__, __func__);
 		return NULL;
 	}
@@ -716,7 +716,7 @@ static void mscc_ifh_close_tx_request(struct mscc_ifh_priv *priv,
 	list_move_tail(&req->node, &priv->free_tx_reqs);
 }
 
-static void mscc_ifh_init_iterator(struct request_iterator *iter, 
+static void mscc_ifh_init_iterator(struct request_iterator *iter,
 	int idx,
 	struct mscc_ifh_rx_request *req)
 {
@@ -726,7 +726,7 @@ static void mscc_ifh_init_iterator(struct request_iterator *iter,
 		iter->idx = idx % req->fill_level;
 		iter->req = list_next_entry(iter->req, node);
 	}
-	pr_debug("%s:%d %s: [C%u,I%u]\n", 
+	pr_debug("%s:%d %s: [C%u,I%u]\n",
 		__FILE__, __LINE__, __func__, iter->req->cookie, iter->idx);
 }
 
@@ -740,8 +740,8 @@ static struct mscc_ifh_rx_request *next_block(struct request_iterator *iter)
 		iter->idx = 0;
 		iter->req = list_next_entry(iter->req, node);
 	}
-	pr_debug("%s:%d %s: [C%u,I%u], req: %u\n", 
-		__FILE__, __LINE__, __func__, iter->req->cookie, iter->idx, 
+	pr_debug("%s:%d %s: [C%u,I%u], req: %u\n",
+		__FILE__, __LINE__, __func__, iter->req->cookie, iter->idx,
 		req != NULL);
 	return req;
 }
@@ -754,7 +754,7 @@ static bool mscc_ifh_reached(struct request_iterator *iter,
 	return iter->req == max->req && iter->idx == max->idx;
 }
 
-static void *mscc_ifh_get_block_data(struct mscc_ifh_priv *priv, 
+static void *mscc_ifh_get_block_data(struct mscc_ifh_priv *priv,
 				     struct request_iterator *iter)
 {
 	pr_debug("%s:%d %s: [C%u,I%u]: 0x%px\n",
@@ -774,7 +774,7 @@ static struct sk_buff *mscc_ifh_create_receive_skb(
 	struct sk_buff *skb = 0;
 	struct mscc_ifh_rx_request *done_req;
 	u8 *skbdata;
-	void *data;
+	void *data = NULL;
 	int block_size;
 
 	prof_sample_begin(&profstats[4]);
@@ -787,7 +787,7 @@ static struct sk_buff *mscc_ifh_create_receive_skb(
 	}
 	skbdata = skb->data;
 	skb_put(skb, size);
-	pr_debug("%s:%d %s: skb: len: %d, data: 0x%px\n", 
+	pr_debug("%s:%d %s: skb: len: %d, data: 0x%px\n",
 		 __FILE__, __LINE__, __func__, skb->len, skb->data);
 	while (!mscc_ifh_reached(iter, max)) {
 		data = mscc_ifh_get_block_data(priv, iter);
@@ -803,7 +803,7 @@ static struct sk_buff *mscc_ifh_create_receive_skb(
 		prof_sample_end(&profstats[5]);
 		done_req = next_block(iter);
 		if (done_req) {
-			pr_debug("%s:%d %s: done: [C:%u]\n", 
+			pr_debug("%s:%d %s: done: [C:%u]\n",
 				 __FILE__, __LINE__, __func__,
 				 done_req->cookie);
 			list_move_tail(&done_req->node, &priv->free_rx_reqs);
@@ -821,7 +821,7 @@ static struct sk_buff *mscc_ifh_create_receive_skb(
 
 #define IFH_OFF  2  /* We have IFH ID first (2 bytes) */
 
-static bool mscc_ifh_drop_received_skb(struct mscc_ifh_priv *priv, 
+static bool mscc_ifh_drop_received_skb(struct mscc_ifh_priv *priv,
 				       struct sk_buff *skb)
 {
 	/*
@@ -832,15 +832,15 @@ static bool mscc_ifh_drop_received_skb(struct mscc_ifh_priv *priv,
 	 * transmitted the frame directly to a port (rather than onto
 	 * a VLAN, a.k.a. switched).
 	 */
-	u16 src_chip_port = ((skb->data[IFH_OFF + 29] & 0x1f) << 2) | 
+	u16 src_chip_port = ((skb->data[IFH_OFF + 29] & 0x1f) << 2) |
 			     ((skb->data[IFH_OFF + 30] & 0xc0) >> 6);
 
 #ifdef DEBUG
-	pr_debug("%s:%d %s: src chip port: %d\n", __FILE__, __LINE__, __func__, 
+	pr_debug("%s:%d %s: src chip port: %d\n", __FILE__, __LINE__, __func__,
 		src_chip_port);
 	mscc_ifh_dump_byte_array("IFH", skb->data + IFH_OFF, priv->config->ifh_len);
 #endif
-	return (src_chip_port >= priv->config->first_cpu_port && 
+	return (src_chip_port >= priv->config->first_cpu_port &&
 		src_chip_port <= priv->config->last_cpu_port);
 }
 
@@ -857,7 +857,7 @@ static void mscc_ifh_receive_cb(void *data,
 	int packet_size;
 
 	prof_sample_begin(&profstats[0]);
-	pr_debug("%s:%d %s: result: %u, residue: %u\n", 
+	pr_debug("%s:%d %s: result: %u, residue: %u\n",
 		 __FILE__, __LINE__, __func__,
 		 result->result, result->residue);
 	if (!req) {
@@ -960,7 +960,7 @@ static void mscc_ifh_receive_cb(void *data,
 	prof_sample_end(&profstats[0]);
 	return;
 err:
-	pr_err("%s:%d %s: error: %u, [C%u,I%u]\n", 
+	pr_err("%s:%d %s: error: %u, [C%u,I%u]\n",
 	       __FILE__, __LINE__, __func__,
 	       result->result, next.req->cookie, next.idx);
 	/* Save state for next packet */
@@ -1038,7 +1038,7 @@ error:
 }
 
 
-static void mscc_ifh_transmit_cb(void *data, 
+static void mscc_ifh_transmit_cb(void *data,
 	const struct dmaengine_result *result)
 {
 	struct mscc_ifh_tx_request *req = data;
@@ -1057,14 +1057,14 @@ static void mscc_ifh_transmit_cb(void *data,
 	priv = req->priv;
 	spin_lock(&priv->tx_lock);
 	if (result->result != DMA_TRANS_NOERROR) {
-		pr_err("%s:%d %s: error: %u, [C%u]\n", 
-			__FILE__, __LINE__, __func__, 
+		pr_err("%s:%d %s: error: %u, [C%u]\n",
+			__FILE__, __LINE__, __func__,
 			result->result, req->cookie);
 	} else {
 		status = dmaengine_tx_status(priv->txdma, req->cookie, &state);
 		pr_debug("%s:%d %s: status %d, state: last: %u, used: %u, "
-			 "residue: %u\n", 
-			__FILE__, __LINE__, __func__, 
+			 "residue: %u\n",
+			__FILE__, __LINE__, __func__,
 			status, state.last, state.used, state.residue);
 		/* TODO: req->size should cover the whole thing */
 		priv->netdev->stats.tx_packets++;
@@ -1074,7 +1074,7 @@ static void mscc_ifh_transmit_cb(void *data,
 	spin_unlock(&priv->tx_lock);
 
 	pr_debug("%s:%d %s: TX Done: packets: %lu, bytes: %lu\n",
-		__FILE__, __LINE__, __func__, 
+		__FILE__, __LINE__, __func__,
 		priv->netdev->stats.tx_packets,
 		priv->netdev->stats.tx_bytes);
 }
@@ -1229,7 +1229,7 @@ static int mscc_ifh_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct mscc_ifh_priv *priv = netdev_priv(dev);
 
-	if (new_mtu < (RX_MTU_MIN + ETH_VLAN_TAGSZ + ETH_FCS_LEN + 
+	if (new_mtu < (RX_MTU_MIN + ETH_VLAN_TAGSZ + ETH_FCS_LEN +
 		       priv->config->ifh_len) || new_mtu > IF_BUFSIZE_JUMBO) {
 		return -EINVAL;
 	}
@@ -1382,7 +1382,7 @@ static int mscc_ifh_probe(struct platform_device *pdev)
 
 			priv->inj_port = 0; /* chipport 65 on Fireant */
 			res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-			priv->io_addr = 
+			priv->io_addr =
 				ioremap(res->start, res->end - res->start + 1);
 
 			mscc_ifh_register_based_injection(priv);
@@ -1403,11 +1403,11 @@ static int mscc_ifh_probe(struct platform_device *pdev)
 				dev_warn(priv->dev, "No IRQ thread\n");
 				return ret;
 			}
-			dev_warn(priv->dev, 
+			dev_warn(priv->dev,
 				 "No FDMA support: Going register based\n");
 		} else {
-			dev_warn(priv->dev, 
-				 "No FDMA support: retry later: %d\n", 
+			dev_warn(priv->dev,
+				 "No FDMA support: retry later: %d\n",
 				 mscc_ifh_module_retry);
 			return -EPROBE_DEFER;
 		}
