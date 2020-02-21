@@ -39,6 +39,12 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	meba {
+		board = "Fireant pcb134 via PCI";
+		pcb = "pcb134";
+		target = "0x7558";
+	};
 };
 
 &duart0 {
@@ -592,4 +598,3 @@
 &irqmux0 {
 	status = "okay";
 };
-

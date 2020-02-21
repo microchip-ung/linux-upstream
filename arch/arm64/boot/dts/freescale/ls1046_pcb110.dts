@@ -24,6 +24,11 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	meba {
+		board = "Jaguar2 pcb110 via PCI";
+		pcb = "pcb110";
+	};
 };
 
 &duart0 {
@@ -132,7 +137,7 @@
 };
 
 &pci0 {
-	pci0,0 {
+	pci@0,0 {
 		#address-cells = <3>;
 		#size-cells = <2>;
 		reg = <0 0 0 0 0>;
@@ -362,7 +367,7 @@
 			};
 
 			spi@101000 {
-				compatible = "mscc,jaguar2-spi", "snps,dw-apb-ssi";
+				compatible = "mscc,jaguar2-spi";
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0x101000 0x1000>, <0x3c 0x18>;
