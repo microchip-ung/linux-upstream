@@ -447,6 +447,7 @@ retry:
 		goto retry;
 	}
 
+
 	printk("List of all partitions:\n");
 	printk_all_partitions();
 	printk("No filesystem could mount root, tried: ");

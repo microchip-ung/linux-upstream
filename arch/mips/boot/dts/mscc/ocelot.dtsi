@@ -307,5 +307,11 @@
 			compatible = "mscc,ocelot-ifmux";
 			status = "okay";
 		};
+
+		vcfw_uio@8ec00000 {
+			compatible = "mscc,vcfw_uio";
+			reg = <0x9ec00000 0x1400000>; // 20MB mmap_size
+		};
+
 	};
 };

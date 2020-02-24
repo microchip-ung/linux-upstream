@@ -47,8 +47,6 @@ static int vcfw_probe(struct platform_device *dev)
 	struct resource *regs_vcfwio;
 	int ret = -ENODEV, len;
 
-        dev_info(&dev->dev, "UIO driver loading\n");
-
 	info = kzalloc(sizeof(struct uio_info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
@@ -82,6 +80,7 @@ static int vcfw_probe(struct platform_device *dev)
                 goto out_free;
 
 	platform_set_drvdata(dev, info);
+        dev_info(&dev->dev, "UIO map: %pR\n", regs_vcfwio);
 	return 0;
 
 out_free:

@@ -20,15 +20,12 @@
 #include <asm/smp-ops.h>
 #include <asm/time.h>
 
-static __initdata const void *fdt;
-static __initdata const struct mips_machine *mach;
-static __initdata const void *mach_match_data;
+__initdata const void *fdt;
+__initdata const struct mips_machine *mach;
+__initdata const void *mach_match_data;
 
-void __init prom_init(void)
+void __init __weak prom_init(void)
 {
-#ifdef CONFIG_MIPS_RAW_APPENDED_DTB
-	fw_init_cmdline();
-#endif
 	plat_get_fdt();
 	BUG_ON(!fdt);
 }
@@ -104,14 +101,12 @@ void __init plat_fdt_relocated(void *new_location)
 
 #endif /* CONFIG_RELOCATABLE */
 
-void __init plat_mem_setup(void)
+void __init __weak plat_mem_setup(void)
 {
 	if (mach && mach->fixup_fdt)
 		fdt = mach->fixup_fdt(fdt, mach_match_data);
 
-#ifndef CONFIG_MIPS_CMDLINE_DTB_EXTEND
 	strlcpy(arcs_cmdline, boot_command_line, COMMAND_LINE_SIZE);
-#endif
 	__dt_setup_arch((void *)fdt);
 }
 
