@@ -44,6 +44,8 @@
 		board = "Fireant pcb134 via PCI";
 		pcb = "pcb134";
 		target = "0x7558";
+		regoff0 = "0x10000000"; // CSR ring offsets
+		regoff1 = "0x00000000"; // CPU register offsets
 	};
 };
 

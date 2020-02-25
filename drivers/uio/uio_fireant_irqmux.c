@@ -313,7 +313,7 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 	priv->pdev = pdev;
 	priv->cfg = device_get_match_data(&pdev->dev);
 
-	priv->io_enabled = !of_property_read_bool(pdev->dev.of_node, 
+	priv->io_enabled = !of_property_read_bool(pdev->dev.of_node,
 						  "external-cpu");
 	if (priv->io_enabled) {
 		dev_info(dev, "IO is enabled\n");
@@ -330,16 +330,22 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 	priv->info.name = pdev->dev.of_node->name;
 	priv->info.version = "devicetree";
 	if (priv->io_enabled) {
-		priv->info.mem[0].memtype = UIO_MEM_PHYS;
-		priv->info.mem[0].addr = pdev->resource[0].start;
-		priv->info.mem[0].size = resource_size(&(pdev->resource[0]));
-		priv->info.mem[0].name = pdev->resource[0].name;
-		priv->info.mem[0].internal_addr = devm_ioremap(dev,
-							priv->info.mem[0].addr,
-							priv->info.mem[0].size);
-		if (!priv->info.mem[0].internal_addr) {
-			dev_err(dev, "failed to map chip region\n");
-			return -ENODEV;
+		int i;
+		const struct resource *res;
+
+		for(i = 0, res = &pdev->resource[0]; resource_type(res) == IORESOURCE_MEM; i++, res++) {
+			size_t sz = resource_size(res);
+			priv->info.mem[i].memtype = UIO_MEM_PHYS;
+			priv->info.mem[i].addr = res->start;
+			priv->info.mem[i].size = sz;
+			priv->info.mem[i].name = res->name;
+			priv->info.mem[i].internal_addr = devm_ioremap(dev,
+								       priv->info.mem[i].addr,
+								       priv->info.mem[i].size);
+			if (!priv->info.mem[i].internal_addr) {
+				dev_err(dev, "failed to map chip region %d sz %zd\n", i, sz);
+				return -ENODEV;
+			}
 		}
 	}
 
