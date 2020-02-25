@@ -47,6 +47,11 @@
 		regoff0 = "0x10000000"; // CSR ring offsets
 		regoff1 = "0x00000000"; // CPU register offsets
 	};
+
+	ifmux: switch_ifmux@0 {
+		compatible = "mscc,fireant-ifmux";
+		status = "okay";
+	};
 };
 
 &duart0 {
@@ -331,11 +336,6 @@
 				status = "disabled";
 			};
 
-			ifmux: switch_ifmux@0 {
-				compatible = "mscc,fireant-ifmux";
-				status = "disabled";
-			};
-
 			clocks: clocks {
 				ahb_clk: ahb-clk {
 					compatible = "fixed-clock";
@@ -590,10 +590,6 @@
 };
 
 &ifh1 {
-	status = "okay";
-};
-
-&ifmux {
 	status = "okay";
 };
 
