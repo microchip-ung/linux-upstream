@@ -600,3 +600,29 @@
 &irqmux0 {
 	status = "okay";
 };
+
+&qspi {
+	s25fs512s@0 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			partition@0 {
+				    label = "PBL";
+				    reg = <0x00000000 0x00010000>;
+			};
+			partition@1 {
+				    label = "fman";
+				    reg = <0x00010000 0x00010000>;
+			};
+			partition@2 {
+				    label = "U-Boot";
+				    reg = <0x00100000 0x00100000>;
+			};
+			partition@3 {
+				    label = "rootfs_data";
+				    reg = <0x00400000 0x00c00000>;
+			};
+		};
+	};
+};
