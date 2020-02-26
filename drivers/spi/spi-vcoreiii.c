@@ -36,6 +36,7 @@
 #define ICPU_SW_MODE_SW_SPI_SDI                           BIT(0)
 
 #define MAX_CS		4
+#define BOOTMASTER_CS	0
 
 struct spi_vcoreiii {
 	void __iomem *regs;	/* Bitbang register */
@@ -93,6 +94,10 @@ static int vcoreiii_bb_exec_mem_op(struct spi_mem *mem,
 		struct spi_device *spi = mem->spi;
 		struct spi_vcoreiii *p = spi_master_get_devdata(spi->master);
 		u8 __iomem *src = p->read_map + (spi->chip_select * SZ_16M) + op->addr.val;
+
+		if (spi->chip_select != BOOTMASTER_CS)
+			return ret;
+
 		memcpy(op->data.buf.in, src, op->data.nbytes);
 		ret = op->data.nbytes;
 	}
