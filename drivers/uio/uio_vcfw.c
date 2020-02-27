@@ -62,8 +62,8 @@ static int vcfw_probe(struct platform_device *dev)
 		goto out_free;
 	}
 
-        info->mem[0].internal_addr = regs_vcfwio->start;
-        info->mem[0].addr = virt_to_phys(regs_vcfwio->start);
+        info->mem[0].internal_addr = (void *)regs_vcfwio->start;
+        info->mem[0].addr = virt_to_phys((void *)regs_vcfwio->start);
         info->mem[0].size = resource_size(regs_vcfwio);
         info->mem[0].memtype = UIO_MEM_PHYS;
 
