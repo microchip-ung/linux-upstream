@@ -17,6 +17,11 @@
 };
 
 &gpio {
+	cpld_pins: cpld-pins {
+		// CS1
+		pins = "GPIO_16";
+		function = "si";
+	};
 	synce_pins: synce-pins {
 		// CS2
 		pins = "GPIO_17";
@@ -61,6 +66,14 @@
 		compatible = "mx66l1g45g", "jedec,spi-nor";
 		spi-max-frequency = <8000000>;
 		reg = <0>;
+	};
+	// cpld
+	spi@1 {
+		compatible = "mchp,cpld";
+		reg = <1>;
+		pinctrl-0 = <&cpld_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
 	};
 	// synce module
 	spi@2 {
