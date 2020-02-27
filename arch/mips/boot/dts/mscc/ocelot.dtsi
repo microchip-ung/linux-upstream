@@ -309,8 +309,9 @@
 		};
 
 		vcfw_uio@8ec00000 {
+			/* Firmware ramload memory */
 			compatible = "mscc,vcfw_uio";
-			reg = <0x9ec00000 0x1400000>; // 20MB mmap_size
+			reg = <0x8ec00000 0x1000000>;
 		};
 
 	};

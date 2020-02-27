@@ -159,10 +159,18 @@
 			reg = <0x60000000 0x01000000>, <0x70000000 0x00200000>;
 			interrupts = <10>;
 		};
+
 		ifmux: ifmux@0 {
 			compatible = "mscc,luton-ifmux";
 			status = "okay";
 		};
+
+		vcfw_uio@8ec00000 {
+			/* Firmware ramload memory */
+			compatible = "mscc,vcfw_uio";
+			reg = <0x8ec00000 0x1000000>;
+		};
+
 	};
 
 	pi_nand: nand@50000000 {

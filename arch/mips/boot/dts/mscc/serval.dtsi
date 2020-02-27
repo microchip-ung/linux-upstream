@@ -188,5 +188,12 @@
 			compatible = "mscc,serval-ifmux";
 			status = "okay";
 		};
+
+		vcfw_uio@8ec00000 {
+			/* Firmware ramload memory */
+			compatible = "mscc,vcfw_uio";
+			reg = <0x8ec00000 0x1000000>;
+		};
+
 	};
 };

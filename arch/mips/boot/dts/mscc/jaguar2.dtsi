@@ -245,11 +245,6 @@
 			status = "disabled";
 		};
 
-		vcfw_uio@8ec00000 {
-			compatible = "mscc,vcfw_uio";
-			reg = <0x8ec00000 0x1400000>;
-		};
-
 		fdma: fdma@0 {
 			compatible = "mscc,jaguar2-fdma";
 			reg = <0x70000000 0x00200000>, <0x71000000 0x01000000>;
@@ -259,6 +254,13 @@
 		ifmux: ifmux@0 {
 			compatible = "mscc,jaguar2-ifmux";
 		};
+
+		vcfw_uio@8ec00000 {
+			/* Firmware ramload memory */
+			compatible = "mscc,vcfw_uio";
+			reg = <0x8ec00000 0x1000000>;
+		};
+
 	};
 
 	pi_nand: nand@50000000 {

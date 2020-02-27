@@ -45,7 +45,7 @@ static int vcfw_probe(struct platform_device *dev)
 {
 	struct uio_info *info;
 	struct resource *regs_vcfwio;
-	int ret = -ENODEV, len;
+	int ret = -ENODEV;
 
 	info = kzalloc(sizeof(struct uio_info), GFP_KERNEL);
 	if (!info)
@@ -62,15 +62,10 @@ static int vcfw_probe(struct platform_device *dev)
 		goto out_free;
 	}
 
-        info->mem[0].addr = regs_vcfwio->start;
+        info->mem[0].internal_addr = regs_vcfwio->start;
+        info->mem[0].addr = virt_to_phys(regs_vcfwio->start);
         info->mem[0].size = resource_size(regs_vcfwio);
         info->mem[0].memtype = UIO_MEM_PHYS;
-	len = resource_size(regs_vcfwio);
-	info->mem[0].internal_addr = ioremap(regs_vcfwio->start, len);
-	if (!info->mem[0].internal_addr) {
-		dev_err(&dev->dev, "Can't remap VCFW I/O address range\n");
-		goto out_free;
-	}
 
         info->name = DRV_NAME;
         info->version = DRV_VERSION;

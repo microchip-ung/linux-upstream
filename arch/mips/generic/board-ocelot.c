@@ -176,7 +176,7 @@ void __init prom_init(void)
 				/* Reserve the 'memmap' part off the memory end */
 				memsize -= mmapsize;
 				/* Update the vcfw driver with this */
-				vcoreiii_memmap_start = memsize + CKSEG0;
+				vcoreiii_memmap_start = (unsigned long)phys_to_virt(memsize);
 				vcoreiii_memmap_size = mmapsize;
 				pr_debug("%s: vcfw start: 0x%lx, size: %zu\n", __func__, vcoreiii_memmap_start, vcoreiii_memmap_size);
 			}
