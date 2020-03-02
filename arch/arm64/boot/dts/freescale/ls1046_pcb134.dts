@@ -589,7 +589,11 @@
 	};
 };
 
-&ifh1 {
+&dma {
+	status = "okay";
+};
+
+&ifh0 {
 	status = "okay";
 };
 

@@ -308,6 +308,31 @@ enum fireant_top {
 #define VCORE_ACCESS_TIMEOUT_MS                  5
 #define FDMA_DISABLE_TIMEOUT_MS                  5
 
+/*
+ * FDMA writing buffer data via PCIe
+ *                                               Switch Core
+ *  +--------------+            +---------------------------------------------+
+ *  |     Host     |            |                         0 => 0x900000000    |
+ *  |     RAM      |            |                        +-----------------+  |
+ *  |              |            |      DCB Config ------->FDMA Translation |  |
+ *  |              |            |                        +--------|--------+  |
+ *  |              |            |                                 |           |
+ *  |              |            |                                 |           |
+ *  |              |            |    0x900000000 => 0         +---v---+       |
+ *  +--------------+ PCIe Write | +-------------------+       | FDMA  |       |
+ *  |   Buffer     |<--------------  ATU (outbound)   |       +---|---+       |
+ *  +--------------+            | +---------^---------+           |           |
+ *  |              |            |           |                     |           |
+ *  |              |            |           |                     |           |
+ *  +--------------+            |           |                     |           |
+ *                              |           |             +-------v------+    |
+ *                              |           |             | 0x900000000  |    |
+ *                              |           +--------------              |    |
+ *                              |                         |   PCIe EP    |    |
+ *                              |                         +--------------+    |
+ *                              +---------------------------------------------+
+ */
+
 /* Debugging flags */
 // #define FDMA_ACCESS_LOG
 // #define FDMA_DEBUG_TX
@@ -392,7 +417,6 @@ struct mscc_fa_fdma {
 	struct dma_device dma;  /* Must be first member due to xlate function */
 	struct mscc_fa_fdma_region regions[FIREANT_REGIONS];
 	struct dma_pool *dcb_pool;
-	dma_addr_t dcb_offset;
 	int irq;
 	bool using_pcie;
 	struct dentry *rootfs;
@@ -775,6 +799,11 @@ static void mscc_fa_fdma_start(struct dma_chan *chan)
 	pr_debug("%s:%d %s: Channel: %u\n", __FILE__, __LINE__, __func__, 
 		chan->chan_id);
 	priv->chans[chan->chan_id].state = DCS_ACTIVE;
+	if (priv->using_pcie) {
+		/* Adding translation (in MB) to address the PCIe controller */
+		mscc_fa_fdma_writel(priv, FDMA_CH_TRANSLATE_R_OFF(chan->chan_id),
+				    (PCIE_TARGET_OFFSET >> 20));
+	}
 	if (chan->chan_id >= FDMA_XTR_CHANNEL) {
 		/* Start extraction */
 		control = mscc_fa_fdma_readl(priv,
@@ -915,8 +944,7 @@ static bool mscc_fa_fdma_get_dcb(struct mscc_fa_fdma *priv,
 	}
 	dma_async_tx_descriptor_init(&dcb->txd, chan);
 	dcb->txd.tx_submit = mscc_fa_fdma_tx_submit;
-	/* Convert to VCORE address space */
-	dcb->txd.phys = dcb->phys + priv->dcb_offset;
+	dcb->txd.phys = dcb->phys;
 	/* Move item into the channel */
 	list_move_tail(&dcb->node, &fdma_chan->queued_dcbs);
 	/* Update free dcb statistics */
@@ -950,8 +978,6 @@ static void mscc_fa_fdma_add_datablock(struct mscc_fa_fdma *priv,
 
 	len = dcb->binfo[idx].size = sg_dma_len(sg);
 	db_phys = sg_dma_address(sg);
-	/* Convert to VCORE address space */
-	db_phys += priv->dcb_offset;
 	off = db_phys & 0x7;
 	db_phys &= ~0x7;
 	/* Adapt the DB Interrupt to the current load */
@@ -1732,6 +1758,9 @@ static int mscc_fa_buffer_access_test(struct mscc_fa_fdma *priv,
 	u32 value1 = 0xdeadbeef;
 	u32 value2;
 
+	if (priv->using_pcie) {
+		phys += PCIE_TARGET_OFFSET;
+	}
 	*buffer = value1;
 	if (cached) {
 		__flush_dcache_area(buffer, 64);
@@ -2191,7 +2220,7 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 	}
 	priv->using_pcie = mscc_fa_init_region(pdev, priv, res, FIREANT_DEFAULT, 
 					       VCORE_CSR_SPACE);
-	priv->dcb_offset = priv->using_pcie ? PCIE_TARGET_OFFSET : 0;
+	dev_info(&pdev->dev, "using_pcie: %d\n", priv->using_pcie);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
 		dev_err(&pdev->dev, "Cannot get IO resource 1\n");
@@ -2199,11 +2228,12 @@ static int mscc_fa_fdma_probe(struct platform_device *pdev)
 	}
 	mscc_fa_init_region(pdev, priv, res, FIREANT_AMBA_TOP, AMBA_TOP_SPACE);
 
+	mscc_fa_reset_fdma(priv);
+
 	ret = mscc_fa_access_test(pdev, priv);
 	if (ret) {
 		goto out_free;
 	}
-	mscc_fa_reset_fdma(priv);
 
 	priv->irq = platform_get_irq(pdev, 0);
 	pr_debug("%s:%d %s: IRQ: %d\n", __FILE__, __LINE__, __func__, priv->irq);
