@@ -226,7 +226,7 @@ static unsigned long __init init_initrd(void)
 			      (void *)initrd_start, size)) {
 		unsigned long new_initrd_start =
 			round_up((unsigned long)_end, 0x100000);
-		pr_err("Memory overlap between rootfs and init segment\n");
+		pr_info("Memory overlap between rootfs and init segment\n");
 		memcpy((void *)new_initrd_start, (void *)initrd_start, size);
 		initrd_start = new_initrd_start;
 		initrd_end = new_initrd_start + size;
