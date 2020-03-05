@@ -33,6 +33,7 @@ enum {
 	IFH_ID_SERVAL1 = 0x05,
 	IFH_ID_OCELOT  = 0x0a,
 	IFH_ID_JAGUAR2 = 0x07,
+	IFH_ID_SERVALT = 0x09,
 	IFH_ID_FIREANT = 0x0b,
 };
 

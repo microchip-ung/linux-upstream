@@ -79,6 +79,15 @@ static const u8 hdr_tmpl_vlan_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)+4] = {
         _vlantag,
 };
 
+static const u8 hdr_tmpl_vlan_servalt[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)+4] = {
+        _encap(IFH_ID_SERVALT),
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x80,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x01,
+        0xa9, 0x00, 0x00, 0x00,
+        _vlantag,
+};
+
 static const u8 hdr_tmpl_vlan_jaguar2[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)+4] = {
         _encap(IFH_ID_JAGUAR2),
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -130,7 +139,7 @@ static const u8 hdr_tmpl_port_ocelot[IFH_ENCAP_LEN(IFH_LEN_OCELOT)] = {
         0xc0, 0x00, 0x00
 
 static const u8 hdr_tmpl_port_servalt[IFH_ENCAP_LEN(IFH_LEN_JAGUAR2)] = {
-        _encap(IFH_ID_JAGUAR2),
+        _encap(IFH_ID_SERVALT),
         // DST_MODE=3, SRC_PORT=11 (CPU), DO_NOT_REW=1
         _ifh_tmpl_port_jaguar2_family(0xc0, 0x5c),
 };
@@ -693,14 +702,14 @@ static const struct ifmux_chip ocelot_chip = {
 
 static const struct ifmux_chip servalt_chip = {
         .soc                    = SOC_SERVALT,
-        .ifh_id             = IFH_ID_JAGUAR2,
+        .ifh_id             = IFH_ID_SERVALT,
         .ifh_len            = IFH_LEN_JAGUAR2,
         .ifh_encap_len      = IFH_LEN_JAGUAR2 + 2*ETH_ALEN + VLAN_HLEN,
         .ifh_offs_port_mask = IFH_OFFS_PORT_MASK_JAGUAR2,
         .cpu_port            = 11, /* CPU port == 11 on ServalT */
-        .hdr_tmpl_vlan            = hdr_tmpl_vlan_jaguar2,
+        .hdr_tmpl_vlan            = hdr_tmpl_vlan_servalt,
         .hdr_tmpl_port            = hdr_tmpl_port_servalt,
-        .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_jaguar2),
+        .ifh_encap_vlan_len = sizeof(hdr_tmpl_vlan_servalt),
         .ifh_encap_port_len = sizeof(hdr_tmpl_port_servalt),
         .set_port_value     = set_bitmapped_port,
         .set_vlan_value     = set_vlan_id,

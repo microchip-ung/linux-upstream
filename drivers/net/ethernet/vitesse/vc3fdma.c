@@ -2533,7 +2533,7 @@ static const struct fdma_chip ocelot_chip = {
 
 static const struct fdma_chip servalt_chip = {
         .driver =  &vtss_ufdma_platform_driver_servalt,
-        .ifh_id = IFH_ID_JAGUAR2,
+        .ifh_id = IFH_ID_SERVALT,
 };
 
 static const struct fdma_chip jaguar2_chip = {
