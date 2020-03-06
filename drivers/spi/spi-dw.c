@@ -82,6 +82,8 @@ static ssize_t dw_spi_show_regs(struct file *file, char __user *user_buf,
 	len += scnprintf(buf + len, SPI_REGS_BUFSIZE - len,
 			"DMARDLR: \t0x%08x\n", dw_readl(dws, DW_SPI_DMARDLR));
 	len += scnprintf(buf + len, SPI_REGS_BUFSIZE - len,
+			 "RX_SAMPLE_DLY: \t0x%08x\n", dw_readl(dws, DW_SPI_RX_SAMPLE_DLY));
+	len += scnprintf(buf + len, SPI_REGS_BUFSIZE - len,
 			"=================================\n");
 
 	ret = simple_read_from_buffer(user_buf, count, ppos, buf, len);
@@ -314,6 +316,10 @@ static int dw_spi_transfer_one(struct spi_controller *master,
 		dws->current_freq = transfer->speed_hz;
 		spi_set_clk(dws, chip->clk_div);
 	}
+
+	/* Apply RX sample delay, iff requested (nonzero) */
+	if (dws->rx_sample_dly)
+		dw_writel(dws, DW_SPI_RX_SAMPLE_DLY, dws->rx_sample_dly);
 
 	dws->n_bytes = DIV_ROUND_UP(transfer->bits_per_word, BITS_PER_BYTE);
 	dws->dma_width = DIV_ROUND_UP(transfer->bits_per_word, BITS_PER_BYTE);

@@ -33,6 +33,7 @@
 #define DW_SPI_IDR			0x58
 #define DW_SPI_VERSION			0x5c
 #define DW_SPI_DR			0x60
+#define DW_SPI_RX_SAMPLE_DLY		0xf0
 #define DW_SPI_CS_OVERRIDE		0xf4
 
 /* Bit fields in CTRLR0 */
@@ -113,6 +114,7 @@ struct dw_spi {
 
 	int			cs_override;
 	u32			reg_io_width;	/* DR I/O width in bytes */
+	u8			rx_sample_dly;	/* RX fifo tuning (option) */
 	u16			bus_num;
 	u16			num_cs;		/* supported slave numbers */
 	void (*set_cs)(struct spi_device *spi, bool enable);
