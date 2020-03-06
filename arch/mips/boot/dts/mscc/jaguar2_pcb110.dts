@@ -44,10 +44,6 @@
 	};
 };
 
-&uart2 {
-	status = "okay";
-};
-
 &spi0 {
 	status = "okay";
 	spi-flash@0 {
