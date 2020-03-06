@@ -277,7 +277,7 @@ static int dw_spi_mscc_probe(struct platform_device *pdev)
 	struct dw_spi_mscc *dwsmscc;
 	struct dw_spi *dws;
 	int ret;
-	int num_cs;
+	int num_cs, rx_sample_dly;
 
 	dwsmscc = devm_kzalloc(&pdev->dev, sizeof(struct dw_spi_mscc),
 			GFP_KERNEL);
@@ -316,6 +316,10 @@ static int dw_spi_mscc_probe(struct platform_device *pdev)
 	device_property_read_u32(&pdev->dev, "num-cs", &num_cs);
 
 	dws->num_cs = num_cs;
+
+	rx_sample_dly = 0;
+	device_property_read_u32(&pdev->dev, "spi-rx-delay-us", &rx_sample_dly);
+	dws->rx_sample_dly = DIV_ROUND_UP(rx_sample_dly, (dws->max_freq / 1000000));
 
 	if (pdev->dev.of_node) {
 		int i;
