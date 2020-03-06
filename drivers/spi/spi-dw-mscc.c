@@ -16,6 +16,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/property.h>
@@ -293,7 +294,7 @@ static int dw_spi_mscc_probe(struct platform_device *pdev)
 		return PTR_ERR(dws->regs);
 	}
 
-	dws->irq = platform_get_irq(pdev, 0);
+	dws->irq = of_irq_get(pdev->dev.of_node, 0);
 	if (dws->irq < 0)
 		dev_info(&pdev->dev, "no irq, using polled mode\n");
 
