@@ -20,6 +20,18 @@
 	};
 };
 
+
+&spi0 {
+	status = "okay";
+	spi-flash@0 {
+		label = "spi_flash";
+		compatible = "macronix,mx25l25635f", "jedec,spi-nor";
+		spi-max-frequency = <18000000>; /* input clock */
+		reg = <0>; /* CS0 */
+	};
+};
+
+
 &pi_nand {
 	status = "okay";
 	chip-delay = <100>; // MX30LF1GE8AB with internal ECC has 45-70 us tR_ECC
