@@ -8,6 +8,13 @@
 	#size-cells = <1>;
 	compatible = "mscc,jr2";
 
+	aliases {
+		spi0 = &spi0;
+		serial0 = &uart0;
+		serial1 = &uart2;
+		gpio0 = &gpio;
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -18,11 +25,6 @@
 			clocks = <&cpu_clk>;
 			reg = <0>;
 		};
-	};
-
-	aliases {
-		serial0 = &uart0;
-		gpio0 = &gpio;
 	};
 
 	cpuintc: interrupt-controller {

@@ -6,17 +6,16 @@
 #include "jaguar2.dtsi"
 
 / {
-	aliases {
-		spi0 = &spi0;
-		serial0 = &uart0;
-	};
-
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
 };
 
 &uart0 {
+	status = "okay";
+};
+
+&uart2 {
 	status = "okay";
 };
 
