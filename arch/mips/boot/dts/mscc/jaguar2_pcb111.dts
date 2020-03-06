@@ -20,7 +20,6 @@
 	};
 };
 
-
 &spi0 {
 	status = "okay";
 	spi-flash@0 {
@@ -29,8 +28,41 @@
 		spi-max-frequency = <18000000>; /* input clock */
 		reg = <0>; /* CS0 */
 	};
+	// CPLD register interface
+	spi@e {
+		compatible = "mchp,synce_builtin";
+		reg = <0xe>; /* CS14 */
+		pinctrl-0 = <&cpld_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+	// CPLD FIFO interface
+	spi@f {
+		compatible = "mchp,cpld_fifo";
+		reg = <0xf>; /* CS15 */
+		pinctrl-0 = <&cpld_fifo_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
 };
 
+&gpio {
+	synce_builtin_pins: synce-builtin-pins {
+		// GPIO 49 == SI_nCS13
+		pins = "GPIO_49";
+		function = "si";
+	};
+	cpld_pins: cpld-pins {
+		// GPIO 50 == SI_nCS14
+		pins = "GPIO_50";
+		function = "si";
+	};
+	cpld_fifo_pins: synce-builtin-pins {
+		// GPIO 51 == SI_nCS15
+		pins = "GPIO_51";
+		function = "si";
+	};
+};
 
 &pi_nand {
 	status = "okay";
