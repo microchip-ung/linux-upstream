@@ -177,9 +177,8 @@ retry:
 			goto retry;
 		}
 
-		ubi_err(ubi, "error %d%s while reading %d bytes from PEB %d:%d, read %zd bytes",
+		ubi_warn(ubi, "error %d%s while reading %d bytes from PEB %d:%d, read %zd bytes",
 			err, errstr, len, pnum, offset, read);
-		dump_stack();
 
 		/*
 		 * The driver should never return -EBADMSG if it failed to read
@@ -331,8 +330,7 @@ retry:
 			yield();
 			goto retry;
 		}
-		ubi_err(ubi, "cannot erase PEB %d, error %d", pnum, err);
-		dump_stack();
+		ubi_warn(ubi, "cannot erase PEB %d, error %d", pnum, err);
 		return err;
 	}
 

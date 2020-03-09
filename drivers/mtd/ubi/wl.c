@@ -1108,7 +1108,7 @@ static int __erase_worker(struct ubi_device *ubi, struct ubi_work *wl_wrk)
 		return err;
 	}
 
-	ubi_err(ubi, "failed to erase PEB %d, error %d", pnum, err);
+	ubi_warn(ubi, "failed to erase PEB %d, error %d", pnum, err);
 
 	if (err == -EINTR || err == -ENOMEM || err == -EAGAIN ||
 	    err == -EBUSY) {
