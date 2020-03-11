@@ -2409,8 +2409,11 @@ static void restart_handler_install(struct vc3fdma_private *priv)
 {
     int rc;
 
+    /* Use high priority to ensure getting called. Platform reset
+     * driver (ocelot-reset) runs at priority 192.
+     */
     priv->restart_nb.notifier_call = vc3fdma_restart;
-    priv->restart_nb.priority      = 128;
+    priv->restart_nb.priority      = 204;
     if ((rc = register_restart_handler(&priv->restart_nb))) {
         T_E("Unable to register a restart handler: %d", rc);
         // Keep going
