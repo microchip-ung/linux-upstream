@@ -17,6 +17,7 @@
 		i2c151  = &i2c151;
 		i2c152  = &i2c152;
 		i2c203  = &i2c203;
+		ptp_dac = &ptp_dac;
 	};
 };
 
@@ -147,5 +148,16 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
+	};
+};
+
+&i2c0 {
+	// PTP DAC device on address 0xF on the main I2C segment
+	ptp_dac: i2c_ptp_dac@f {
+		// This provides the device name
+		compatible = "ptp_dac";
+		reg = <0xf>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 	};
 };
