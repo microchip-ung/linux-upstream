@@ -41,7 +41,7 @@ struct ocelot_reset_context {
 #define IF_SI_OWNER_SISL			0
 #define IF_SI_OWNER_SIBM			1
 #define IF_SI_OWNER_SIMC			2
-#define IF_SI_OWNER_OFFSET			4
+#define IF_SI_OWNER_OFFSET			6
 #define ICPU_GENERAL_CTRL_BOOT_MODE_ENA         BIT(0)
 
 /* HSIO PLL5G reset registers (serval-t) */
