@@ -199,7 +199,7 @@ static int ocelot_restart_handle(struct notifier_block *this,
 							ocelot_reset_context,
 							restart_handler);
 
-	/* Make the SI back to boot mode */
+	/* Change SI owner for boot mode to work */
 	update_bits(ctx->icpu_base + ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL,
 		    IF_SI_OWNER_MASK << IF_SI_OWNER_OFFSET,
 		    IF_SI_OWNER_SIBM << IF_SI_OWNER_OFFSET);
