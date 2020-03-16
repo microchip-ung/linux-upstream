@@ -131,8 +131,9 @@ static void dw_spi_mscc_set_cs_owner(struct dw_spi_mscc *dwsmscc,
  * Designware SPI controller and the SPI boot controller.  nselect is
  * an active low signal
  */
-static void dw_spi_mscc_set_cs(struct spi_device *spi, bool enable)
+static void dw_spi_mscc_set_cs(struct spi_device *spi, bool nEnable)
 {
+	bool enable = !nEnable;	/* This keeps changing in the API... */
 	struct dw_spi *dws = spi_master_get_devdata(spi->master);
 	struct dw_spi_mscc *dwsmscc = container_of(dws, struct dw_spi_mscc,
 						   dws);
