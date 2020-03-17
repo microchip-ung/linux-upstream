@@ -16,6 +16,7 @@
 struct reset_mscc_props {
 	u32 protect_reg_off;
 	u32 vcore_protect;
+	u32 if_si_owner_offset;
 };
 
 struct ocelot_reset_context {
@@ -26,6 +27,8 @@ struct ocelot_reset_context {
 	struct notifier_block restart_handler;
 	bool cpu_reset_only;
 };
+
+#define BIT_OFF_INVALID				32
 
 #define SOFT_SWC_RST  BIT(1)
 #define SOFT_CHIP_RST BIT(0)
@@ -41,7 +44,6 @@ struct ocelot_reset_context {
 #define IF_SI_OWNER_SISL			0
 #define IF_SI_OWNER_SIBM			1
 #define IF_SI_OWNER_SIMC			2
-#define IF_SI_OWNER_OFFSET			6
 #define ICPU_GENERAL_CTRL_BOOT_MODE_ENA         BIT(0)
 
 /* HSIO PLL5G reset registers (serval-t) */
@@ -198,11 +200,13 @@ static int ocelot_restart_handle(struct notifier_block *this,
 	struct ocelot_reset_context *ctx = container_of(this, struct
 							ocelot_reset_context,
 							restart_handler);
+	u32 if_si_owner_offset = ctx->props->if_si_owner_offset;
 
 	/* Change SI owner for boot mode to work */
-	update_bits(ctx->icpu_base + ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL,
-		    IF_SI_OWNER_MASK << IF_SI_OWNER_OFFSET,
-		    IF_SI_OWNER_SIBM << IF_SI_OWNER_OFFSET);
+	if (if_si_owner_offset != BIT_OFF_INVALID)
+		update_bits(ctx->icpu_base + ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL,
+			    IF_SI_OWNER_MASK << if_si_owner_offset,
+			    IF_SI_OWNER_SIBM << if_si_owner_offset);
 
 	if (ctx->cpu_reset_only) {
 		pr_emerg("Resetting CPU\n");
@@ -274,19 +278,37 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 	return err;
 }
 
+static const struct reset_mscc_props reset_mscc_props_luton = {
+	.protect_reg_off    = 0x20,
+	.vcore_protect      = BIT(2),
+	.if_si_owner_offset = BIT_OFF_INVALID, /* n/a */
+};
+
 static const struct reset_mscc_props reset_mscc_props_ocelot = {
-	.protect_reg_off = 0x20,
-	.vcore_protect   = BIT(2),
+	.protect_reg_off    = 0x20,
+	.vcore_protect      = BIT(2),
+	.if_si_owner_offset = 4,
+};
+
+static const struct reset_mscc_props reset_mscc_props_jaguar2 = {
+	.protect_reg_off    = 0x20,
+	.vcore_protect      = BIT(2),
+	.if_si_owner_offset = 6,
 };
 
 static const struct reset_mscc_props reset_mscc_props_fireant = {
-	.protect_reg_off = 0x84,
-	.vcore_protect   = BIT(10),
+	.protect_reg_off    = 0x84,
+	.vcore_protect      = BIT(10),
+	.if_si_owner_offset = 6,
 };
 
 static const struct of_device_id ocelot_reset_of_match[] = {
+	{ .compatible = "mscc,luton-chip-reset",
+	  .data = &reset_mscc_props_luton },
 	{ .compatible = "mscc,ocelot-chip-reset",
 	  .data = &reset_mscc_props_ocelot },
+	{ .compatible = "mscc,jaguar2-chip-reset",
+	  .data = &reset_mscc_props_jaguar2 },
 	{ .compatible = "mscc,fireant-chip-reset",
 	  .data = &reset_mscc_props_fireant },
 	{}
