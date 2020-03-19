@@ -176,7 +176,7 @@ static void dw_spi_mscc_set_cs(struct spi_device *spi, bool nEnable)
 		}
 	}
 
-	dw_spi_set_cs(spi, enable);
+	dw_spi_set_cs(spi, nEnable);
 }
 
 static int vcoreiii_bootmaster_exec_mem_op(struct spi_mem *mem,
