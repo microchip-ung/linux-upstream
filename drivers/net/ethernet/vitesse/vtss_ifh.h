@@ -29,7 +29,7 @@ enum {
 };
 
 enum {
-	IFH_ID_LUTON   = 0x01,	/* No IFH_ID in Luton26, madeup 0x01 */
+	IFH_ID_LUTON   = 0x00,	/* No IFH_ID in Luton26. Must use unassigned */
 	IFH_ID_SERVAL1 = 0x05,
 	IFH_ID_OCELOT  = 0x0a,
 	IFH_ID_JAGUAR2 = 0x07,
