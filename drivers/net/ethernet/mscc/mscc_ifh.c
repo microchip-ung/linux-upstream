@@ -15,8 +15,11 @@
 
 #define DEVNAME             "vtss.ifh"
 #define ETH_VLAN_TAGSZ     4    /* Size of a 802.1Q VLAN tag */
+#define TX_MTU_MIN         64
+#define TX_MTU_MAX         2000
 #define MTU_DEFAULT        (ETH_FRAME_LEN + ETH_FCS_LEN + (2 * ETH_VLAN_TAGSZ))
-#define RX_MTU_MIN         64
+#define MTU_MIN            (TX_MTU_MIN + ETH_FCS_LEN + (2 * ETH_VLAN_TAGSZ))
+#define MTU_MAX            (TX_MTU_MAX + ETH_FCS_LEN + (2 * ETH_VLAN_TAGSZ))
 #define IF_BUFSIZE_JUMBO   10400
 #define SGL_MAX            15
 
@@ -1229,8 +1232,8 @@ static int mscc_ifh_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct mscc_ifh_priv *priv = netdev_priv(dev);
 
-	if (new_mtu < (RX_MTU_MIN + ETH_VLAN_TAGSZ + ETH_FCS_LEN +
-		       priv->config->ifh_len) || new_mtu > IF_BUFSIZE_JUMBO) {
+	if (new_mtu < (TX_MTU_MIN + priv->config->ifh_len) || 
+	    new_mtu > (TX_MTU_MAX + priv->config->ifh_len)) {
 		return -EINVAL;
 	}
 	dev->mtu = new_mtu;
@@ -1340,7 +1343,9 @@ static struct net_device *ifhdev_create(struct platform_device *pdev)
 	memset(&dev->broadcast[0], 0xff, 6);
 
 	/* Set MTU for injection (not rx) */
-	dev->mtu = MTU_DEFAULT;
+	dev->mtu = MTU_DEFAULT + priv->config->ifh_len;
+	dev->min_mtu = MTU_MIN + priv->config->ifh_len;
+	dev->max_mtu = MTU_MAX + priv->config->ifh_len;
 
 	return dev;
 }
