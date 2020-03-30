@@ -39,6 +39,7 @@
 		compatible = "i2c-mux-gpio";
 		#address-cells = <1>;
 		#size-cells = <0>;
+		select-delay = <8000>; // delay 8ms due to shift register
 		i2c-parent = <&i2c0>;
 		mux-gpios = <&sgpio MSCC_SGPIO(13,0) GPIO_ACTIVE_HIGH>, // p13b0
 			    <&sgpio MSCC_SGPIO(13,1) GPIO_ACTIVE_HIGH>, // p13b1
