@@ -19,7 +19,7 @@
 };
 
 &spi0 {
-	cs-gpio = <0>, <&gpio 10 0>;
+	cs-gpios = <0>, <&gpio 10 0>;
 	// synce module
 	spi@1 {
 		compatible = "mchp,synce_dpll";

@@ -57,6 +57,20 @@
 		spi-max-frequency = <18000000>; /* input clock */
 		reg = <0>; /* CS0 */
 	};
+	spi@1 {
+		compatible = "mchp,synce_dpll";
+		reg = <0x1>; /* CS1 */
+		pinctrl-0 = <&cs1_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+	spi@2 {
+		compatible = "mchp,t1e1j1";
+		reg = <0x2>; /* CS2 */
+		pinctrl-0 = <&cs2_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
 	spi-flash@3 {
 		compatible = "spi-nand";
 		pinctrl-0 = <&cs3_pins>;
