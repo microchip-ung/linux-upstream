@@ -158,7 +158,7 @@
 			#size-cells = <1>;
 			/* 128MiB */
 			partition@0 {
-				    label = "rootfs_data";
+				    label = "rootfs_nand_data";
 				    reg = <0x0000000 0x08000000>;
 			};
 		};

@@ -87,7 +87,7 @@
 
 		partition@2a00000 {
 			reg = <0x02a00000 0x1d600000>;
-			label = "rootfs_data";
+			label = "rootfs_nand_data";
 		};
 	};
 };
