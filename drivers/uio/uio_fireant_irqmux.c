@@ -28,20 +28,12 @@ struct slave_irq_data {
 	struct irqmux_platdata *priv;
 };
 
-struct uio_fireant_irqmux_config {
-	u32 reg_off_ident;
-	u32 reg_off_force;
-	u32 reg_off_clr;
-	u32 reg_off_set;
-	u32 master_mask;
-};
-
 struct irqmux_platdata {
 	struct uio_info info;
 	spinlock_t lock;
-	const struct uio_fireant_irqmux_config *cfg;
 	unsigned long flags;
 	struct platform_device *pdev;
+#define MASTER_IRQ 0		/* 0 is the master */
 	struct slave_irq_data *sirq;
 	int n_sirq;
 	int n_active;
@@ -53,42 +45,17 @@ enum {
 	UIO_IRQ_DISABLED = 0,
 };
 
-#if defined(DEBUG)
-static ssize_t swint_show(struct device *dev,
-			  struct device_attribute *attr,
-			  char *buf)
+static void uio_irq_trigger_master(const struct irqmux_platdata *priv)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct irqmux_platdata *priv = platform_get_drvdata(pdev);
-	u32 val = 0;
+	int err, master_irq = priv->sirq[MASTER_IRQ].irq;
 
-	if (priv->io_enabled) {
-		val = readl(priv->info.mem[0].internal_addr + priv->cfg->reg_off_ident);
-	}
-
-	return sprintf(buf, "0x%x\n", val);
+	dev_dbg(&priv->pdev->dev, "Trigger master IRQ - %d\n", master_irq);
+	err = irq_set_irqchip_state(master_irq,
+				    IRQCHIP_STATE_PENDING, true);
+	if (err)
+		dev_err(&priv->pdev->dev, "Unable to trigger master IRQ %d\n",
+			master_irq);
 }
-
-static ssize_t swint_store(struct device *dev,
-			   struct device_attribute *attr,
-			   const char *buf, size_t count)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct irqmux_platdata *priv = platform_get_drvdata(pdev);
-	int val;
-
-	if (kstrtoint(buf, 0, &val))
-		return -EINVAL;
-
-	if (priv->io_enabled) {
-		writel(val, priv->info.mem[0].internal_addr + priv->cfg->reg_off_force);
-	}
-
-	return count;
-}
-
-static DEVICE_ATTR_RW(swint);
-#endif
 
 static ssize_t irqctl_show(struct device *dev,
 			   struct device_attribute *attr,
@@ -128,19 +95,17 @@ static ssize_t irqctl_store(struct device *dev,
 
 	spin_lock_irqsave(&priv->lock, flags);
 	/* Allow [1; max-1] - 0 is master (reserved) */
-	if (index > 0 && index < priv->n_sirq) {
+	if (index > MASTER_IRQ && index < priv->n_sirq) {
 		if (priv->sirq[index].active) {
-			dev_dbg(&priv->pdev->dev, "Clear IRQ %d = %s, #active = %d\n",
+			dev_dbg(&priv->pdev->dev,
+				"Enable IRQ %d = %s, #active = %d\n",
 				index, priv->sirq[index].name,
 				priv->n_active);
 			priv->sirq[index].active = false;
 			priv->n_active--;
-			if (priv->io_enabled && priv->n_active == 0) {
-				/* Clear combined master IRQ */
-				writel(priv->cfg->master_mask,
-				       priv->info.mem[0].internal_addr +
-				       priv->cfg->reg_off_clr);
-			}
+			if (priv->n_active > 0)
+				/* Keep triggering */
+				uio_irq_trigger_master(priv);
 			enable_irq(priv->sirq[index].irq);
 		} else {
 			dev_warn(&priv->pdev->dev,
@@ -158,9 +123,6 @@ static ssize_t irqctl_store(struct device *dev,
 static DEVICE_ATTR_RW(irqctl);
 
 static struct attribute *irqmux_attrs[] = {
-#if defined(DEBUG)
-	&dev_attr_swint.attr,
-#endif
 	&dev_attr_irqctl.attr,
 	NULL
 };
@@ -237,11 +199,7 @@ static irqreturn_t slave_irq(int irq, void *ident)
 		sirq->active = true;
 		priv->n_active++;
 		disable_irq_nosync(irq);
-		if (priv->io_enabled) {
-			/* Trigger SW0 */
-			writel(priv->cfg->master_mask, priv->info.mem[0].internal_addr +
-			       priv->cfg->reg_off_set);
-		}
+		uio_irq_trigger_master(priv);
 	} else {
 		dev_err(&priv->pdev->dev, "Got IRQ %d while already active\n",
 			sirq->index);
@@ -295,6 +253,7 @@ static int uio_fireant_irqmux_request_irqs(struct irqmux_platdata *priv)
 		}
 	}
 
+	dev_info(dev, "Mapped %d irqs\n", priv->n_sirq);
 	return 0;
 }
 
@@ -311,7 +270,6 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->lock);
 	priv->flags = 0; /* interrupt is enabled to begin with */
 	priv->pdev = pdev;
-	priv->cfg = device_get_match_data(&pdev->dev);
 
 	priv->io_enabled = !of_property_read_bool(pdev->dev.of_node,
 						  "external-cpu");
@@ -384,43 +342,11 @@ static int uio_fireant_irqmux_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct uio_fireant_irqmux_config fireant_data = {
-	.reg_off_ident = 0x00000098,
-	.reg_off_force = 0x00000098,
-	.reg_off_clr   = 0x0000009c,
-	.reg_off_set   = 0x000000a0,
-	.master_mask   = BIT(0), /* Shared IRQ 0 */
-};
-
-static const struct uio_fireant_irqmux_config jaguar2_data = {
-	.reg_off_ident = 0x00000094,
-	.reg_off_force = 0x0000007c,
-	.reg_off_clr   = 0x0000008c,
-	.reg_off_set   = 0x00000090,
-	.master_mask   = BIT(11),  /* SW0 */
-};
-
-static const struct uio_fireant_irqmux_config ocelot_data = {
-	.reg_off_ident = 0x00000094,
-	.reg_off_force = 0x0000007c,
-	.reg_off_clr   = 0x0000008c,
-	.reg_off_set   = 0x00000090,
-	.master_mask   = BIT(10),  /* SW0 */
-};
-
-static const struct uio_fireant_irqmux_config luton_data = {
-	.reg_off_ident = 0x0000009c,
-	.reg_off_force = 0x00000000,
-	.reg_off_clr   = 0x0000008c,
-	.reg_off_set   = 0x00000090,
-	.master_mask   = BIT(2),  /* SW0 */
-};
-
 static const struct of_device_id uio_of_fireant_irqmux_match[] = {
-	{ .compatible = "mscc,uio_fireant_irqmux", .data = &fireant_data },
-	{ .compatible = "mscc,uio_jaguar2_irqmux", .data = &jaguar2_data },
-	{ .compatible = "mscc,uio_ocelot_irqmux", .data = &ocelot_data },
-	{ .compatible = "mscc,uio_luton_irqmux", .data = &luton_data },
+	{ .compatible = "mscc,uio_fireant_irqmux" },
+	{ .compatible = "mscc,uio_jaguar2_irqmux" },
+	{ .compatible = "mscc,uio_ocelot_irqmux" },
+	{ .compatible = "mscc,uio_luton_irqmux" },
 	{},
 };
 
