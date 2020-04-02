@@ -16,6 +16,7 @@
 #define ICPU_CFG_INTR_INTR_TRIGGER(_p,x)	(_p->reg_off_trigger + 0x4 * (x))
 
 #define FLAGS_NEED_INIT_ENABLE	BIT(0)
+#define FLAGS_FORCE_LUTON_STYLE	BIT(1)
 
 struct chip_props {
 	u32 flags;
@@ -25,6 +26,7 @@ struct chip_props {
 	u32 reg_off_ena_set;
 	u32 reg_off_ident;
 	u32 reg_off_trigger;
+	u32 reg_off_force;
 	u32 reg_off_ena_irq0;
 	u32 n_irq;
 };
@@ -36,6 +38,7 @@ static const struct chip_props ocelot_props = {
 	.reg_off_ena_set	= 0x90 - 0x70,
 	.reg_off_ident		= 0xa8 - 0x70,
 	.reg_off_trigger	= 0xcc - 0x70,
+	.reg_off_force		= 0x7c - 0x70,
 	.n_irq			= 24,
 };
 
@@ -46,17 +49,20 @@ static const struct chip_props serval_props = {
 	.reg_off_ena_set	= 0x8c - 0x70,
 	.reg_off_ident		= 0x90 - 0x70,
 	.reg_off_trigger	= 0x74 - 0x70,
+	.reg_off_force		= 0x78 - 0x70,
 	.n_irq			= 24,
 };
 
 static const struct chip_props luton_props = {
-	.flags			= FLAGS_NEED_INIT_ENABLE,
+	.flags			= FLAGS_NEED_INIT_ENABLE |
+				  FLAGS_FORCE_LUTON_STYLE,
 	.reg_off_sticky 	= 0x84 - 0x84,
 	.reg_off_ena		= 0x88 - 0x84,
 	.reg_off_ena_clr	= 0x8c - 0x84,
 	.reg_off_ena_set	= 0x90 - 0x84,
 	.reg_off_ident		= 0x9c - 0x84,
 	.reg_off_trigger	= 0,
+	.reg_off_force		= 0xbc - 0x84,
 	.reg_off_ena_irq0	= 0x98 - 0x84,
 	.n_irq			= 28,
 };
@@ -68,6 +74,7 @@ static const struct chip_props jaguar2_props = {
 	.reg_off_ena_set	= 0x90 - 0x70,
 	.reg_off_ident		= 0xa8 - 0x70,
 	.reg_off_trigger	= 0xcc - 0x70,
+	.reg_off_force		= 0x7c - 0x70,
 	.n_irq			= 29,
 };
 
@@ -91,6 +98,42 @@ static void ocelot_irq_unmask(struct irq_data *data)
 	*ct->mask_cache &= ~mask;
 	irq_reg_writel(gc, mask, p->reg_off_ena_set);
 	irq_gc_unlock(gc);
+}
+
+static void luton_irq_force(struct irq_data *data,
+			    struct irq_chip_generic *gc,
+			    struct chip_props *p)
+{
+	int off = p->reg_off_force + (data->hwirq * sizeof(u32));
+	u32 val = irq_reg_readl(gc, off);
+
+	pr_err("LU trigger IRQ %d (hw %ld), offset 0x%04x\n",
+	       data->irq, data->hwirq, off);
+	irq_reg_writel(gc, val | BIT(3), off);
+}
+
+static int ocelot_irq_force(struct irq_data *data,
+			    enum irqchip_irq_state which, bool state)
+{
+	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(data);
+	struct irq_domain *d = data->domain;
+	struct chip_props *p = d->host_data;
+	int ret = -EINVAL;
+
+	/* Only supports triggering */
+	if ((which == IRQCHIP_STATE_PENDING ||
+	     which == IRQCHIP_STATE_ACTIVE) &&
+	    state && p->reg_off_force) {
+		if (p->flags & FLAGS_FORCE_LUTON_STYLE)
+			/* Config register style */
+			luton_irq_force(data, gc, p);
+		else
+			/* New, bitmask style */
+			irq_reg_writel(gc, data->mask, p->reg_off_force);
+		ret = 0;
+	}
+
+	return ret;
 }
 
 static void ocelot_irq_handler(struct irq_desc *desc)
@@ -154,6 +197,8 @@ static int __init vcoreiii_irq_init(struct device_node *node,
 	gc->chip_types[0].chip.irq_ack = irq_gc_ack_set_bit;
 	gc->chip_types[0].chip.irq_mask = irq_gc_mask_set_bit;
 	gc->chip_types[0].chip.irq_unmask = ocelot_irq_unmask;
+	gc->chip_types[0].chip.irq_unmask = ocelot_irq_unmask;
+	gc->chip_types[0].chip.irq_set_irqchip_state = ocelot_irq_force;
 
 	/* Mask and ack all interrupts */
 	irq_reg_writel(gc, 0, p->reg_off_ena);
