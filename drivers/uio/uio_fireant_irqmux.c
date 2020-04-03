@@ -23,7 +23,8 @@
 struct slave_irq_data {
 	int index;
 	int irq;
-	int active;
+	bool active;
+	bool disabled;
 	char name[MAXNAMELEN];
 	struct irqmux_platdata *priv;
 };
@@ -67,7 +68,7 @@ static ssize_t irqctl_show(struct device *dev,
 	ssize_t n, nwritten = 0;
 
 	for (i = 0; i < priv->n_sirq; i++) {
-		if (priv->sirq[i].active) {
+		if (priv->sirq[i].active && !priv->sirq[i].disabled) {
 			n = sprintf(buf, "%d|%s\n", i, priv->sirq[i].name);
 			nwritten += n;
 			buf += n;
@@ -79,6 +80,11 @@ static ssize_t irqctl_show(struct device *dev,
 #endif
 
 	return nwritten;
+}
+
+static bool valid_index(struct irqmux_platdata *priv, int index)
+{
+	return (index > MASTER_IRQ && index < priv->n_sirq);
 }
 
 static ssize_t irqctl_store(struct device *dev,
@@ -95,10 +101,9 @@ static ssize_t irqctl_store(struct device *dev,
 
 	spin_lock_irqsave(&priv->lock, flags);
 	/* Allow [1; max-1] - 0 is master (reserved) */
-	if (index > MASTER_IRQ && index < priv->n_sirq) {
+	if (valid_index(priv, index)) {
 		if (priv->sirq[index].active) {
-			dev_dbg(&priv->pdev->dev,
-				"Enable IRQ %d = %s, #active = %d\n",
+			dev_dbg(dev, "Enable IRQ %d = %s, #active = %d\n",
 				index, priv->sirq[index].name,
 				priv->n_active);
 			priv->sirq[index].active = false;
@@ -107,13 +112,20 @@ static ssize_t irqctl_store(struct device *dev,
 				/* Keep triggering */
 				uio_irq_trigger_master(priv);
 			enable_irq(priv->sirq[index].irq);
-		} else {
-			dev_warn(&priv->pdev->dev,
-				 "Interrupt %d already inactive\n", index);
+		} else
+			dev_warn(dev, "Interrupt %d already inactive\n", index);
+	} else if (index < 0 && valid_index(priv, abs(index))) {
+		index = abs(index);
+		dev_warn(dev, "Disabling index: %d\n", index);
+		priv->sirq[index].disabled = true;
+		if (priv->sirq[index].active) {
+			priv->sirq[index].active = false;
+			priv->n_active--;
 		}
+		/* Disable to be sure its muted */
+		disable_irq(priv->sirq[index].irq);
 	} else {
-		dev_warn(&priv->pdev->dev, "Illegal interrupt index: %d\n",
-			 index);
+		dev_warn(dev, "Illegal interrupt index: %d\n", index);
 	}
 	spin_unlock_irqrestore(&priv->lock, flags);
 
@@ -273,11 +285,10 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 
 	priv->io_enabled = !of_property_read_bool(pdev->dev.of_node,
 						  "external-cpu");
-	if (priv->io_enabled) {
+	if (priv->io_enabled)
 		dev_info(dev, "IO is enabled\n");
-	} else {
+	else
 		dev_info(dev, "IO is disabled, using external CPU\n");
-	}
 
 	ret = uio_fireant_irqmux_request_irqs(priv);
 	if (ret) {
@@ -291,17 +302,21 @@ static int uio_fireant_irqmux_probe(struct platform_device *pdev)
 		int i;
 		const struct resource *res;
 
-		for(i = 0, res = &pdev->resource[0]; resource_type(res) == IORESOURCE_MEM; i++, res++) {
+		for (i = 0, res = &pdev->resource[0];
+		     resource_type(res) == IORESOURCE_MEM; i++, res++) {
 			size_t sz = resource_size(res);
+
 			priv->info.mem[i].memtype = UIO_MEM_PHYS;
 			priv->info.mem[i].addr = res->start;
 			priv->info.mem[i].size = sz;
 			priv->info.mem[i].name = res->name;
-			priv->info.mem[i].internal_addr = devm_ioremap(dev,
-								       priv->info.mem[i].addr,
-								       priv->info.mem[i].size);
+			priv->info.mem[i].internal_addr =
+				devm_ioremap(dev, priv->info.mem[i].addr,
+					     priv->info.mem[i].size);
 			if (!priv->info.mem[i].internal_addr) {
-				dev_err(dev, "failed to map chip region %d sz %zd\n", i, sz);
+				dev_err(dev,
+					"failed to map chip region %d sz %zd\n",
+					i, sz);
 				return -ENODEV;
 			}
 		}
