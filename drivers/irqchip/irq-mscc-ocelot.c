@@ -107,8 +107,6 @@ static void luton_irq_force(struct irq_data *data,
 	int off = p->reg_off_force + (data->hwirq * sizeof(u32));
 	u32 val = irq_reg_readl(gc, off);
 
-	pr_err("LU trigger IRQ %d (hw %ld), offset 0x%04x\n",
-	       data->irq, data->hwirq, off);
 	irq_reg_writel(gc, val | BIT(3), off);
 }
 
