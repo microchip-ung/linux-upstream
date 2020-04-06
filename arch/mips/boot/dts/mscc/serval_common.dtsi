@@ -75,10 +75,6 @@
 		function = "twi_scl_m";
 		output-high;
 	};
-	irqext1_pins: irqext0-pins {
-		pins = "GPIO_29";
-		function = "irq1";
-	};
 };
 
 &i2c0 {
@@ -183,6 +179,6 @@
 		reg = <0 0>;
 		interrupts = <2>;
 		pinctrl-0 = <&irqext1_pins>;
-		pinctrl-names = "ext1_irq";
+		pinctrl-names = "default";
 	};
 };
