@@ -137,7 +137,7 @@
 
 &spi0 {
 	status = "okay";
-	cs-gpio = <0>, <0>, <&gpio 6 0>, <&gpio 17 0>;
+	cs-gpios = <0>, <0>, <&gpio 6 0>, <&gpio 17 0>;
 	spi-flash@0 {
 		label = "spi_flash";
 		compatible = "jedec,spi-nor";
@@ -167,13 +167,13 @@
 	spi@2 {
 		compatible = "mchp,synce_dpll";
 		reg = <2>; /* GPIO6 */
-		spi-max-frequency = <8000000>;
+		spi-max-frequency = <1000000>;
 	};
 	// t1e1j1 module
 	spi@3 {
-		compatible = "mchp,synce_dpll";
+		compatible = "mchp,t1e1j1";
 		reg = <3>; /* GPIO17 */
-		spi-max-frequency = <8000000>;
+		spi-max-frequency = <1000000>;
 	};
 };
 

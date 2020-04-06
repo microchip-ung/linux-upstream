@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/delay.h>
 
 //#define DEBUG
@@ -111,19 +112,18 @@ static const struct spi_controller_mem_ops vcoreiii_bb_mem_ops = {
 
 static void vcoreiii_bb_cs_gpio(struct spi_device *spi, bool start)
 {
+	/* Activate/deactivate observing polarity */
+	bool cs_value = (spi->mode & SPI_CS_HIGH) ? start : !start;
 	if (spi->cs_gpiod) {
-		/* Activate/deactivate observing polarity */
-		if (start)
-			gpiod_set_value(spi->cs_gpiod, (spi->mode & SPI_CS_HIGH) ? 0 : 1);
-		else
-			gpiod_set_value(spi->cs_gpiod, (spi->mode & SPI_CS_HIGH) ? 1 : 0);
+		gpiod_direction_output(spi->cs_gpiod, cs_value);
+	} else if (gpio_is_valid(spi->cs_gpio)) {
+		gpio_direction_output(spi->cs_gpio, cs_value);
 	}
 }
 
 static void vcoreiii_bb_cs_activate(struct spi_vcoreiii *priv, struct spi_device *spi)
 {
 	u32 cpha = spi->mode & SPI_CPHA;
-	u32 cs_value;
 
 	priv->cs_num = spi->chip_select;
 
@@ -143,16 +143,12 @@ static void vcoreiii_bb_cs_activate(struct spi_vcoreiii *priv, struct spi_device
 			ICPU_SW_MODE_SW_SPI_SDO_OE);   /* SDO OE */
 
 	/* Add CS */
-	if (spi->cs_gpiod) {
+	if (spi->cs_gpiod || gpio_is_valid(spi->cs_gpio))
 		vcoreiii_bb_cs_gpio(spi, true);
-		cs_value = 0;
-	} else {
-		cs_value =
+	else
+		priv->svalue |=
 			ICPU_SW_MODE_SW_SPI_CS_OE(BIT(spi->chip_select)) |
 			ICPU_SW_MODE_SW_SPI_CS(BIT(spi->chip_select));
-	}
-
-	priv->svalue |= cs_value;
 
 	/* Crude speed setup */
 	if (spi->max_speed_hz > 3500000) {
@@ -165,7 +161,7 @@ static void vcoreiii_bb_cs_activate(struct spi_vcoreiii *priv, struct spi_device
 	}
 
 	/* Enable the CS in HW, Initial clock value */
-	vcoreiii_bb_writel_hold(priv, priv->svalue | priv->clk2);
+	vcoreiii_bb_writel_hold(priv, priv->svalue | priv->clk1);
 }
 
 static void vcoreiii_bb_cs_deactivate(struct spi_vcoreiii *priv, struct spi_device *spi)
@@ -175,19 +171,15 @@ static void vcoreiii_bb_cs_deactivate(struct spi_vcoreiii *priv, struct spi_devi
 	 */
 	u32 value = readl(priv->regs);
 
+	/* Drop CS */
+	if (spi->cs_gpiod || gpio_is_valid(spi->cs_gpio))
+		vcoreiii_bb_cs_gpio(spi, false);
 	value &= ~ICPU_SW_MODE_SW_SPI_CS_M;
-	vcoreiii_bb_writel_hold(priv, value);
-
-	/* Stop driving the clock, but keep CS with nCS == 1 */
-	value &= ~ICPU_SW_MODE_SW_SPI_SCK_OE;
 	vcoreiii_bb_writel_hold(priv, value);
 
 	/* Deselect hold time delay */
 	if (unlikely(priv->deactivate_delay))
 		udelay(priv->deactivate_delay);
-
-	/* (Drop GPIO CS) */
-	vcoreiii_bb_cs_gpio(spi, false);
 
 	/* Drop everything */
 	vcoreiii_bb_writel_hold(priv, 0);
@@ -203,12 +195,14 @@ static void vcoreiii_bb_do_transfer(struct spi_vcoreiii *priv,
         u32             i, count = xfer->len;
 	const u8        *txd = xfer->tx_buf;
 	u8              *rxd = xfer->rx_buf;
+	unsigned long   __flags;
 
+	local_irq_save(__flags);
 	for (i = 0; i < count; i++) {
 		u32 rx = 0, mask = 0x80, value;
 		while (mask) {
 			/* Initial condition: CLK is low/hi per mode setting. */
-			value = priv->svalue;
+			value = priv->svalue | ICPU_SW_MODE_SW_SPI_SDO_OE;
 			if (txd && txd[i] & mask)
 				value |= ICPU_SW_MODE_SW_SPI_SDO;
 
@@ -239,6 +233,7 @@ static void vcoreiii_bb_do_transfer(struct spi_vcoreiii *priv,
 		}
 		bb_dbg(&msg->spi->dev, "spi_xfer: byte %d/%d\n", i + 1, count);
 	}
+	local_irq_restore(__flags);
 	bb_dbg(&msg->spi->dev, "spi_xfer: done\n");
 }
 
@@ -289,7 +284,7 @@ static int vcoreiii_bb_probe(struct platform_device *pdev)
 	}
 
 	p->regs = ptr;
-	if (!device_property_read_u32(&pdev->dev, "spi-deactivate-delay", &p->deactivate_delay))
+	if (device_property_read_u32(&pdev->dev, "spi-deactivate-delay", &p->deactivate_delay))
 		p->deactivate_delay = 0;
 
 	master->num_chipselect = MAX_CS;
