@@ -75,16 +75,16 @@
 	};
 	// CPLD for Synce CPLD
 	spi@2 {
-		compatible = "mchp,synce_builtin";
+		compatible = "mchp,synce_dpll";
 		reg = <2>; /* CS2 */
-		pinctrl-0 = <&synce_builtin_pins>;
+		pinctrl-0 = <&synce_dpll_pins>;
 		pinctrl-names = "default";
 		spi-max-frequency = <8000000>;
 	};
 };
 
 &gpio {
-	synce_builtin_pins: synce-builtin-pins {
+	synce_dpll_pins: synce-dpll-pins {
 		// GPIO 9 == SI_nCS2
 		pins = "GPIO_9";
 		function = "si";
