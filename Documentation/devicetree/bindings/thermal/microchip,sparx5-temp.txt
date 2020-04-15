@@ -1,0 +1,16 @@
+* Microchip Sparx5 Thermal Sensor
+
+This binding describes thermal sensors that is part of Sparx5 SoCs.
+
+Required properties:
+- compatible : Must be "microchip,sparx5-temp"
+- reg : Address of the temperature sensor registers
+- #thermal-sensor-cells : must be 0
+
+Example:
+
+	tmon0: tmon@610508110 {
+		compatible = "microchip,sparx5-temp";
+		reg = <0x6 0x10508110 0xc>;
+		#thermal-sensor-cells = <0>;
+	};
