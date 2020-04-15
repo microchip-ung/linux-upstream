@@ -3,13 +3,24 @@
 
 /dts-v1/;
 
-#include "ocelot.dtsi"
+#include <dt-bindings/gpio/mchp-sgpio.h>
+#include "ocelot_common.dtsi"
 
 / {
+	model = "Ocelot PCB123 Reference Board";
 	compatible = "mscc,ocelot-pcb123", "mscc,ocelot";
 
-	chosen {
-		stdout-path = "serial0:115200n8";
+	aliases {
+	    i2c0   = &i2c0;
+	    i2c201 = &i2c0;
+	    i2c104 = &i2c104;
+	    i2c105 = &i2c105;
+	    i2c106 = &i2c106;
+	    i2c107 = &i2c107;
+	    i2c108 = &i2c108;
+	    i2c109 = &i2c109;
+	    i2c110 = &i2c110;
+	    i2c111 = &i2c111;
 	};
 
 	memory@0 {
@@ -18,32 +29,62 @@
 	};
 };
 
-&uart0 {
+&sgpio {
 	status = "okay";
+	microchip,sgpio-ports = <0x00FFFFFF>;
 };
 
-&uart2 {
-	status = "okay";
-};
-
-&spi {
-	status = "okay";
-
-	flash@0 {
-		compatible = "macronix,mx25l25635f", "jedec,spi-nor";
-		spi-max-frequency = <20000000>;
-		reg = <0>;
+&ahb {
+	i2c0_emux: i2c0-emux@0 {
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		select-delay = <8000>; // delay 8ms due to shift register
+		i2c-parent = <&i2c0>;
+		mux-gpios = <&sgpio MSCC_SGPIO(13,0) GPIO_ACTIVE_HIGH>, // p13b0
+			    <&sgpio MSCC_SGPIO(13,1) GPIO_ACTIVE_HIGH>, // p13b1
+			    <&sgpio MSCC_SGPIO(14,0) GPIO_ACTIVE_HIGH>; // p14b0
+		i2c104: i2c_sfp1 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c105: i2c_sfp2 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c106: i2c_sfp3 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c107: i2c_sfp4 {
+			reg = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c108: i2c_sfp5 {
+			reg = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c109: i2c_sfp6 {
+			reg = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c110: i2c_sfp7 {
+			reg = <6>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c111: i2c_sfp8 {
+			reg = <7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
 	};
-};
-
-&i2c {
-	clock-frequency = <100000>;
-	i2c-sda-hold-time-ns = <300>;
-	status = "okay";
-};
-
-&mdio0 {
-	status = "okay";
 };
 
 &port0 {

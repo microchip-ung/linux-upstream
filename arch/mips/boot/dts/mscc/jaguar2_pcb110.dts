@@ -1,0 +1,315 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2020 Microsemi Corporation
+ */
+
+/dts-v1/;
+#include "jaguar2_common.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "Jaguar2 Cu8-Sfp16 PCB110 Reference Board";
+	compatible = "mscc,jr2-pcb110", "mscc,jr2";
+
+	aliases {
+		i2c0    = &i2c0;
+		i2c108  = &i2c108;
+		i2c109  = &i2c109;
+		i2c110  = &i2c110;
+		i2c111  = &i2c111;
+		i2c112  = &i2c112;
+		i2c113  = &i2c113;
+		i2c114  = &i2c114;
+		i2c115  = &i2c115;
+		i2c116  = &i2c116;
+		i2c117  = &i2c117;
+		i2c118  = &i2c118;
+		i2c119  = &i2c119;
+		i2c120  = &i2c120;
+		i2c121  = &i2c121;
+		i2c122  = &i2c122;
+		i2c123  = &i2c123;
+		i2c124  = &i2c124;
+		i2c125  = &i2c125;
+		i2c126  = &i2c126;
+		i2c127  = &i2c127;
+		i2c128  = &i2c128;
+		i2c129  = &i2c129;
+		i2c130  = &i2c130;
+		i2c131  = &i2c131;
+		i2c149  = &i2c149;
+		i2c150  = &i2c150;
+		i2c151  = &i2c151;
+		i2c152  = &i2c152;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	spi-flash@0 {
+		label = "spi_flash";
+		compatible = "macronix,mx25l25635f", "jedec,spi-nor";
+		spi-max-frequency = <18000000>; /* input clock */
+		reg = <0>; /* CS0 */
+	};
+	// synce module
+	spi@1 {
+		compatible = "mchp,synce_dpll";
+		reg = <0x1>; /* CS1 */
+		pinctrl-0 = <&synce_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+	// CPLD for Synce CPLD
+	spi@d {
+		compatible = "mchp,synce_builtin";
+		reg = <0xd>; /* CS13 */
+		pinctrl-0 = <&synce_builtin_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+};
+
+&gpio {
+	synce_pins: synce-pins {
+		// GPIO 16 == SI_nCS1
+		pins = "GPIO_16";
+		function = "si";
+	};
+	synce_builtin_pins: synce-builtin-pins {
+		// GPIO 49 == SI_nCS13
+		pins = "GPIO_49";
+		function = "si";
+	};
+};
+
+&pi_nand {
+	status = "okay";
+	chip-delay = <100>; // MX30LF1GE8AB with internal ECC has 45-70 us tR_ECC
+	waitcc = <8>;       // Slow down NAND CS via waitcc - appx 77ns
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		/* 256MiB */
+		partition@0 {
+			    label = "rootfs_nand_data";
+			    reg = <0x0000000 0x10000000>;
+		};
+	};
+};
+
+&gpio {
+	i2cmux_pins_i: i2cmux-pins-i {
+		pins = "GPIO_17", "GPIO_18", "GPIO_20", "GPIO_21";
+		function = "twi_scl_m";
+		output-low;
+	};
+	i2cmux_0: i2cmux-0 {
+		pins = "GPIO_17";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_1: i2cmux-1 {
+		pins = "GPIO_18";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_2: i2cmux-2 {
+		pins = "GPIO_20";
+		function = "twi_scl_m";
+		output-high;
+	};
+	i2cmux_3: i2cmux-3 {
+		pins = "GPIO_21";
+		function = "twi_scl_m";
+		output-high;
+	};
+};
+
+&i2c0 {
+	pca9545@70 {
+		compatible = "nxp,pca9545";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+		i2c124: i2c_x2sfp_1_a {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+		i2c125: i2c_x2sfp_1_b {
+			/* FMC B */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+		i2c126: i2c_x2sfp_1_c {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+		i2c127: i2c_x2sfp_1_d {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+	};
+	pca9545@71 {
+		compatible = "nxp,pca9545";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+		i2c128: i2c_x2sfp_1_a {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+		i2c129: i2c_x2sfp_2_b {
+			/* FMC B */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+		i2c130: i2c_x2sfp_3_c {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+		i2c131: i2c_x2sfp_4_d {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+	};
+};
+
+&ahb {
+	i2c0_emux: i2c0-emux@0 {
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&i2c0>;
+		mux-gpios = <&gpio 51 GPIO_ACTIVE_HIGH
+			     &gpio 52 GPIO_ACTIVE_HIGH
+			     &gpio 53 GPIO_ACTIVE_HIGH
+			     &gpio 58 GPIO_ACTIVE_HIGH
+			     &gpio 59 GPIO_ACTIVE_HIGH>;
+		idle-state = <0x0>;
+		i2c108: i2c_sfp9 {
+			reg = <0x10>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c109: i2c_sfp10 {
+			reg = <0x11>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c110: i2c_sfp11 {
+			reg = <0x12>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c111: i2c_sfp12 {
+			reg = <0x13>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c112: i2c_sfp13 {
+			reg = <0x14>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c113: i2c_sfp14 {
+			reg = <0x15>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c114: i2c_sfp15 {
+			reg = <0x16>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c115: i2c_sfp16 {
+			reg = <0x17>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c116: i2c_sfp17 {
+			reg = <0x8>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c117: i2c_sfp18 {
+			reg = <0x9>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c118: i2c_sfp19 {
+			reg = <0xa>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c119: i2c_sfp20 {
+			reg = <0xb>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c120: i2c_sfp21 {
+			reg = <0xc>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c121: i2c_sfp22 {
+			reg = <0xd>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c122: i2c_sfp23 {
+			reg = <0xe>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c123: i2c_sfp24 {
+			reg = <0xf>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+	i2c0_imux: i2c0-imux@0 {
+		compatible = "i2c-mux-pinctrl";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&i2c0>;
+		pinctrl-names =
+			"i2c149", "i2c150", "i2c151", "i2c152", "idle";
+		pinctrl-0 = <&i2cmux_0>;
+		pinctrl-1 = <&i2cmux_1>;
+		pinctrl-2 = <&i2cmux_2>;
+		pinctrl-3 = <&i2cmux_3>;
+		pinctrl-4 = <&i2cmux_pins_i>;
+		i2c149: i2c_sfp_plus_a {
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c150: i2c_sfp_plus_b {
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c151: i2c_sfp_plus_c {
+			reg = <0x2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c152: i2c_sfp_plus_d {
+			reg = <0x3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+};

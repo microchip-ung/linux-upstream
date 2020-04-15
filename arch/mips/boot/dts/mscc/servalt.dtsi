@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2018 Microsemi Corporation
+ */
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	compatible = "mscc,servalt";
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			compatible = "mips,mips24KEc";
+			device_type = "cpu";
+			clocks = <&cpu_clk>;
+			reg = <0>;
+		};
+	};
+
+	aliases {
+		serial0 = &uart0;
+		gpio0 = &gpio;
+	};
+
+	cpuintc: interrupt-controller {
+		#address-cells = <0>;
+		#interrupt-cells = <1>;
+		interrupt-controller;
+		compatible = "mti,cpu-interrupt-controller";
+	};
+
+	cpu_clk: cpu-clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <500000000>;
+	};
+
+	ahb_clk: ahb-clk {
+		compatible = "fixed-factor-clock";
+		#clock-cells = <0>;
+		clocks = <&cpu_clk>;
+		clock-div = <2>;
+		clock-mult = <1>;
+	};
+
+	ahb: ahb@70000000 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		interrupt-parent = <&intc>;
+
+		cpu_ctrl: syscon@70000000 {
+			compatible = "mscc,ocelot-cpu-syscon", "syscon";
+			reg = <0x70000000 0x2c>;
+		};
+
+		intc: interrupt-controller@70000070 {
+			compatible = "mscc,servalt-icpu-intr";
+			reg = <0x70000070 0x94>;
+			#interrupt-cells = <1>;
+			interrupt-controller;
+			interrupt-parent = <&cpuintc>;
+			interrupts = <2>;
+		};
+
+		uart0: serial@70100000 {
+			pinctrl-0 = <&uart_pins>;
+			pinctrl-names = "default";
+			compatible = "ns16550a";
+			reg = <0x70100000 0x20>;
+			interrupts = <6>;
+			clocks = <&ahb_clk>;
+			reg-io-width = <4>;
+			reg-shift = <2>;
+
+			status = "disabled";
+		};
+
+		uart2: serial@70100800 {
+			pinctrl-0 = <&uart2_pins>;
+			pinctrl-names = "default";
+			compatible = "ns16550a";
+			reg = <0x70100800 0x20>;
+			interrupts = <7>;
+			clocks = <&ahb_clk>;
+			reg-io-width = <4>;
+			reg-shift = <2>;
+
+			status = "disabled";
+		};
+
+		reset@71010008 {
+			compatible = "mscc,ocelot-chip-reset";
+			reg = <0x71010008 0x4>, <0x70000000 0x2c>, <0x71170000 0x190>;
+			microchip,cpu-reset-only;
+			microchip,reset-switch-core;
+		};
+
+		spi0: spi@70000050 {
+			compatible = "mscc,luton-bb-spi";
+			status = "okay";
+			reg = <0x70000050 0x4>, <0x40000000 0x4000000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		gpio: pinctrl@71070034 {
+			compatible = "mscc,servalt-pinctrl";
+			reg = <0x71010034 0x90>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&gpio 0 0 36>;
+
+			sgpio_pins: sgpio-pins {
+				pins = "GPIO_0", "GPIO_1", "GPIO_2", "GPIO_3";
+				function = "sg0";
+			};
+
+			i2c_pins: i2c-pins {
+				pins = "GPIO_24", "GPIO_25";
+				function = "twi";
+			};
+
+			i2c2_pins: i2c2-pins {
+				pins = "GPIO_22", "GPIO_23";
+				function = "twi";
+			};
+
+			uart_pins: uart-pins {
+				pins = "GPIO_6", "GPIO_7";
+				function = "uart";
+			};
+
+			uart2_pins: uart2-pins {
+				pins = "GPIO_20", "GPIO_21";
+				function = "uart2";
+			};
+
+			cs1_pins: cs1-pins {
+				pins = "GPIO_8";
+				function = "si";
+			};
+		};
+
+		i2c0: i2c@70100400 {
+			compatible = "mscc,ocelot-i2c", "snps,designware-i2c";
+			status = "disabled";
+			pinctrl-0 = <&i2c_pins>;
+			pinctrl-names = "default";
+			reg = <0x70100400 0x100>, <0x70000198 8>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <8>;
+			clock-frequency = <100000>;
+			clocks = <&ahb_clk>;
+		};
+
+		i2c2: i2c@70100c00 {
+			compatible = "mscc,ocelot-i2c", "snps,designware-i2c";
+			status = "disabled";
+			pinctrl-0 = <&i2c2_pins>;
+			pinctrl-names = "default";
+			reg = <0x70100c00 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <9>;
+			clock-frequency = <100000>;
+			clocks = <&ahb_clk>;
+		};
+
+		sgpio: gpio@71010120 {
+			compatible = "mscc,ocelot-sgpio";
+			status = "disabled";
+			pinctrl-0 = <&sgpio_pins>;
+			pinctrl-names = "default";
+			reg = <0x71010120 0x10C>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&sgpio 0 0 128>;
+		};
+
+		uio0: vcoreiii_switch@70000000 {
+			compatible = "mscc,uio_jaguar2_irqmux";
+			reg = <0x70000000 0x02000000>;
+			reg-names = "origin1_2";
+			interrupt-parent = <&intc>;
+			interrupts = <11>, // VCore SW0
+				     <13>,
+				     <19>, <20>, <25>;
+			interrupt-names = "master",
+					  "sgpio0",
+					  "ptp_rdy", "ptp_sync", "oam_vop";
+			status = "disabled";
+		};
+
+		fdma: fdma@0 {
+			compatible = "mscc,servalt-fdma";
+			reg = <0x70000000 0x00200000>, <0x71000000 0x01000000>;
+			interrupts = <17>;
+		};
+
+		ifmux: ifmux@0 {
+			compatible = "mscc,servalt-ifmux";
+		};
+
+		vcfw_uio@8ec00000 {
+			/* Firmware ramload memory */
+			compatible = "mscc,vcfw_uio";
+			reg = <0x8ec00000 0x1000000>;
+		};
+
+	};
+};
