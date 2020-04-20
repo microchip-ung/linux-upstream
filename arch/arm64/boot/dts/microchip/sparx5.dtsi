@@ -341,5 +341,22 @@
 			clock-frequency = <100000>;
 			clocks = <&ahb_clk>;
 		};
+
+		tmon0: tmon@610508110 {
+			compatible = "microchip,sparx5-temp";
+			reg = <0x6 0x10508110 0xc>;
+			#thermal-sensor-cells = <0>;
+			clocks = <&ahb_clk>;
+		};
+
+		dma: dma-controller@600000000 {
+			compatible = "microchip,vsc7558-fdma";
+			reg = <0x6 0x10000000 0x10000000>, // CSR
+			      <0x6 0x00000000 0x10000000>; // VCore
+			#dma-cells = <1>;
+			dma-channels = <8>;
+			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
 	};
 };

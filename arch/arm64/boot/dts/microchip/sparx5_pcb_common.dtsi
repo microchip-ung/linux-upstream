@@ -17,3 +17,7 @@
 &i2c0 {
 	status = "okay";
 };
+
+&dma {
+	status = "okay";
+};
