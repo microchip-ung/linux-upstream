@@ -158,6 +158,170 @@ struct ocelot_pinctrl {
 	u8 stride;
 };
 
+#define LUTON_P(p, f0, f1, f2)						\
+static struct ocelot_pin_caps luton_pin_##p = {				\
+	.pin = p,							\
+	.functions = {							\
+			FUNC_GPIO, FUNC_##f0, FUNC_##f1, FUNC_##f2,	\
+	},								\
+}
+
+LUTON_P(0,  SG0,       NONE,      NONE);
+LUTON_P(1,  SG0,       NONE,      NONE);
+LUTON_P(2,  SG0,       NONE,      NONE);
+LUTON_P(3,  SG0,       NONE,      NONE);
+LUTON_P(4,  TACHO,     NONE,      NONE);
+LUTON_P(5,  TWI,       PHY_LED,   NONE);
+LUTON_P(6,  TWI,       PHY_LED,   NONE);
+LUTON_P(7,  NONE,      PHY_LED,   NONE);
+LUTON_P(8,  EXT_IRQ,   PHY_LED,   NONE);
+LUTON_P(9,  EXT_IRQ,   PHY_LED,   NONE);
+LUTON_P(10, SFP,       PHY_LED,   NONE);
+LUTON_P(11, SFP,       PHY_LED,   NONE);
+LUTON_P(12, SFP,       PHY_LED,   NONE);
+LUTON_P(13, SFP,       PHY_LED,   NONE);
+LUTON_P(14, SI,        PHY_LED,   NONE);
+LUTON_P(15, SI,        PHY_LED,   NONE);
+LUTON_P(16, SI,        PHY_LED,   NONE);
+LUTON_P(17, SFP,       PHY_LED,   NONE);
+LUTON_P(18, SFP,       PHY_LED,   NONE);
+LUTON_P(19, SFP,       PHY_LED,   NONE);
+LUTON_P(20, SFP,       PHY_LED,   NONE);
+LUTON_P(21, SFP,       PHY_LED,   NONE);
+LUTON_P(22, SFP,       PHY_LED,   NONE);
+LUTON_P(23, SFP,       PHY_LED,   NONE);
+LUTON_P(24, SFP,       PHY_LED,   NONE);
+LUTON_P(25, SFP,       PHY_LED,   NONE);
+LUTON_P(26, SFP,       PHY_LED,   NONE);
+LUTON_P(27, SFP,       PHY_LED,   NONE);
+LUTON_P(28, SFP,       PHY_LED,   NONE);
+LUTON_P(29, PWM,       NONE,      NONE);
+LUTON_P(30, UART,      NONE,      NONE);
+LUTON_P(31, UART,      NONE,      NONE);
+
+#define LUTON_PIN(n) {						\
+	.number = n,						\
+	.name = "GPIO_"#n,					\
+	.drv_data = &luton_pin_##n				\
+}
+
+static const struct pinctrl_pin_desc luton_pins[] = {
+	LUTON_PIN(0),
+	LUTON_PIN(1),
+	LUTON_PIN(2),
+	LUTON_PIN(3),
+	LUTON_PIN(4),
+	LUTON_PIN(5),
+	LUTON_PIN(6),
+	LUTON_PIN(7),
+	LUTON_PIN(8),
+	LUTON_PIN(9),
+	LUTON_PIN(10),
+	LUTON_PIN(11),
+	LUTON_PIN(12),
+	LUTON_PIN(13),
+	LUTON_PIN(14),
+	LUTON_PIN(15),
+	LUTON_PIN(16),
+	LUTON_PIN(17),
+	LUTON_PIN(18),
+	LUTON_PIN(19),
+	LUTON_PIN(20),
+	LUTON_PIN(21),
+	LUTON_PIN(22),
+	LUTON_PIN(23),
+	LUTON_PIN(24),
+	LUTON_PIN(25),
+	LUTON_PIN(26),
+	LUTON_PIN(27),
+	LUTON_PIN(28),
+	LUTON_PIN(29),
+	LUTON_PIN(30),
+	LUTON_PIN(31),
+};
+
+#define SERVAL_P(p, f0, f1, f2)						\
+static struct ocelot_pin_caps serval_pin_##p = {			\
+	.pin = p,							\
+	.functions = {							\
+			FUNC_GPIO, FUNC_##f0, FUNC_##f1, FUNC_##f2,	\
+	},								\
+}
+
+SERVAL_P(0,  SG0,       NONE,      NONE);
+SERVAL_P(1,  SG0,       NONE,      NONE);
+SERVAL_P(2,  SG0,       NONE,      NONE);
+SERVAL_P(3,  SG0,       NONE,      NONE);
+SERVAL_P(4,  TACHO,     NONE,      NONE);
+SERVAL_P(5,  PWM,       NONE,      NONE);
+SERVAL_P(6,  TWI,       NONE,      NONE);
+SERVAL_P(7,  TWI,       NONE,      NONE);
+SERVAL_P(8,  SI,        NONE,      NONE);
+SERVAL_P(9,  SI,        MD,        NONE);
+SERVAL_P(10, SI,        MD,        NONE);
+SERVAL_P(11, SFP,       MD,        TWI_SCL_M);
+SERVAL_P(12, SFP,       MD,        TWI_SCL_M);
+SERVAL_P(13, SFP,       UART2,     TWI_SCL_M);
+SERVAL_P(14, SFP,       UART2,     TWI_SCL_M);
+SERVAL_P(15, SFP,       PTP0,      TWI_SCL_M);
+SERVAL_P(16, SFP,       PTP0,      TWI_SCL_M);
+SERVAL_P(17, SFP,       PCI_WAKE,  TWI_SCL_M);
+SERVAL_P(18, SFP,       NONE,      TWI_SCL_M);
+SERVAL_P(19, SFP,       NONE,      TWI_SCL_M);
+SERVAL_P(20, SFP,       NONE,      TWI_SCL_M);
+SERVAL_P(21, SFP,       NONE,      TWI_SCL_M);
+SERVAL_P(22, NONE,      NONE,      NONE);
+SERVAL_P(23, NONE,      NONE,      NONE);
+SERVAL_P(24, NONE,      NONE,      NONE);
+SERVAL_P(25, NONE,      NONE,      NONE);
+SERVAL_P(26, UART,      NONE,      NONE);
+SERVAL_P(27, UART,      NONE,      NONE);
+SERVAL_P(28, IRQ0,      NONE,      NONE);
+SERVAL_P(29, IRQ1,      NONE,      NONE);
+SERVAL_P(30, PTP0,      NONE,      NONE);
+SERVAL_P(31, PTP0,      NONE,      NONE);
+
+#define SERVAL_PIN(n) {						\
+	.number = n,						\
+	.name = "GPIO_"#n,					\
+	.drv_data = &serval_pin_##n				\
+}
+
+static const struct pinctrl_pin_desc serval_pins[] = {
+	SERVAL_PIN(0),
+	SERVAL_PIN(1),
+	SERVAL_PIN(2),
+	SERVAL_PIN(3),
+	SERVAL_PIN(4),
+	SERVAL_PIN(5),
+	SERVAL_PIN(6),
+	SERVAL_PIN(7),
+	SERVAL_PIN(8),
+	SERVAL_PIN(9),
+	SERVAL_PIN(10),
+	SERVAL_PIN(11),
+	SERVAL_PIN(12),
+	SERVAL_PIN(13),
+	SERVAL_PIN(14),
+	SERVAL_PIN(15),
+	SERVAL_PIN(16),
+	SERVAL_PIN(17),
+	SERVAL_PIN(18),
+	SERVAL_PIN(19),
+	SERVAL_PIN(20),
+	SERVAL_PIN(21),
+	SERVAL_PIN(22),
+	SERVAL_PIN(23),
+	SERVAL_PIN(24),
+	SERVAL_PIN(25),
+	SERVAL_PIN(26),
+	SERVAL_PIN(27),
+	SERVAL_PIN(28),
+	SERVAL_PIN(29),
+	SERVAL_PIN(30),
+	SERVAL_PIN(31),
+};
+
 #define OCELOT_P(p, f0, f1, f2)						\
 static struct ocelot_pin_caps ocelot_pin_##p = {			\
 	.pin = p,							\
@@ -364,6 +528,98 @@ static const struct pinctrl_pin_desc jaguar2_pins[] = {
 	JAGUAR2_PIN(61),
 	JAGUAR2_PIN(62),
 	JAGUAR2_PIN(63),
+};
+
+#define SERVALT_P(p, f0, f1, f2)					\
+static struct ocelot_pin_caps servalt_pin_##p = {			\
+	.pin = p,							\
+	.functions = {							\
+		FUNC_GPIO, FUNC_##f0, FUNC_##f1, FUNC_##f2		\
+	},								\
+}
+
+SERVALT_P(0,  SG0,        NONE,      NONE);
+SERVALT_P(1,  SG0,        NONE,      NONE);
+SERVALT_P(2,  SG0,        NONE,      NONE);
+SERVALT_P(3,  SG0,        NONE,      NONE);
+SERVALT_P(4,  IRQ0_IN,    IRQ0_OUT,  TWI_SCL_M);
+SERVALT_P(5,  IRQ1_IN,    IRQ1_OUT,  TWI_SCL_M);
+SERVALT_P(6,  UART,       NONE,      NONE);
+SERVALT_P(7,  UART,       NONE,      NONE);
+SERVALT_P(8,  SI,         SFP,       TWI_SCL_M);
+SERVALT_P(9,  PCI_WAKE,   SFP,       SI);
+SERVALT_P(10, PTP0,       SFP,       TWI_SCL_M);
+SERVALT_P(11, PTP1,       SFP,       TWI_SCL_M);
+SERVALT_P(12, REF_CLK,    SFP,       TWI_SCL_M);
+SERVALT_P(13, REF_CLK,    SFP,       TWI_SCL_M);
+SERVALT_P(14, REF_CLK,    IRQ0_OUT,  SI);
+SERVALT_P(15, REF_CLK,    IRQ1_OUT,  SI);
+SERVALT_P(16, TACHO,      SFP,       SI);
+SERVALT_P(17, PWM,        NONE,      TWI_SCL_M);
+SERVALT_P(18, PTP2,       SFP,       SI);
+SERVALT_P(19, PTP3,       SFP,       SI);
+SERVALT_P(20, UART2,      SFP,       SI);
+SERVALT_P(21, UART2,      NONE,      NONE);
+SERVALT_P(22, MIIM,       SFP,       TWI2);
+SERVALT_P(23, MIIM,       SFP,       TWI2);
+SERVALT_P(24, TWI,        NONE,      NONE);
+SERVALT_P(25, TWI,        SFP,       TWI_SCL_M);
+SERVALT_P(26, TWI_SCL_M,  SFP,       SI);
+SERVALT_P(27, TWI_SCL_M,  SFP,       SI);
+SERVALT_P(28, TWI_SCL_M,  SFP,       SI);
+SERVALT_P(29, TWI_SCL_M,  NONE,      NONE);
+SERVALT_P(30, TWI_SCL_M,  NONE,      NONE);
+SERVALT_P(31, TWI_SCL_M,  NONE,      NONE);
+SERVALT_P(32, TWI_SCL_M,  NONE,      NONE);
+SERVALT_P(33, RCVRD_CLK,  NONE,      NONE);
+SERVALT_P(34, RCVRD_CLK,  NONE,      NONE);
+SERVALT_P(35, RCVRD_CLK,  NONE,      NONE);
+SERVALT_P(36, RCVRD_CLK,  NONE,      NONE);
+
+#define SERVALT_PIN(n) {					\
+	.number = n,						\
+	.name = "GPIO_"#n,					\
+	.drv_data = &servalt_pin_##n				\
+}
+
+static const struct pinctrl_pin_desc servalt_pins[] = {
+	SERVALT_PIN(0),
+	SERVALT_PIN(1),
+	SERVALT_PIN(2),
+	SERVALT_PIN(3),
+	SERVALT_PIN(4),
+	SERVALT_PIN(5),
+	SERVALT_PIN(6),
+	SERVALT_PIN(7),
+	SERVALT_PIN(8),
+	SERVALT_PIN(9),
+	SERVALT_PIN(10),
+	SERVALT_PIN(11),
+	SERVALT_PIN(12),
+	SERVALT_PIN(13),
+	SERVALT_PIN(14),
+	SERVALT_PIN(15),
+	SERVALT_PIN(16),
+	SERVALT_PIN(17),
+	SERVALT_PIN(18),
+	SERVALT_PIN(19),
+	SERVALT_PIN(20),
+	SERVALT_PIN(21),
+	SERVALT_PIN(22),
+	SERVALT_PIN(23),
+	SERVALT_PIN(24),
+	SERVALT_PIN(25),
+	SERVALT_PIN(26),
+	SERVALT_PIN(27),
+	SERVALT_PIN(28),
+	SERVALT_PIN(29),
+	SERVALT_PIN(30),
+	SERVALT_PIN(31),
+	SERVALT_PIN(32),
+	SERVALT_PIN(33),
+	SERVALT_PIN(34),
+	SERVALT_PIN(35),
+	SERVALT_PIN(36),
 };
 
 #define SPARX5_P(p, f0, f1, f2)					\
@@ -868,6 +1124,24 @@ static const struct pinctrl_ops ocelot_pctl_ops = {
 	.dt_free_map = pinconf_generic_dt_free_map,
 };
 
+static struct pinctrl_desc luton_desc = {
+	.name = "luton-pinctrl",
+	.pins = luton_pins,
+	.npins = ARRAY_SIZE(luton_pins),
+	.pctlops = &ocelot_pctl_ops,
+	.pmxops = &ocelot_pmx_ops,
+	.owner = THIS_MODULE,
+};
+
+static struct pinctrl_desc serval_desc = {
+	.name = "serval-pinctrl",
+	.pins = serval_pins,
+	.npins = ARRAY_SIZE(serval_pins),
+	.pctlops = &ocelot_pctl_ops,
+	.pmxops = &ocelot_pmx_ops,
+	.owner = THIS_MODULE,
+};
+
 static struct pinctrl_desc ocelot_desc = {
 	.name = "ocelot-pinctrl",
 	.pins = ocelot_pins,
@@ -881,6 +1155,15 @@ static struct pinctrl_desc jaguar2_desc = {
 	.name = "jaguar2-pinctrl",
 	.pins = jaguar2_pins,
 	.npins = ARRAY_SIZE(jaguar2_pins),
+	.pctlops = &ocelot_pctl_ops,
+	.pmxops = &ocelot_pmx_ops,
+	.owner = THIS_MODULE,
+};
+
+static struct pinctrl_desc servalt_desc = {
+	.name = "servalt-pinctrl",
+	.pins = servalt_pins,
+	.npins = ARRAY_SIZE(servalt_pins),
 	.pctlops = &ocelot_pctl_ops,
 	.pmxops = &ocelot_pmx_ops,
 	.owner = THIS_MODULE,
@@ -1155,8 +1438,11 @@ static int ocelot_gpiochip_register(struct platform_device *pdev,
 }
 
 static const struct of_device_id ocelot_pinctrl_of_match[] = {
+	{ .compatible = "mscc,luton-pinctrl", .data = &luton_desc },
+	{ .compatible = "mscc,serval-pinctrl", .data = &serval_desc },
 	{ .compatible = "mscc,ocelot-pinctrl", .data = &ocelot_desc },
 	{ .compatible = "mscc,jaguar2-pinctrl", .data = &jaguar2_desc },
+	{ .compatible = "mscc,servalt-pinctrl", .data = &servalt_desc },
 	{ .compatible = "microchip,sparx5-pinctrl", .data = &sparx5_desc },
 	{},
 };
