@@ -123,7 +123,7 @@
 
 		reset@611010008 {
 			compatible = "microchip,sparx5-chip-reset";
-			reg = <0x6 0x11010008 0x4>;
+			reg = <0x6 0x11010008 0x4>, <0x6 0x00000000 0xd0>;
 			microchip,reset-switch-core;
 		};
 
@@ -343,6 +343,23 @@
 			clocks = <&ahb_clk>;
 		};
 
+		uio0: vcoreiii_switch@600000000 {
+			compatible = "microchip,uio_sparx5_irqmux";
+			reg = <0x6 0x00000000 0x12000000>;
+			reg-names = "origin1_2";
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "master",
+				     "sgpio0", "sgpio1", "sgpio2",
+				     "ptp_rdy", "ptp_sync", "oam_vop";
+			status = "disabled";
+		};
+
 		dma: dma-controller@600000000 {
 			compatible = "microchip,vsc7558-fdma";
 			reg = <0x6 0x10000000 0x10000000>, // CSR
@@ -350,6 +367,31 @@
 			#dma-cells = <1>;
 			dma-channels = <8>;
 			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		ifh0: ifh_switch_port@0 {
+			compatible = "microchip,vsc7558-fdma-ifh";
+			reg = <0x6 0x10000000 0x10000000>; // CSR
+			dmas = <&dma 0>, <&dma 6>;
+			dma-names = "tx", "rx";
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "xtr", "inj";
+			status = "disabled";
+		};
+
+		ifh1: ifh_switch_port@1 {
+			compatible = "microchip,vsc7558-fdma-ifh";
+			reg = <0x6 0x10000000 0x10000000>; // CSR
+			dmas = <&dma 1>, <&dma 7>;
+			dma-names = "tx", "rx";
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "xtr", "inj";
+			status = "disabled";
+		};
+
+		ifmux: vcoreiii_switch_ifmux@600000000 {
+			compatible = "microchip,sparx5-ifmux";
 			status = "disabled";
 		};
 	};

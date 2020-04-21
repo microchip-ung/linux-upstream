@@ -21,3 +21,15 @@
 &dma {
 	status = "okay";
 };
+
+&ifh0 {
+	status = "okay";
+};
+
+&ifmux {
+	status = "okay";
+};
+
+&uio0 {
+	status = "okay";
+};
