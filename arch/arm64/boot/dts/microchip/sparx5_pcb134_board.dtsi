@@ -45,11 +45,40 @@
 		spi-max-frequency = <8000000>;
 		reg = <0>;
 	};
+	// synce module
+	spi@7 {
+		compatible = "mchp,synce_dpll";
+		reg = <7>;
+		pinctrl-0 = <&synce_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
+	// redwood onboard ptp dpll
+	spi@8 {
+		compatible = "mchp,synce_builtin";
+		reg = <8>;
+		pinctrl-0 = <&synce_builtin_pins>;
+		pinctrl-names = "default";
+		spi-max-frequency = <8000000>;
+	};
 };
 
 &sgpio2 {
 	status = "okay";
         microchip,sgpio-port-ranges = <0 0 11 31>;
+};
+
+&gpio {
+	synce_pins: synce-pins {
+		// CS7
+		pins = "GPIO_28";
+		function = "si";
+	};
+	synce_builtin_pins: synce-builtin-pins {
+		// CS8
+		pins = "GPIO_29";
+		function = "si";
+	};
 };
 
 &gpio {
