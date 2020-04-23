@@ -9,9 +9,15 @@ microchip Sparx5 armv8 SoC's.
 Required Properties:
  - compatible: "mscc,ocelot-chip-reset" or "microchip,sparx5-chip-reset"
 
+Optional properties:
+- microchip,reset-switch-core : Perform a switch core reset at the
+  time of driver load. This is may be used to initialize the switch
+  core to a known state (before other drivers are loaded).
+
 Example:
 	reset@1070008 {
 		compatible = "mscc,ocelot-chip-reset";
 		reg = <0x1070008 0x4>;
+		microchip,reset-switch-core;
 	};
 
