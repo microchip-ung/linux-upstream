@@ -13,6 +13,10 @@ Optional properties:
 - microchip,reset-switch-core : Perform a switch core reset at the
   time of driver load. This is may be used to initialize the switch
   core to a known state (before other drivers are loaded).
+- microchip,cpu-reset-only : At reset, only the CPU will be reset.
+  This may be required in order to avoid DDR reset on some
+  boards. This is opposed to the the default behaviour of doing a full
+  system reset.
 
 Example:
 	reset@1070008 {
