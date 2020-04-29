@@ -2137,6 +2137,7 @@ M:	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
 L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 S:	Supported
 F:	arch/arm64/boot/dts/microchip/
+F:	drivers/pinctrl/pinctrl-mchp-sgpio.c
 N:	sparx5
 
 ARM/MIOA701 MACHINE SUPPORT
