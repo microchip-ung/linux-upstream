@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pinctrl/microchip,sparx5-sgpio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microsemi Serial GPIO controller
+
+maintainers:
+  - Lars Povlsen <lars.povlsen@microchip.com>
+
+description: |
+  By using a serial interface, the SIO controller significantly extend
+  the number of available GPIOs with a minimum number of additional
+  pins on the device. The primary purpose of the SIO controllers is to
+  connect control signals from SFP modules and to act as an LED
+  controller.
+
+properties:
+  $nodename:
+    pattern: "gpio"
+
+  compatible:
+    enum:
+      - microchip,sparx5-sgpio
+      - mscc,ocelot-sgpio
+      - mscc,luton-sgpio
+
+  clocks:
+    maxItems: 1
+
+  gpio-controller: true
+
+  '#gpio-cells':
+    description: GPIO consumers must specify four arguments, first the
+      port number, then the bit number, then a input/output flag and
+      finally the GPIO flags (from include/dt-bindings/gpio/gpio.h).
+      The dt-bindings/gpio/mchp-sgpio.h file define manifest constants
+      PIN_INPUT and PIN_OUTPUT.
+    const: 4
+
+  gpio-ranges:
+    maxItems: 1
+
+  microchip,sgpio-port-ranges:
+    description: This is a sequence of tuples, defining intervals of
+      enabled ports in the serial input stream. The enabled ports must
+      match the hardware configuration in order for signals to be
+      properly written/read to/from the controller holding
+      registers. Being tuples, then number of arguments must be
+      even. The tuples mast be ordered (low, high) and are
+      inclusive. Arguments must be between 0 and 31.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 2
+    maxItems: 64
+
+  microchip,sgpio-frequency:
+    description: The sgpio controller frequency (Hz). This dictates
+      the serial bitstream speed, which again affects the latency in
+      getting control signals back and forth between external shift
+      registers. The speed must be no larger than half the system
+      clock, and larger than zero.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    default: 12500000
+
+required:
+  - compatible
+  - clocks
+  - gpio-controller
+  - '#gpio-cells'
+  - gpio-ranges
+  - microchip,sgpio-port-ranges
+
+examples:
+  - |
+    sgpio2: gpio@1101036c {
+        compatible = "microchip,sparx5-sgpio";
+        pinctrl-0 = <&sgpio0_pins>;
+        pinctrl-names = "default";
+        reg = <0x1101036c 0x100>;
+        clocks = <&sys_clk>;
+        gpio-controller;
+        gpio-ranges = <&sgpio0 0 0 192>;
+        #gpio-cells = <4>;
+        microchip,sgpio-port-ranges = <0 0 16 18 28 31>;
+        microchip,sgpio-frequency = <25000000>;
+    };
