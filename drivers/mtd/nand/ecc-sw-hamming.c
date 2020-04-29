@@ -637,10 +637,16 @@ static int nand_ecc_sw_hamming_finish_io_req(struct nand_device *nand,
 		if (stat < 0) {
 			pr_info_ratelimited("hamming ECC failed: block,page [%u,%u]\n", req->pos.eraseblock, req->pos.page);
 			mtd->ecc_stats.failed++;
+			max_bitflips = stat;
+			break;
 		} else {
 			mtd->ecc_stats.corrected += stat;
 			max_bitflips = max_t(unsigned int, max_bitflips, stat);
 		}
+	}
+	if (max_bitflips > 0) {
+		/* Update the client buffer with correction */
+		memcpy(req->databuf.in, req->page, req->datalen);
 	}
 
 	return max_bitflips;
