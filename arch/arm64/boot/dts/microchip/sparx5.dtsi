@@ -232,6 +232,22 @@
 				function = "si2";
 			};
 
+			sgpio0_pins: sgpio-pins {
+				pins = "GPIO_0", "GPIO_1", "GPIO_2", "GPIO_3";
+				function = "sg0";
+			};
+
+			sgpio1_pins: sgpio1-pins {
+				pins = "GPIO_4", "GPIO_5", "GPIO_12", "GPIO_13";
+				function = "sg1";
+			};
+
+			sgpio2_pins: sgpio2-pins {
+				pins = "GPIO_30", "GPIO_31", "GPIO_32",
+				       "GPIO_33";
+				function = "sg2";
+			};
+
 			uart_pins: uart-pins {
 				pins = "GPIO_10", "GPIO_11";
 				function = "uart";
@@ -260,6 +276,42 @@
 					"GPIO_46", "GPIO_47";
 				function = "emmc";
 			};
+		};
+
+		sgpio0: gpio@61101036c {
+			compatible = "microchip,sparx5-sgpio";
+			status = "disabled";
+			clocks = <&sys_clk>;
+			pinctrl-0 = <&sgpio0_pins>;
+			pinctrl-names = "default";
+			reg = <0x6 0x1101036c 0x100>;
+			gpio-controller;
+			gpio-ranges = <&sgpio0 0 0 192>;
+			#gpio-cells = <4>;
+		};
+
+		sgpio1: gpio@611010484 {
+			compatible = "microchip,sparx5-sgpio";
+			status = "disabled";
+			clocks = <&sys_clk>;
+			pinctrl-0 = <&sgpio1_pins>;
+			pinctrl-names = "default";
+			reg = <0x6 0x11010484 0x100>;
+			gpio-controller;
+			gpio-ranges = <&sgpio1 0 0 192>;
+			#gpio-cells = <4>;
+		};
+
+		sgpio2: gpio@61101059c {
+			compatible = "microchip,sparx5-sgpio";
+			status = "disabled";
+			clocks = <&sys_clk>;
+			pinctrl-0 = <&sgpio2_pins>;
+			pinctrl-names = "default";
+			reg = <0x6 0x1101059c 0x100>;
+			gpio-controller;
+			gpio-ranges = <&sgpio2 0 0 192>;
+			#gpio-cells = <4>;
 		};
 
 		i2c0: i2c@600101000 {

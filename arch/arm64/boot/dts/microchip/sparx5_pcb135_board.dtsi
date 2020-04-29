@@ -67,6 +67,11 @@
 	};
 };
 
+&sgpio2 {
+	status = "okay";
+	microchip,sgpio-port-ranges = <0 0 16 18 28 31>;
+};
+
 &axi {
 	i2c0_imux: i2c0-imux@0 {
 		compatible = "i2c-mux-pinctrl";
