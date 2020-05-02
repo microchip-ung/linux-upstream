@@ -902,6 +902,15 @@ config MFD_MSCC_FIREANT_PCI
 	  This MFD provides support for a Fireant SoC connected as a PCI device
 	  on a host. It splits all the SoC devices to their respective drivers.
 
+config MFD_MSCC_OCELOT_PCI
+	tristate "Microsemi Ocelot"
+	depends on PCI && UIO
+	select MFD_CORE
+	select GENERIC_IRQ_CHIP
+	help
+	  This MFD provides support for a Ocelot SoC connected as a PCI device
+	  on a host. It splits all the SoC devices to their respective drivers.
+
 config EZX_PCAP
 	bool "Motorola EZXPCAP Support"
 	depends on SPI_MASTER

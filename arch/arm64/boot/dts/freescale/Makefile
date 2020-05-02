@@ -37,3 +37,4 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb
 # DTs for miriac sbc1046 as external CPU for MSCC boards
 dtb-$(CONFIG_ARCH_LAYERSCAPE) += ls1046_pcb110.dtb
 dtb-$(CONFIG_ARCH_LAYERSCAPE) += ls1046_pcb134.dtb
+dtb-$(CONFIG_ARCH_LAYERSCAPE) += ls1046_pcb121.dtb
