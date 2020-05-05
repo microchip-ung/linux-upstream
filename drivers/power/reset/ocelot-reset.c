@@ -47,7 +47,7 @@ struct ocelot_reset_context {
 #define ICPU_GENERAL_CTRL_BOOT_MODE_ENA         BIT(0)
 
 /* HSIO PLL5G reset registers (serval-t) */
-#define HSIO_PLL5G_CFG0_PLL5G_CFG2		0x04
+#define HSIO_PLL5G_CFG0_PLL5G_CFG2		0x08
 #define HSIO_PLL5G_CFG0_PLL5G_CFG3		0x0c
 #define HSIO_PLL5G_CFG0_PLL5G_CFG6		0x18
 #define HSIO_HW_CFGSTAT_CLK_CFG			0x018c
