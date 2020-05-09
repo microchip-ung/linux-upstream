@@ -716,6 +716,7 @@ int i2c_dw_probe(struct dw_i2c_dev *dev)
 		irq_flags = IRQF_SHARED | IRQF_COND_SUSPEND;
 	}
 
+	__i2c_dw_disable_nowait(dev);
 	i2c_dw_disable_int(dev);
 	ret = devm_request_irq(dev->dev, dev->irq, i2c_dw_isr, irq_flags,
 			       dev_name(dev->dev), dev);

@@ -195,9 +195,7 @@ static void vcoreiii_bb_do_transfer(struct spi_vcoreiii *priv,
         u32             i, count = xfer->len;
 	const u8        *txd = xfer->tx_buf;
 	u8              *rxd = xfer->rx_buf;
-	unsigned long   __flags;
 
-	local_irq_save(__flags);
 	for (i = 0; i < count; i++) {
 		u32 rx = 0, mask = 0x80, value;
 		while (mask) {
@@ -233,7 +231,6 @@ static void vcoreiii_bb_do_transfer(struct spi_vcoreiii *priv,
 		}
 		bb_dbg(&msg->spi->dev, "spi_xfer: byte %d/%d\n", i + 1, count);
 	}
-	local_irq_restore(__flags);
 	bb_dbg(&msg->spi->dev, "spi_xfer: done\n");
 }
 
