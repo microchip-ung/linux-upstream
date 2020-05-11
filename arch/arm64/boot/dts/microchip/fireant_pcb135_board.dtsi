@@ -132,7 +132,3 @@
 		#size-cells = <0>;
 	};
 };
-
-&reset {
-       reset-gpios = <&gpio 37 GPIO_ACTIVE_HIGH>;
-};

@@ -12,7 +12,6 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
-#include <linux/gpio/consumer.h>
 
 struct reset_mscc_props {
 	u32 protect_reg_off;
@@ -21,7 +20,6 @@ struct reset_mscc_props {
 };
 
 struct ocelot_reset_context {
-	struct device *dev;
 	void __iomem *base;
 	void __iomem *icpu_base;
 	void __iomem *hsio_base;
@@ -203,15 +201,6 @@ static int ocelot_restart_handle(struct notifier_block *this,
 							ocelot_reset_context,
 							restart_handler);
 	u32 if_si_owner_offset = ctx->props->if_si_owner_offset;
-	struct gpio_desc *reset_gpiod;
-
-	/* Optional reset GPIO */
-	reset_gpiod = gpiod_get_optional(ctx->dev, "reset", GPIOD_OUT_LOW);
-	if (!IS_ERR(reset_gpiod)) {
-		pr_emerg("GPIO reset of system\n");
-		gpiod_direction_output(reset_gpiod, 1);
-		return NOTIFY_DONE;
-	}
 
 	/* Change SI owner for boot mode to work */
 	if (if_si_owner_offset != BIT_OFF_INVALID)
@@ -248,7 +237,6 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 	ctx = devm_kzalloc(&pdev->dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
-	ctx->dev = dev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	ctx->base = devm_ioremap_resource(dev, res);
