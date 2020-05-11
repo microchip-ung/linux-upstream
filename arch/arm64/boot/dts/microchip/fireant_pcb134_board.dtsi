@@ -30,6 +30,12 @@
 	    i2c118 = &i2c118;
 	    i2c119 = &i2c119;
 	};
+
+	gpio-restart {
+		compatible = "gpio-restart";
+		gpios = <&gpio 37 GPIO_ACTIVE_LOW>;
+		priority = <200>;
+	};
 };
 
 &spi0 {
