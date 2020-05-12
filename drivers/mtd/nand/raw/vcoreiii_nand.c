@@ -20,6 +20,9 @@
 #include <linux/io.h>
 
 #define setmasked(_addr, _m, _v) writel((readl(_addr) & ~(_m)) | (_v), (_addr))
+#define NAND_MANUFACTURER_MICRON     0x2c
+#define MT29F2G08                    0xda
+#define MT29F2G08ABAGAWP             0x90
 
 struct mscc_nand_prop {
 	const char *syscon_name;
@@ -79,6 +82,30 @@ static void vcoreiii_nand_cmd_ctrl(struct nand_chip *this, int cmd,
 	}
 }
 
+/* Hook into the NAND detection and override the default Device Tree
+ * configuration for the Micron NAND device on Luton26
+ * model: MT29F2G08ABAGAWP id: 2c da 90 95 86
+ * model: MT29F2G08AAD     id: 2c da 80 95 50
+ */
+static int vcoreiii_nand_attach_chip(struct nand_chip *chip)
+{
+	struct mtd_info *mtd = nand_to_mtd(chip);
+	struct device *dev = mtd->dev.parent;
+
+	dev_info(dev, "NAND id: %*ph\n", chip->id.len, chip->id.data);
+	if (chip->id.len > 3 && (chip->id.data[0] == NAND_MANUFACTURER_MICRON
+				 && chip->id.data[1] == MT29F2G08
+				 && chip->id.data[2] == MT29F2G08ABAGAWP)) {
+		dev_info(dev, "on-die ECC chosen\n");
+		chip->ecc.engine_type = NAND_ECC_ENGINE_ON_DIE;
+	}
+	return 0;
+}
+
+static const struct nand_controller_ops vcoreiii_nand_controller_ops = {
+	.attach_chip = vcoreiii_nand_attach_chip,
+};
+
 /*
  * mscc_nand_probe - Probe function
  * @pdev:       platform device structure
@@ -136,8 +163,6 @@ static int __init mscc_nand_probe(struct platform_device *pdev)
 
 	nand->legacy.IO_ADDR_R = nand->legacy.IO_ADDR_W = host->pi_region;
 	nand->legacy.cmd_ctrl = vcoreiii_nand_cmd_ctrl;
-	nand->ecc.engine_type = NAND_ECC_ENGINE_SOFT;
-	nand->ecc.algo = NAND_ECC_HAMMING;
 
 	if (!of_property_read_u32(pdev->dev.of_node,
 				  "chip-delay", &val)) {
@@ -148,25 +173,20 @@ static int __init mscc_nand_probe(struct platform_device *pdev)
 	/*
 	 * Scan to find existence of the device
 	 */
+	nand->legacy.dummy_controller.ops = &vcoreiii_nand_controller_ops;
 	ret = nand_scan(nand, 1);
 	if (ret)
-		goto cleanup_nand;
+		return ret;
 
 	mtd->name = "pi_nand";
 	ret = mtd_device_register(mtd, NULL, 0);
-	if (ret) {
-		goto cleanup_nand;
-	}
+	if (ret)
+		return ret;
 
 	platform_set_drvdata(pdev, host);
 	dev_info(dev, "MSCC NAND driver registration successful\n");
 
 	return 0;
-
-cleanup_nand:
-	nand_cleanup(nand);
-
-	return ret;
 }
 
 /*
