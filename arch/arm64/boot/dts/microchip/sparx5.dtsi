@@ -118,6 +118,17 @@
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		cpu_ctrl: syscon@600000000 {
+			compatible = "microchip,sparx5-cpu-syscon", "syscon";
+			reg = <0x6 0x00000000 0xd0>;
+		};
+
+		reset@611010008 {
+			compatible = "microchip,sparx5-chip-reset";
+			reg = <0x6 0x11010008 0x4>;
+			microchip,reset-switch-core;
+		};
+
 		uart0: serial@600100000 {
 			pinctrl-0 = <&uart_pins>;
 			pinctrl-names = "default";
