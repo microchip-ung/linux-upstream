@@ -29,6 +29,7 @@ struct ocelot_reset_context {
 	struct notifier_block restart_handler;
 };
 
+#define SOFT_SWC_RST  BIT(1)
 #define SOFT_CHIP_RST BIT(0)
 
 #define ICPU_CFG_CPU_SYSTEM_CTRL_GENERAL_CTRL	0x24
@@ -36,6 +37,32 @@ struct ocelot_reset_context {
 #define IF_SI_OWNER_SISL			0
 #define IF_SI_OWNER_SIBM			1
 #define IF_SI_OWNER_SIMC			2
+
+static int ocelot_switch_core_reset(const struct ocelot_reset_context *ctx)
+{
+
+	const char *driver = "ocelot-reset";
+	int timeout;
+
+	pr_notice("%s: Resetting Switch Core\n", driver);
+
+	/* Make sure the core is PROTECTED from reset */
+	regmap_update_bits(ctx->cpu_ctrl, ctx->props->protect_reg,
+			   ctx->props->vcore_protect,
+			   ctx->props->vcore_protect);
+
+	writel(SOFT_SWC_RST, ctx->base);
+	for (timeout = 0; timeout < 100; timeout++) {
+		if ((readl(ctx->base) & SOFT_SWC_RST) == 0) {
+			pr_debug("%s: Switch Core Reset complete.\n", driver);
+			return 0;
+		}
+		udelay(1);
+	}
+
+	pr_warn("%s: Switch Core Reset timeout!\n", driver);
+	return -ENXIO;
+}
 
 static int ocelot_restart_handle(struct notifier_block *this,
 				 unsigned long mode, void *cmd)
@@ -66,7 +93,6 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 {
 	struct ocelot_reset_context *ctx;
 	struct resource *res;
-
 	struct device *dev = &pdev->dev;
 	int err;
 
@@ -86,6 +112,11 @@ static int ocelot_reset_probe(struct platform_device *pdev)
 		dev_err(dev, "No syscon map: %s\n", ctx->props->syscon);
 		return PTR_ERR(ctx->cpu_ctrl);
 	}
+
+	/* Optionally, call switch reset function */
+	if (of_property_read_bool(pdev->dev.of_node,
+				  "microchip,reset-switch-core"))
+		ocelot_switch_core_reset(ctx);
 
 	ctx->restart_handler.notifier_call = ocelot_restart_handle;
 	ctx->restart_handler.priority = 192;
@@ -128,4 +159,9 @@ static struct platform_driver ocelot_reset_driver = {
 		.of_match_table = ocelot_reset_of_match,
 	},
 };
-builtin_platform_driver(ocelot_reset_driver);
+
+static int __init reset_init(void)
+{
+	return platform_driver_register(&ocelot_reset_driver);
+}
+postcore_initcall(reset_init);
