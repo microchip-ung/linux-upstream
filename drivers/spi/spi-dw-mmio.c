@@ -20,6 +20,7 @@
 #include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <linux/mux/consumer.h>
 
 #include "spi-dw.h"
 
@@ -58,6 +59,7 @@ struct dw_spi_mmio {
 struct dw_spi_mscc {
 	struct regmap       *syscon;
 	void __iomem        *spi_mst; /* Not sparx5 */
+	struct mux_control  *spi_mux; /* Sparx5 bus interface */
 };
 
 /*
@@ -151,6 +153,9 @@ static void dw_spi_sparx5_set_cs(struct spi_device *spi, bool enable)
 	u8 cs = spi->chip_select;
 
 	if (!enable) {
+		/* Drive mux */
+		if (mux_control_select(dwsmscc->spi_mux, cs))
+			dev_err(&spi->dev, "Unable to drive SPI mux\n");
 		/* CS override drive enable */
 		regmap_write(dwsmscc->syscon, SPARX5_FORCE_ENA, 1);
 		/* Now set CSx enabled */
@@ -164,6 +169,8 @@ static void dw_spi_sparx5_set_cs(struct spi_device *spi, bool enable)
 		usleep_range(1, 5);
 		/* CS override drive disable */
 		regmap_write(dwsmscc->syscon, SPARX5_FORCE_ENA, 0);
+		/* Deselect mux */
+		mux_control_deselect(dwsmscc->spi_mux);
 	}
 
 	dw_spi_set_cs(spi, enable);
@@ -190,6 +197,13 @@ static int dw_spi_mscc_sparx5_init(struct platform_device *pdev,
 	if (IS_ERR(dwsmscc->syscon)) {
 		dev_err(dev, "No syscon map %s\n", syscon_name);
 		return PTR_ERR(dwsmscc->syscon);
+	}
+
+	/* Get SPI mux */
+	dwsmscc->spi_mux = devm_mux_control_get(dev, NULL);
+	if (IS_ERR(dwsmscc->spi_mux)) {
+		dev_err(dev, "SPI mux is required\n");
+		return PTR_ERR(dwsmscc->spi_mux);
 	}
 
 	dwsmmio->dws.set_cs = dw_spi_sparx5_set_cs;

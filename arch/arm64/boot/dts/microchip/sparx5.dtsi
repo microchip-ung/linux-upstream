@@ -117,19 +117,8 @@
 		};
 
 		cpu_ctrl: syscon@600000000 {
-			compatible = "microchip,sparx5-cpu-syscon", "syscon",
-				     "simple-mfd";
+			compatible = "microchip,sparx5-cpu-syscon", "syscon";
 			reg = <0x6 0x00000000 0xd0>;
-			mux: mux-controller {
-				compatible = "mmio-mux";
-				#mux-control-cells = <0>;
-				/*
-				 * SI_OWNER and SI2_OWNER in GENERAL_CTRL
-				 * SPI:  value 9 - (SIMC,SIBM) = 0b1001
-				 * SPI2: value 6 - (SIBM,SIMC) = 0b0110
-				 */
-				mux-reg-masks = <0x88 0xf0>;
-			};
 		};
 
 		reset@611010008 {
@@ -164,6 +153,13 @@
 			status = "disabled";
 		};
 
+		mux: mux-controller {
+			compatible = "microchip,sparx5-spi-mux";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#mux-control-cells = <0>;
+		};
+
 		spi0: spi@600104000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -174,6 +170,7 @@
 			reg-shift = <2>;
 			clocks = <&ahb_clk>;
 			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+			mux-controls = <&mux>;
 			status = "disabled";
 		};
 
