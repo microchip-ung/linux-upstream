@@ -50,7 +50,7 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/clock/microchip,sparx5.h>
-    sdhci0: mmc0@600800000 {
+    sdhci0: mmc@600800000 {
         compatible = "microchip,dw-sparx5-sdhci";
         reg = <0x00800000 0x1000>;
         pinctrl-0 = <&emmc_pins>;
