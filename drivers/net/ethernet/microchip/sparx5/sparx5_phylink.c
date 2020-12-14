@@ -12,6 +12,7 @@
 
 #include "sparx5_main_regs.h"
 #include "sparx5_main.h"
+#include "sparx5_port.h"
 
 static void sparx5_phylink_validate(struct phylink_config *config,
 				    unsigned long *supported,
@@ -94,6 +95,7 @@ static void sparx5_phylink_mac_config(struct phylink_config *config,
 {
 	struct sparx5_port *port = netdev_priv(to_net_dev(config->dev));
 	struct sparx5_port_config conf;
+	int err = 0;
 
 	conf = port->conf;
 	conf.power_down = false;
@@ -126,6 +128,11 @@ static void sparx5_phylink_mac_config(struct phylink_config *config,
 
 	if (!port_conf_has_changed(&port->conf, &conf))
 		return;
+
+	/* Enable the PCS matching this interface type */
+	err = sparx5_port_pcs_set(port->sparx5, port, &conf);
+	if (err)
+		netdev_err(port->ndev, "port config failed: %d\n", err);
 }
 
 static void sparx5_phylink_mac_link_up(struct phylink_config *config,
@@ -135,17 +142,35 @@ static void sparx5_phylink_mac_link_up(struct phylink_config *config,
 				       int speed, int duplex,
 				       bool tx_pause, bool rx_pause)
 {
-	/* Currently not used */
+	struct sparx5_port *port = netdev_priv(to_net_dev(config->dev));
+	struct sparx5_port_config conf;
+	int err = 0;
+
+	conf = port->conf;
+	conf.duplex = duplex;
+	conf.pause = 0;
+	conf.pause |= tx_pause ? MLO_PAUSE_TX : 0;
+	conf.pause |= rx_pause ? MLO_PAUSE_RX : 0;
+	conf.speed = speed;
+
+	/* Configure the port to speed/duplex/pause */
+	err = sparx5_port_config(port->sparx5, port, &conf);
+	if (err)
+		netdev_err(port->ndev, "port config failed: %d\n", err);
 }
 
 static void sparx5_phylink_mac_link_state(struct phylink_config *config,
 					  struct phylink_link_state *state)
 {
-	state->link = true;
-	state->an_complete = true;
-	state->speed = SPEED_1000;
-	state->duplex = true;
-	state->pause = MLO_PAUSE_AN;
+	struct sparx5_port *port = netdev_priv(to_net_dev(config->dev));
+	struct sparx5_port_status status;
+
+	sparx5_get_port_status(port->sparx5, port, &status);
+	state->link = status.link && !status.link_down;
+	state->an_complete = status.an_complete;
+	state->speed = status.speed;
+	state->duplex = status.duplex;
+	state->pause = status.pause;
 }
 
 static void sparx5_phylink_mac_aneg_restart(struct phylink_config *config)
