@@ -92,6 +92,9 @@ struct sparx5_port {
 	struct device_node         *of_node;
 	struct phy                 *serdes;
 	struct sparx5_port_config  conf;
+	struct phylink_config      phylink_config;
+	struct phylink             *phylink;
+	struct phylink_pcs         phylink_pcs;
 	u16                        portno;
 	/* Ingress default VLAN (pvid) */
 	u16                        pvid;
@@ -132,6 +135,17 @@ struct sparx5 {
 	bool                                  sd_sgpio_remapping;
 };
 
+/* sparx5_packet.c */
+irqreturn_t sparx5_xtr_handler(int irq, void *_priv);
+int sparx5_port_xmit_impl(struct sk_buff *skb, struct net_device *dev);
+void sparx5_manual_injection_mode(struct sparx5 *sparx5);
+
+/* sparx5_netdev.c */
+bool sparx5_netdevice_check(const struct net_device *dev);
+struct net_device *sparx5_create_netdev(struct sparx5 *sparx5, u32 portno);
+int sparx5_register_netdevs(struct sparx5 *sparx5);
+void sparx5_destroy_netdev(struct sparx5 *sparx5, struct sparx5_port *port);
+
 /* Clock period in picoseconds */
 static inline u32 sparx5_clk_period(enum sparx5_core_clockfreq cclock)
 {
@@ -145,6 +159,8 @@ static inline u32 sparx5_clk_period(enum sparx5_core_clockfreq cclock)
 		return 1600;
 	}
 }
+
+extern const struct phylink_mac_ops sparx5_phylink_mac_ops;
 
 /* Calculate raw offset */
 static inline __pure int spx5_offset(int id, int tinst, int tcnt,
