@@ -117,6 +117,15 @@ static int sparx5_port_stop(struct net_device *ndev)
 	return 0;
 }
 
+static void sparx5_set_rx_mode(struct net_device *dev)
+{
+	struct sparx5_port *port = netdev_priv(dev);
+	struct sparx5 *sparx5 = port->sparx5;
+
+	if (!test_bit(port->portno, sparx5->bridge_mask))
+		__dev_mc_sync(dev, sparx5_mc_sync, sparx5_mc_unsync);
+}
+
 static int sparx5_port_get_phys_port_name(struct net_device *dev,
 					  char *buf, size_t len)
 {
@@ -132,10 +141,30 @@ static int sparx5_port_get_phys_port_name(struct net_device *dev,
 
 static int sparx5_set_mac_address(struct net_device *dev, void *p)
 {
+	struct sparx5_port *port = netdev_priv(dev);
+	struct sparx5 *sparx5 = port->sparx5;
 	const struct sockaddr *addr = p;
+
+	/* Remove current */
+	sparx5_mact_forget(sparx5, dev->dev_addr,  port->pvid);
+
+	/* Add new */
+	sparx5_mact_learn(sparx5, PGID_CPU, addr->sa_data, port->pvid);
 
 	/* Record the address */
 	ether_addr_copy(dev->dev_addr, addr->sa_data);
+
+	return 0;
+}
+
+static int sparx5_get_port_parent_id(struct net_device *dev,
+				     struct netdev_phys_item_id *ppid)
+{
+	struct sparx5_port *sparx5_port = netdev_priv(dev);
+	struct sparx5 *sparx5 = sparx5_port->sparx5;
+
+	ppid->id_len = sizeof(sparx5->base_mac);
+	memcpy(&ppid->id, &sparx5->base_mac, ppid->id_len);
 
 	return 0;
 }
@@ -144,9 +173,11 @@ static const struct net_device_ops sparx5_port_netdev_ops = {
 	.ndo_open               = sparx5_port_open,
 	.ndo_stop               = sparx5_port_stop,
 	.ndo_start_xmit         = sparx5_port_xmit_impl,
+	.ndo_set_rx_mode        = sparx5_set_rx_mode,
 	.ndo_get_phys_port_name = sparx5_port_get_phys_port_name,
 	.ndo_set_mac_address    = sparx5_set_mac_address,
 	.ndo_validate_addr      = eth_validate_addr,
+	.ndo_get_port_parent_id = sparx5_get_port_parent_id,
 };
 
 bool sparx5_netdevice_check(const struct net_device *dev)

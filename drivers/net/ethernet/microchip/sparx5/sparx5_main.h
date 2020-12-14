@@ -130,15 +130,66 @@ struct sparx5 {
 	/* port structures are in net device */
 	struct sparx5_port                    *ports[SPX5_PORTS];
 	enum sparx5_core_clockfreq            coreclock;
+	/* Notifiers */
+	struct notifier_block                 netdevice_nb;
+	struct notifier_block                 switchdev_nb;
+	struct notifier_block                 switchdev_blocking_nb;
+	/* Switch state */
 	u8                                    base_mac[ETH_ALEN];
+	/* Associated bridge device (when bridged) */
+	struct net_device                     *hw_bridge_dev;
+	/* Bridged interfaces */
+	DECLARE_BITMAP(bridge_mask,           SPX5_PORTS);
+	DECLARE_BITMAP(bridge_fwd_mask,       SPX5_PORTS);
+	DECLARE_BITMAP(bridge_lrn_mask,       SPX5_PORTS);
+	DECLARE_BITMAP(vlan_mask[VLAN_N_VID], SPX5_PORTS);
+	/* SW MAC table */
+	struct list_head                      mact_entries;
+	/* mac table list (mact_entries) mutex */
+	struct mutex                          mact_lock;
+	struct delayed_work                   mact_work;
+	struct workqueue_struct               *mact_queue;
 	/* Board specifics */
 	bool                                  sd_sgpio_remapping;
 };
+
+/* sparx5_switchdev.c */
+int sparx5_register_notifier_blocks(struct sparx5 *sparx5);
+void sparx5_unregister_notifier_blocks(struct sparx5 *sparx5);
 
 /* sparx5_packet.c */
 irqreturn_t sparx5_xtr_handler(int irq, void *_priv);
 int sparx5_port_xmit_impl(struct sk_buff *skb, struct net_device *dev);
 void sparx5_manual_injection_mode(struct sparx5 *sparx5);
+
+/* sparx5_mactable.c */
+void sparx5_mact_pull_work(struct work_struct *work);
+int sparx5_mact_learn(struct sparx5 *sparx5, int port,
+		      const unsigned char mac[ETH_ALEN], u16 vid);
+bool sparx5_mact_getnext(struct sparx5 *sparx5,
+			 unsigned char mac[ETH_ALEN], u16 *vid, u32 *pcfg2);
+int sparx5_mact_forget(struct sparx5 *sparx5,
+		       const unsigned char mac[ETH_ALEN], u16 vid);
+int sparx5_add_mact_entry(struct sparx5 *sparx5,
+			  struct sparx5_port *port,
+			  const unsigned char *addr, u16 vid);
+int sparx5_del_mact_entry(struct sparx5 *sparx5,
+			  const unsigned char *addr,
+			  u16 vid);
+int sparx5_mc_sync(struct net_device *dev, const unsigned char *addr);
+int sparx5_mc_unsync(struct net_device *dev, const unsigned char *addr);
+void sparx5_set_ageing(struct sparx5 *sparx5, int msecs);
+void sparx5_mact_init(struct sparx5 *sparx5);
+
+/* sparx5_vlan.c */
+void sparx5_pgid_update_mask(struct sparx5_port *port, int pgid, bool enable);
+void sparx5_update_fwd(struct sparx5 *sparx5);
+void sparx5_vlan_init(struct sparx5 *sparx5);
+void sparx5_vlan_port_setup(struct sparx5 *sparx5, int portno);
+int sparx5_vlan_vid_add(struct sparx5_port *port, u16 vid, bool pvid,
+			bool untagged);
+int sparx5_vlan_vid_del(struct sparx5_port *port, u16 vid);
+void sparx5_vlan_port_apply(struct sparx5 *sparx5, struct sparx5_port *port);
 
 /* sparx5_netdev.c */
 bool sparx5_netdevice_check(const struct net_device *dev);
