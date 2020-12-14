@@ -177,6 +177,7 @@ static const struct net_device_ops sparx5_port_netdev_ops = {
 	.ndo_get_phys_port_name = sparx5_port_get_phys_port_name,
 	.ndo_set_mac_address    = sparx5_set_mac_address,
 	.ndo_validate_addr      = eth_validate_addr,
+	.ndo_get_stats64        = sparx5_get_stats64,
 	.ndo_get_port_parent_id = sparx5_get_port_parent_id,
 };
 
@@ -204,6 +205,7 @@ struct net_device *sparx5_create_netdev(struct sparx5 *sparx5, u32 portno)
 	snprintf(ndev->name, IFNAMSIZ, "eth%d", portno);
 
 	ndev->netdev_ops = &sparx5_port_netdev_ops;
+	ndev->ethtool_ops = &sparx5_ethtool_ops;
 	ndev->features |= NETIF_F_LLTX; /* software tx */
 
 	val = ether_addr_to_u64(sparx5->base_mac) + portno + 1;

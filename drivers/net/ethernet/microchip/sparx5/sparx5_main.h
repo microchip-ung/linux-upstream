@@ -130,6 +130,13 @@ struct sparx5 {
 	/* port structures are in net device */
 	struct sparx5_port                    *ports[SPX5_PORTS];
 	enum sparx5_core_clockfreq            coreclock;
+	/* Statistics */
+	u32                                   num_stats;
+	const char * const                    *stats_layout;
+	u64                                   *stats;
+	/* Workqueue for reading stats */
+	struct delayed_work                   stats_work;
+	struct workqueue_struct               *stats_queue;
 	/* Notifiers */
 	struct notifier_block                 netdevice_nb;
 	struct notifier_block                 switchdev_nb;
@@ -195,6 +202,10 @@ void sparx5_vlan_port_apply(struct sparx5 *sparx5, struct sparx5_port *port);
 int sparx5_config_auto_calendar(struct sparx5 *sparx5);
 int sparx5_config_dsm_calendar(struct sparx5 *sparx5);
 
+/* sparx5_ethtool.c */
+void sparx5_get_stats64(struct net_device *ndev, struct rtnl_link_stats64 *stats);
+int sparx_stats_init(struct sparx5 *sparx5);
+
 /* sparx5_netdev.c */
 bool sparx5_netdevice_check(const struct net_device *dev);
 struct net_device *sparx5_create_netdev(struct sparx5 *sparx5, u32 portno);
@@ -216,6 +227,7 @@ static inline u32 sparx5_clk_period(enum sparx5_core_clockfreq cclock)
 }
 
 extern const struct phylink_mac_ops sparx5_phylink_mac_ops;
+extern const struct ethtool_ops sparx5_ethtool_ops;
 
 /* Calculate raw offset */
 static inline __pure int spx5_offset(int id, int tinst, int tcnt,
