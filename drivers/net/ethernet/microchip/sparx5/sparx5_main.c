@@ -792,6 +792,8 @@ static int mchp_sparx5_probe(struct platform_device *pdev)
 	}
 
 	for (idx = 0; idx < sparx5->port_count; ++idx) {
+		struct sparx5_port *p;
+
 		config = &configs[idx];
 		if (!config->node)
 			continue;
@@ -800,6 +802,21 @@ static int mchp_sparx5_probe(struct platform_device *pdev)
 		if (err) {
 			dev_err(sparx5->dev, "port create error\n");
 			goto cleanup_ports;
+		}
+
+		/* The vsc8514 qsgmii phy has an bug.
+		 * It must be initialized before the MAC serdes,
+		 * otherwise it might deadlock.
+		 * Therefore we initialize the phy here and then power it down
+		 * to avoid a premature link-up
+		 * TODO: Move to phy driver
+		 */
+		p = sparx5->ports[config->portno];
+		if (!p->conf.has_sfp) {
+			phylink_of_phy_connect(p->phylink, p->of_node, 0);
+			rtnl_lock();
+			phylink_disconnect_phy(p->phylink);
+			rtnl_unlock();
 		}
 	}
 
