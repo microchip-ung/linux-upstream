@@ -14,12 +14,51 @@
 #include "sparx5_main.h"
 #include "sparx5_port.h"
 
+static void sparx5_phylink_state_print(const char *name, unsigned int portno,
+				       const struct phylink_link_state *state)
+{
+	if (state->interface > 0) {
+		pr_debug("%s: portno: %u, ifmode: %s, speed: %d\n",
+			 name,
+			 portno,
+			 phy_modes(state->interface),
+			 state->speed);
+		pr_debug("  - duplex: %d, pause: %d, link: %d\n",
+			 state->duplex,
+			 state->pause,
+			 state->link);
+		pr_debug("  - aneg enable: %u, aneg done: %u\n",
+			 state->an_enabled,
+			 state->an_complete);
+	} else {
+		pr_debug("%s: portno: %u, no ifmode", name, portno);
+	}
+	pr_debug("  - own linkmodes: %*pbl, partner linkmodes: %*pbl\n",
+		 __ETHTOOL_LINK_MODE_MASK_NBITS,
+		 state->advertising,
+		 __ETHTOOL_LINK_MODE_MASK_NBITS,
+		 state->lp_advertising);
+}
+
+static void sparx5_port_config_print(u32 portno,
+				     struct sparx5_port_config *conf)
+{
+	pr_debug("port: %u: configuration\n", portno);
+	pr_debug("  - portmode:   %s\n", phy_modes(conf->portmode));
+	pr_debug("  - speed:      %s\n", phy_speed_to_str(conf->speed));
+	pr_debug("  - mediatype:  %02u\n", conf->media_type);
+	pr_debug("  - phy_mode:   %s\n", phy_modes(conf->phy_mode));
+}
+
 static void sparx5_phylink_validate(struct phylink_config *config,
 				    unsigned long *supported,
 				    struct phylink_link_state *state)
 {
 	struct sparx5_port *port = netdev_priv(to_net_dev(config->dev));
+	u32 portno = port->portno;
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
+
+	sparx5_phylink_state_print(__func__, portno, state);
 
 	phylink_set(mask, Autoneg);
 	phylink_set_port_modes(mask);
@@ -76,6 +115,7 @@ static void sparx5_phylink_validate(struct phylink_config *config,
 	bitmap_and(supported, supported, mask, __ETHTOOL_LINK_MODE_MASK_NBITS);
 	bitmap_and(state->advertising, state->advertising, mask,
 		   __ETHTOOL_LINK_MODE_MASK_NBITS);
+	sparx5_phylink_state_print(__func__, portno, state);
 }
 
 static bool port_conf_has_changed(struct sparx5_port_config *a, struct sparx5_port_config *b)
@@ -133,6 +173,8 @@ static void sparx5_phylink_mac_config(struct phylink_config *config,
 	err = sparx5_port_pcs_set(port->sparx5, port, &conf);
 	if (err)
 		netdev_err(port->ndev, "port config failed: %d\n", err);
+
+	sparx5_port_config_print(port->portno, &port->conf);
 }
 
 static void sparx5_phylink_mac_link_up(struct phylink_config *config,
