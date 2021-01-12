@@ -121,9 +121,17 @@
 			reg = <0x6 0x00000000 0xd0>;
 		};
 
-		reset@611010008 {
-			compatible = "microchip,sparx5-chip-reset";
-			reg = <0x6 0x11010008 0x4>;
+		gcb_ctrl: syscon@611010000 {
+			compatible = "microchip,sparx5-gcb-syscon", "syscon";
+			reg = <0x6 0x11010000 0x10000>;
+		};
+
+		reset: reset-controller@0 {
+			compatible = "microchip,sparx5-switch-reset";
+			reg = <0x6 0x0 0x0>;
+			#reset-cells = <1>;
+			cpu-syscon = <&cpu_ctrl>;
+			gcb-syscon = <&gcb_ctrl>;
 		};
 
 		uart0: serial@600100000 {
@@ -388,5 +396,14 @@
 			reg = <0x6 0x10808000 0x5d0000>;
 		};
 
+		switch: switch@610004000 {
+			compatible = "microchip,sparx5-switch";
+			reg =	<0x6 0x10004000 0x800000>,
+				<0x6 0x11010000 0x1b00000>;
+			reg-names = "devices", "gcb";
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
+			resets = <&reset 0>;
+			reset-names = "switch";
+		};
 	};
 };
