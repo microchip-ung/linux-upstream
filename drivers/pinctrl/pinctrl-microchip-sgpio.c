@@ -17,6 +17,7 @@
 #include <linux/pinctrl/pinmux.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
+#include <linux/reset.h>
 
 #include "core.h"
 #include "pinconf.h"
@@ -107,6 +108,7 @@ struct sgpio_bank {
 
 struct sgpio_priv {
 	struct device *dev;
+	struct reset_control *reset;
 	struct sgpio_bank in;
 	struct sgpio_bank out;
 	u32 bitcount;
@@ -812,6 +814,15 @@ static int microchip_sgpio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	priv->dev = dev;
+
+	priv->reset = devm_reset_control_get_shared(&pdev->dev, "switch");
+	if (IS_ERR(priv->reset)) {
+		dev_warn(priv->dev, "Could not obtain reset control: %ld\n",
+			 PTR_ERR(priv->reset));
+		priv->reset = NULL;
+	} else {
+		reset_control_reset(priv->reset);
+	}
 
 	clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(clk))
