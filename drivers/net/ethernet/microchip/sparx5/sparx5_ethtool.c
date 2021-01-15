@@ -10,6 +10,9 @@
 #include "sparx5_main.h"
 #include "sparx5_port.h"
 
+/* Index of ANA_AC port counters */
+#define SPX5_PORT_POLICER_DROPS 0
+
 /* Add a potentially wrapping 32 bit value to a 64 bit counter */
 static void sparx5_update_counter(u64 *cnt, u32 val)
 {
@@ -464,7 +467,8 @@ static void sparx5_get_device_stats(struct sparx5 *sparx5, int portno)
 			      spx5_rd(sparx5, XQS_CNT(32)));
 	sparx5_update_counter(&portstats[spx5_stats_rx_port_policer_drop],
 			      spx5_rd(sparx5,
-				      ANA_AC_PORT_STAT_LSB_CNT(portno, 1)));
+				      ANA_AC_PORT_STAT_LSB_CNT(portno,
+							       SPX5_PORT_POLICER_DROPS)));
 	sparx5_update_counter(&portstats[spx5_stats_tx_out_bytes],
 			      spx5_inst_rd(inst,
 					   DEV5G_TX_OUT_BYTES_CNT(tinst)));
@@ -699,7 +703,8 @@ static void sparx5_get_asm_stats(struct sparx5 *sparx5, int portno)
 			      spx5_rd(sparx5, XQS_CNT(32)));
 	sparx5_update_counter(&portstats[spx5_stats_rx_port_policer_drop],
 			      spx5_rd(sparx5,
-				      ANA_AC_PORT_STAT_LSB_CNT(portno, 1)));
+				      ANA_AC_PORT_STAT_LSB_CNT(portno,
+							       SPX5_PORT_POLICER_DROPS)));
 	sparx5_update_counter(&portstats[spx5_stats_tx_out_bytes],
 			      spx5_inst_rd(inst,
 					   ASM_TX_OUT_BYTES_CNT(portno)));
@@ -798,6 +803,32 @@ static void sparx5_get_asm_stats(struct sparx5 *sparx5, int portno)
 			      &portstats[spx5_stats_green_p0_tx_port]);
 	sparx5_update_counter(&portstats[spx5_stats_tx_local_drop],
 			      spx5_rd(sparx5, XQS_CNT(272)));
+}
+
+static void sparx5_config_stats(struct sparx5 *sparx5)
+{
+	/* Enable global events for port policer drops */
+	spx5_rmw(ANA_AC_PORT_SGE_CFG_MASK_SET(0xf0f0),
+		 ANA_AC_PORT_SGE_CFG_MASK,
+		 sparx5,
+		 ANA_AC_PORT_SGE_CFG(SPX5_PORT_POLICER_DROPS));
+}
+
+static void sparx5_config_port_stats(struct sparx5 *sparx5, int portno)
+{
+	/* Clear Queue System counters */
+	spx5_wr(XQS_STAT_CFG_STAT_VIEW_SET(portno) |
+		XQS_STAT_CFG_STAT_CLEAR_SHOT_SET(3), sparx5,
+		XQS_STAT_CFG);
+
+	/* Use counter for port policer drop count */
+	spx5_rmw(ANA_AC_PORT_STAT_CFG_CFG_CNT_FRM_TYPE_SET(1) |
+		 ANA_AC_PORT_STAT_CFG_CFG_CNT_BYTE_SET(0) |
+		 ANA_AC_PORT_STAT_CFG_CFG_PRIO_MASK_SET(0xff),
+		 ANA_AC_PORT_STAT_CFG_CFG_CNT_FRM_TYPE |
+		 ANA_AC_PORT_STAT_CFG_CFG_CNT_BYTE |
+		 ANA_AC_PORT_STAT_CFG_CFG_PRIO_MASK,
+		 sparx5, ANA_AC_PORT_STAT_CFG(portno, SPX5_PORT_POLICER_DROPS));
 }
 
 static void sparx5_update_port_stats(struct sparx5 *sparx5, int portno)
@@ -950,13 +981,10 @@ int sparx_stats_init(struct sparx5 *sparx5)
 	if (!sparx5->stats)
 		return -ENOMEM;
 
+	sparx5_config_stats(sparx5);
 	for (portno = 0; portno < SPX5_PORTS; portno++)
-		if (sparx5->ports[portno]) {
-			/* Clear Queue System counters */
-			spx5_wr(XQS_STAT_CFG_STAT_VIEW_SET(portno) |
-				XQS_STAT_CFG_STAT_CLEAR_SHOT_SET(3), sparx5,
-				XQS_STAT_CFG);
-		}
+		if (sparx5->ports[portno])
+			sparx5_config_port_stats(sparx5, portno);
 
 	snprintf(queue_name, sizeof(queue_name), "%s-stats",
 		 dev_name(sparx5->dev));

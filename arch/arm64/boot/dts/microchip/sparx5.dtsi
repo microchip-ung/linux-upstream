@@ -464,12 +464,15 @@
 			reg = <0x6 0x10808000 0x5d0000>;
 		};
 
-		switch: switch@610004000 {
+		switch: switch@0x600000000 {
 			compatible = "microchip,sparx5-switch";
-			reg =	<0x6 0x10004000 0x800000>,
-				<0x6 0x11010000 0x1b00000>;
-			reg-names = "devices", "gcb";
-			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
+			reg =	<0x6 0 0x401000>,
+				<0x6 0x10004000 0x7fc000>,
+				<0x6 0x11010000 0xaf0000>;
+			reg-names = "cpu", "dev", "gcb";
+			interrupt-names = "xtr", "fdma";
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
+			             <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&reset 0>;
 			reset-names = "switch";
 		};

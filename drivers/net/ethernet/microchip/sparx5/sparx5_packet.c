@@ -18,14 +18,7 @@
 
 #define XTR_VALID_BYTES(x)      (4 - ((x) & 3))
 
-#define XTR_QUEUE     0
-#define INJ_QUEUE     0
-
-struct frame_info {
-	int src_port;
-};
-
-static void sparx5_xtr_flush(struct sparx5 *sparx5, u8 grp)
+void sparx5_xtr_flush(struct sparx5 *sparx5, u8 grp)
 {
 	/* Start flush */
 	spx5_wr(QS_XTR_FLUSH_FLUSH_SET(BIT(grp)), sparx5, QS_XTR_FLUSH);
@@ -37,7 +30,7 @@ static void sparx5_xtr_flush(struct sparx5 *sparx5, u8 grp)
 	spx5_wr(0, sparx5, QS_XTR_FLUSH);
 }
 
-static void sparx5_ifh_parse(u32 *ifh, struct frame_info *info)
+void sparx5_ifh_parse(u32 *ifh, struct frame_info *info)
 {
 	u8 *xtr_hdr = (u8 *)ifh;
 
@@ -225,7 +218,10 @@ int sparx5_port_xmit_impl(struct sk_buff *skb, struct net_device *dev)
 	struct net_device_stats *stats = &dev->stats;
 	int ret;
 
-	ret = sparx5_inject(sparx5, port->ifh, skb);
+	if (sparx5->fdma_irq > 0)
+		ret = sparx5_fdma_xmit(sparx5, port->ifh, skb);
+	else
+		ret = sparx5_inject(sparx5, port->ifh, skb);
 
 	if (ret == NETDEV_TX_OK) {
 		stats->tx_bytes += skb->len;
@@ -234,12 +230,14 @@ int sparx5_port_xmit_impl(struct sk_buff *skb, struct net_device *dev)
 		stats->tx_dropped++;
 	}
 
+	skb_tx_timestamp(skb);
+
 	dev_kfree_skb_any(skb);
 
 	return ret;
 }
 
-void sparx5_manual_injection_mode(struct sparx5 *sparx5)
+int sparx5_manual_injection_mode(struct sparx5 *sparx5)
 {
 	const int byte_swap = 1;
 	int portno;
@@ -260,14 +258,27 @@ void sparx5_manual_injection_mode(struct sparx5 *sparx5)
 			ASM_PORT_CFG_NO_PREAMBLE_ENA_SET(1) |
 			ASM_PORT_CFG_INJ_FORMAT_CFG_SET(1), /* 1 = IFH */
 			sparx5, ASM_PORT_CFG(portno));
-	}
 
-	/* Reset WM cnt to unclog queued frames */
-	for (portno = SPX5_PORT_CPU_0; portno <= SPX5_PORT_CPU_1; portno++)
+		/* Reset WM cnt to unclog queued frames */
 		spx5_rmw(DSM_DEV_TX_STOP_WM_CFG_DEV_TX_CNT_CLR_SET(1),
 			 DSM_DEV_TX_STOP_WM_CFG_DEV_TX_CNT_CLR,
 			 sparx5,
 			 DSM_DEV_TX_STOP_WM_CFG(portno));
+
+		/* Set Disassembler Stop Watermark level */
+		spx5_rmw(DSM_DEV_TX_STOP_WM_CFG_DEV_TX_STOP_WM_SET(0),
+			 DSM_DEV_TX_STOP_WM_CFG_DEV_TX_STOP_WM,
+			 sparx5,
+			 DSM_DEV_TX_STOP_WM_CFG(portno));
+
+		/* Enable Disassembler buffer underrun watchdog
+		 */
+		spx5_rmw(DSM_BUF_CFG_UNDERFLOW_WATCHDOG_DIS_SET(0),
+			 DSM_BUF_CFG_UNDERFLOW_WATCHDOG_DIS,
+			 sparx5,
+			 DSM_BUF_CFG(portno));
+	}
+	return 0;
 }
 
 irqreturn_t sparx5_xtr_handler(int irq, void *_sparx5)

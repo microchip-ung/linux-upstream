@@ -30,7 +30,7 @@
 
 #define QLIM_WM(fraction) \
 	((SPX5_BUFFER_MEMORY / SPX5_BUFFER_CELL_SZ - 100) * (fraction) / 100)
-#define IO_RANGES               2
+#define IO_RANGES 3
 
 struct initial_port_config {
 	u32                       portno;
@@ -39,171 +39,174 @@ struct initial_port_config {
 	struct phy                *serdes;
 };
 
-struct sparx5_io_resource {
-	enum sparx5_target id;
-	phys_addr_t        offset;
-	int                range;
-};
-
 struct sparx5_ram_config {
 	void __iomem *init_reg;
 	u32  init_val;
 };
 
-static const struct sparx5_io_resource sparx5_iomap[] =  {
-	{ TARGET_DEV2G5,         0,         0 }, /* 0x610004000: dev2g5_0 */
-	{ TARGET_DEV5G,          0x4000,    0 }, /* 0x610008000: dev5g_0 */
-	{ TARGET_PCS5G_BR,       0x8000,    0 }, /* 0x61000c000: pcs5g_br_0 */
-	{ TARGET_DEV2G5 + 1,     0xc000,    0 }, /* 0x610010000: dev2g5_1 */
-	{ TARGET_DEV5G + 1,      0x10000,   0 }, /* 0x610014000: dev5g_1 */
-	{ TARGET_PCS5G_BR + 1,   0x14000,   0 }, /* 0x610018000: pcs5g_br_1 */
-	{ TARGET_DEV2G5 + 2,     0x18000,   0 }, /* 0x61001c000: dev2g5_2 */
-	{ TARGET_DEV5G + 2,      0x1c000,   0 }, /* 0x610020000: dev5g_2 */
-	{ TARGET_PCS5G_BR + 2,   0x20000,   0 }, /* 0x610024000: pcs5g_br_2 */
-	{ TARGET_DEV2G5 + 6,     0x24000,   0 }, /* 0x610028000: dev2g5_6 */
-	{ TARGET_DEV5G + 6,      0x28000,   0 }, /* 0x61002c000: dev5g_6 */
-	{ TARGET_PCS5G_BR + 6,   0x2c000,   0 }, /* 0x610030000: pcs5g_br_6 */
-	{ TARGET_DEV2G5 + 7,     0x30000,   0 }, /* 0x610034000: dev2g5_7 */
-	{ TARGET_DEV5G + 7,      0x34000,   0 }, /* 0x610038000: dev5g_7 */
-	{ TARGET_PCS5G_BR + 7,   0x38000,   0 }, /* 0x61003c000: pcs5g_br_7 */
-	{ TARGET_DEV2G5 + 8,     0x3c000,   0 }, /* 0x610040000: dev2g5_8 */
-	{ TARGET_DEV5G + 8,      0x40000,   0 }, /* 0x610044000: dev5g_8 */
-	{ TARGET_PCS5G_BR + 8,   0x44000,   0 }, /* 0x610048000: pcs5g_br_8 */
-	{ TARGET_DEV2G5 + 9,     0x48000,   0 }, /* 0x61004c000: dev2g5_9 */
-	{ TARGET_DEV5G + 9,      0x4c000,   0 }, /* 0x610050000: dev5g_9 */
-	{ TARGET_PCS5G_BR + 9,   0x50000,   0 }, /* 0x610054000: pcs5g_br_9 */
-	{ TARGET_DEV2G5 + 10,    0x54000,   0 }, /* 0x610058000: dev2g5_10 */
-	{ TARGET_DEV5G + 10,     0x58000,   0 }, /* 0x61005c000: dev5g_10 */
-	{ TARGET_PCS5G_BR + 10,  0x5c000,   0 }, /* 0x610060000: pcs5g_br_10 */
-	{ TARGET_DEV2G5 + 11,    0x60000,   0 }, /* 0x610064000: dev2g5_11 */
-	{ TARGET_DEV5G + 11,     0x64000,   0 }, /* 0x610068000: dev5g_11 */
-	{ TARGET_PCS5G_BR + 11,  0x68000,   0 }, /* 0x61006c000: pcs5g_br_11 */
-	{ TARGET_DEV2G5 + 12,    0x6c000,   0 }, /* 0x610070000: dev2g5_12 */
-	{ TARGET_DEV10G,         0x70000,   0 }, /* 0x610074000: dev10g_0 */
-	{ TARGET_PCS10G_BR,      0x74000,   0 }, /* 0x610078000: pcs10g_br_0 */
-	{ TARGET_DEV2G5 + 14,    0x78000,   0 }, /* 0x61007c000: dev2g5_14 */
-	{ TARGET_DEV10G + 2,     0x7c000,   0 }, /* 0x610080000: dev10g_2 */
-	{ TARGET_PCS10G_BR + 2,  0x80000,   0 }, /* 0x610084000: pcs10g_br_2 */
-	{ TARGET_DEV2G5 + 15,    0x84000,   0 }, /* 0x610088000: dev2g5_15 */
-	{ TARGET_DEV10G + 3,     0x88000,   0 }, /* 0x61008c000: dev10g_3 */
-	{ TARGET_PCS10G_BR + 3,  0x8c000,   0 }, /* 0x610090000: pcs10g_br_3 */
-	{ TARGET_DEV2G5 + 16,    0x90000,   0 }, /* 0x610094000: dev2g5_16 */
-	{ TARGET_DEV2G5 + 17,    0x94000,   0 }, /* 0x610098000: dev2g5_17 */
-	{ TARGET_DEV2G5 + 18,    0x98000,   0 }, /* 0x61009c000: dev2g5_18 */
-	{ TARGET_DEV2G5 + 19,    0x9c000,   0 }, /* 0x6100a0000: dev2g5_19 */
-	{ TARGET_DEV2G5 + 20,    0xa0000,   0 }, /* 0x6100a4000: dev2g5_20 */
-	{ TARGET_DEV2G5 + 21,    0xa4000,   0 }, /* 0x6100a8000: dev2g5_21 */
-	{ TARGET_DEV2G5 + 22,    0xa8000,   0 }, /* 0x6100ac000: dev2g5_22 */
-	{ TARGET_DEV2G5 + 23,    0xac000,   0 }, /* 0x6100b0000: dev2g5_23 */
-	{ TARGET_DEV2G5 + 32,    0xb0000,   0 }, /* 0x6100b4000: dev2g5_32 */
-	{ TARGET_DEV2G5 + 33,    0xb4000,   0 }, /* 0x6100b8000: dev2g5_33 */
-	{ TARGET_DEV2G5 + 34,    0xb8000,   0 }, /* 0x6100bc000: dev2g5_34 */
-	{ TARGET_DEV2G5 + 35,    0xbc000,   0 }, /* 0x6100c0000: dev2g5_35 */
-	{ TARGET_DEV2G5 + 36,    0xc0000,   0 }, /* 0x6100c4000: dev2g5_36 */
-	{ TARGET_DEV2G5 + 37,    0xc4000,   0 }, /* 0x6100c8000: dev2g5_37 */
-	{ TARGET_DEV2G5 + 38,    0xc8000,   0 }, /* 0x6100cc000: dev2g5_38 */
-	{ TARGET_DEV2G5 + 39,    0xcc000,   0 }, /* 0x6100d0000: dev2g5_39 */
-	{ TARGET_DEV2G5 + 40,    0xd0000,   0 }, /* 0x6100d4000: dev2g5_40 */
-	{ TARGET_DEV2G5 + 41,    0xd4000,   0 }, /* 0x6100d8000: dev2g5_41 */
-	{ TARGET_DEV2G5 + 42,    0xd8000,   0 }, /* 0x6100dc000: dev2g5_42 */
-	{ TARGET_DEV2G5 + 43,    0xdc000,   0 }, /* 0x6100e0000: dev2g5_43 */
-	{ TARGET_DEV2G5 + 44,    0xe0000,   0 }, /* 0x6100e4000: dev2g5_44 */
-	{ TARGET_DEV2G5 + 45,    0xe4000,   0 }, /* 0x6100e8000: dev2g5_45 */
-	{ TARGET_DEV2G5 + 46,    0xe8000,   0 }, /* 0x6100ec000: dev2g5_46 */
-	{ TARGET_DEV2G5 + 47,    0xec000,   0 }, /* 0x6100f0000: dev2g5_47 */
-	{ TARGET_DEV2G5 + 57,    0xf0000,   0 }, /* 0x6100f4000: dev2g5_57 */
-	{ TARGET_DEV25G + 1,     0xf4000,   0 }, /* 0x6100f8000: dev25g_1 */
-	{ TARGET_PCS25G_BR + 1,  0xf8000,   0 }, /* 0x6100fc000: pcs25g_br_1 */
-	{ TARGET_DEV2G5 + 59,    0x100000,  0 }, /* 0x610104000: dev2g5_59 */
-	{ TARGET_DEV25G + 3,     0x104000,  0 }, /* 0x610108000: dev25g_3 */
-	{ TARGET_PCS25G_BR + 3,  0x108000,  0 }, /* 0x61010c000: pcs25g_br_3 */
-	{ TARGET_DEV2G5 + 60,    0x110000,  0 }, /* 0x610114000: dev2g5_60 */
-	{ TARGET_DEV25G + 4,     0x114000,  0 }, /* 0x610118000: dev25g_4 */
-	{ TARGET_PCS25G_BR + 4,  0x118000,  0 }, /* 0x61011c000: pcs25g_br_4 */
-	{ TARGET_DEV2G5 + 64,    0x120000,  0 }, /* 0x610124000: dev2g5_64 */
-	{ TARGET_DEV5G + 12,     0x124000,  0 }, /* 0x610128000: dev5g_64 */
-	{ TARGET_PCS5G_BR + 12,  0x128000,  0 }, /* 0x61012c000: pcs5g_br_64 */
-	{ TARGET_PORT_CONF,      0x12c000,  0 }, /* 0x610130000: port_conf */
-	{ TARGET_DEV2G5 + 3,     0x400000,  0 }, /* 0x610404000: dev2g5_3 */
-	{ TARGET_DEV5G + 3,      0x404000,  0 }, /* 0x610408000: dev5g_3 */
-	{ TARGET_PCS5G_BR + 3,   0x408000,  0 }, /* 0x61040c000: pcs5g_br_3 */
-	{ TARGET_DEV2G5 + 4,     0x40c000,  0 }, /* 0x610410000: dev2g5_4 */
-	{ TARGET_DEV5G + 4,      0x410000,  0 }, /* 0x610414000: dev5g_4 */
-	{ TARGET_PCS5G_BR + 4,   0x414000,  0 }, /* 0x610418000: pcs5g_br_4 */
-	{ TARGET_DEV2G5 + 5,     0x418000,  0 }, /* 0x61041c000: dev2g5_5 */
-	{ TARGET_DEV5G + 5,      0x41c000,  0 }, /* 0x610420000: dev5g_5 */
-	{ TARGET_PCS5G_BR + 5,   0x420000,  0 }, /* 0x610424000: pcs5g_br_5 */
-	{ TARGET_DEV2G5 + 13,    0x424000,  0 }, /* 0x610428000: dev2g5_13 */
-	{ TARGET_DEV10G + 1,     0x428000,  0 }, /* 0x61042c000: dev10g_1 */
-	{ TARGET_PCS10G_BR + 1,  0x42c000,  0 }, /* 0x610430000: pcs10g_br_1 */
-	{ TARGET_DEV2G5 + 24,    0x430000,  0 }, /* 0x610434000: dev2g5_24 */
-	{ TARGET_DEV2G5 + 25,    0x434000,  0 }, /* 0x610438000: dev2g5_25 */
-	{ TARGET_DEV2G5 + 26,    0x438000,  0 }, /* 0x61043c000: dev2g5_26 */
-	{ TARGET_DEV2G5 + 27,    0x43c000,  0 }, /* 0x610440000: dev2g5_27 */
-	{ TARGET_DEV2G5 + 28,    0x440000,  0 }, /* 0x610444000: dev2g5_28 */
-	{ TARGET_DEV2G5 + 29,    0x444000,  0 }, /* 0x610448000: dev2g5_29 */
-	{ TARGET_DEV2G5 + 30,    0x448000,  0 }, /* 0x61044c000: dev2g5_30 */
-	{ TARGET_DEV2G5 + 31,    0x44c000,  0 }, /* 0x610450000: dev2g5_31 */
-	{ TARGET_DEV2G5 + 48,    0x450000,  0 }, /* 0x610454000: dev2g5_48 */
-	{ TARGET_DEV10G + 4,     0x454000,  0 }, /* 0x610458000: dev10g_4 */
-	{ TARGET_PCS10G_BR + 4,  0x458000,  0 }, /* 0x61045c000: pcs10g_br_4 */
-	{ TARGET_DEV2G5 + 49,    0x45c000,  0 }, /* 0x610460000: dev2g5_49 */
-	{ TARGET_DEV10G + 5,     0x460000,  0 }, /* 0x610464000: dev10g_5 */
-	{ TARGET_PCS10G_BR + 5,  0x464000,  0 }, /* 0x610468000: pcs10g_br_5 */
-	{ TARGET_DEV2G5 + 50,    0x468000,  0 }, /* 0x61046c000: dev2g5_50 */
-	{ TARGET_DEV10G + 6,     0x46c000,  0 }, /* 0x610470000: dev10g_6 */
-	{ TARGET_PCS10G_BR + 6,  0x470000,  0 }, /* 0x610474000: pcs10g_br_6 */
-	{ TARGET_DEV2G5 + 51,    0x474000,  0 }, /* 0x610478000: dev2g5_51 */
-	{ TARGET_DEV10G + 7,     0x478000,  0 }, /* 0x61047c000: dev10g_7 */
-	{ TARGET_PCS10G_BR + 7,  0x47c000,  0 }, /* 0x610480000: pcs10g_br_7 */
-	{ TARGET_DEV2G5 + 52,    0x480000,  0 }, /* 0x610484000: dev2g5_52 */
-	{ TARGET_DEV10G + 8,     0x484000,  0 }, /* 0x610488000: dev10g_8 */
-	{ TARGET_PCS10G_BR + 8,  0x488000,  0 }, /* 0x61048c000: pcs10g_br_8 */
-	{ TARGET_DEV2G5 + 53,    0x48c000,  0 }, /* 0x610490000: dev2g5_53 */
-	{ TARGET_DEV10G + 9,     0x490000,  0 }, /* 0x610494000: dev10g_9 */
-	{ TARGET_PCS10G_BR + 9,  0x494000,  0 }, /* 0x610498000: pcs10g_br_9 */
-	{ TARGET_DEV2G5 + 54,    0x498000,  0 }, /* 0x61049c000: dev2g5_54 */
-	{ TARGET_DEV10G + 10,    0x49c000,  0 }, /* 0x6104a0000: dev10g_10 */
-	{ TARGET_PCS10G_BR + 10, 0x4a0000,  0 }, /* 0x6104a4000: pcs10g_br_10 */
-	{ TARGET_DEV2G5 + 55,    0x4a4000,  0 }, /* 0x6104a8000: dev2g5_55 */
-	{ TARGET_DEV10G + 11,    0x4a8000,  0 }, /* 0x6104ac000: dev10g_11 */
-	{ TARGET_PCS10G_BR + 11, 0x4ac000,  0 }, /* 0x6104b0000: pcs10g_br_11 */
-	{ TARGET_DEV2G5 + 56,    0x4b0000,  0 }, /* 0x6104b4000: dev2g5_56 */
-	{ TARGET_DEV25G,         0x4b4000,  0 }, /* 0x6104b8000: dev25g_0 */
-	{ TARGET_PCS25G_BR,      0x4b8000,  0 }, /* 0x6104bc000: pcs25g_br_0 */
-	{ TARGET_DEV2G5 + 58,    0x4c0000,  0 }, /* 0x6104c4000: dev2g5_58 */
-	{ TARGET_DEV25G + 2,     0x4c4000,  0 }, /* 0x6104c8000: dev25g_2 */
-	{ TARGET_PCS25G_BR + 2,  0x4c8000,  0 }, /* 0x6104cc000: pcs25g_br_2 */
-	{ TARGET_DEV2G5 + 61,    0x4d0000,  0 }, /* 0x6104d4000: dev2g5_61 */
-	{ TARGET_DEV25G + 5,     0x4d4000,  0 }, /* 0x6104d8000: dev25g_5 */
-	{ TARGET_PCS25G_BR + 5,  0x4d8000,  0 }, /* 0x6104dc000: pcs25g_br_5 */
-	{ TARGET_DEV2G5 + 62,    0x4e0000,  0 }, /* 0x6104e4000: dev2g5_62 */
-	{ TARGET_DEV25G + 6,     0x4e4000,  0 }, /* 0x6104e8000: dev25g_6 */
-	{ TARGET_PCS25G_BR + 6,  0x4e8000,  0 }, /* 0x6104ec000: pcs25g_br_6 */
-	{ TARGET_DEV2G5 + 63,    0x4f0000,  0 }, /* 0x6104f4000: dev2g5_63 */
-	{ TARGET_DEV25G + 7,     0x4f4000,  0 }, /* 0x6104f8000: dev25g_7 */
-	{ TARGET_PCS25G_BR + 7,  0x4f8000,  0 }, /* 0x6104fc000: pcs25g_br_7 */
-	{ TARGET_DSM,            0x500000,  0 }, /* 0x610504000: dsm */
-	{ TARGET_ASM,            0x5fc000,  0 }, /* 0x610600000: asm */
-	{ TARGET_GCB,            0x100c000, 1 }, /* 0x611010000: gcb */
-	{ TARGET_QS,             0x102c000, 1 }, /* 0x611030000: qs */
-	{ TARGET_ANA_ACL,        0x104c000, 1 }, /* 0x611050000: ana_acl */
-	{ TARGET_LRN,            0x105c000, 1 }, /* 0x611060000: lrn */
-	{ TARGET_VCAP_SUPER,     0x107c000, 1 }, /* 0x611080000: vcap_super */
-	{ TARGET_QSYS,           0x109c000, 1 }, /* 0x6110a0000: qsys */
-	{ TARGET_QFWD,           0x10ac000, 1 }, /* 0x6110b0000: qfwd */
-	{ TARGET_XQS,            0x10bc000, 1 }, /* 0x6110c0000: xqs */
-	{ TARGET_CLKGEN,         0x10fc000, 1 }, /* 0x611100000: clkgen */
-	{ TARGET_ANA_AC_POL,     0x11fc000, 1 }, /* 0x611200000: ana_ac_pol */
-	{ TARGET_QRES,           0x127c000, 1 }, /* 0x611280000: qres */
-	{ TARGET_EACL,           0x12bc000, 1 }, /* 0x6112c0000: eacl */
-	{ TARGET_ANA_CL,         0x13fc000, 1 }, /* 0x611400000: ana_cl */
-	{ TARGET_ANA_L3,         0x147c000, 1 }, /* 0x611480000: ana_l3 */
-	{ TARGET_HSCH,           0x157c000, 1 }, /* 0x611580000: hsch */
-	{ TARGET_REW,            0x15fc000, 1 }, /* 0x611600000: rew */
-	{ TARGET_ANA_L2,         0x17fc000, 1 }, /* 0x611800000: ana_l2 */
-	{ TARGET_ANA_AC,         0x18fc000, 1 }, /* 0x611900000: ana_ac */
-	{ TARGET_VOP,            0x19fc000, 1 }, /* 0x611a00000: vop */
+struct sparx5_main_io_resource {
+	enum sparx5_target id;
+	phys_addr_t offset;
+	int range;
+};
+
+static const struct sparx5_main_io_resource sparx5_main_iomap[] =  {
+	{ TARGET_CPU,                         0, 0 }, /* 0x600000000 */
+	{ TARGET_FDMA,                  0x80000, 0 }, /* 0x600080000 */
+	{ TARGET_PCEP,                 0x400000, 0 }, /* 0x600400000 */
+	{ TARGET_DEV2G5,             0x10004000, 1 }, /* 0x610004000 */
+	{ TARGET_DEV5G,              0x10008000, 1 }, /* 0x610008000 */
+	{ TARGET_PCS5G_BR,           0x1000c000, 1 }, /* 0x61000c000 */
+	{ TARGET_DEV2G5 +  1,        0x10010000, 1 }, /* 0x610010000 */
+	{ TARGET_DEV5G +  1,         0x10014000, 1 }, /* 0x610014000 */
+	{ TARGET_PCS5G_BR +  1,      0x10018000, 1 }, /* 0x610018000 */
+	{ TARGET_DEV2G5 +  2,        0x1001c000, 1 }, /* 0x61001c000 */
+	{ TARGET_DEV5G +  2,         0x10020000, 1 }, /* 0x610020000 */
+	{ TARGET_PCS5G_BR +  2,      0x10024000, 1 }, /* 0x610024000 */
+	{ TARGET_DEV2G5 +  6,        0x10028000, 1 }, /* 0x610028000 */
+	{ TARGET_DEV5G +  6,         0x1002c000, 1 }, /* 0x61002c000 */
+	{ TARGET_PCS5G_BR +  6,      0x10030000, 1 }, /* 0x610030000 */
+	{ TARGET_DEV2G5 +  7,        0x10034000, 1 }, /* 0x610034000 */
+	{ TARGET_DEV5G +  7,         0x10038000, 1 }, /* 0x610038000 */
+	{ TARGET_PCS5G_BR +  7,      0x1003c000, 1 }, /* 0x61003c000 */
+	{ TARGET_DEV2G5 +  8,        0x10040000, 1 }, /* 0x610040000 */
+	{ TARGET_DEV5G +  8,         0x10044000, 1 }, /* 0x610044000 */
+	{ TARGET_PCS5G_BR +  8,      0x10048000, 1 }, /* 0x610048000 */
+	{ TARGET_DEV2G5 +  9,        0x1004c000, 1 }, /* 0x61004c000 */
+	{ TARGET_DEV5G +  9,         0x10050000, 1 }, /* 0x610050000 */
+	{ TARGET_PCS5G_BR +  9,      0x10054000, 1 }, /* 0x610054000 */
+	{ TARGET_DEV2G5 + 10,        0x10058000, 1 }, /* 0x610058000 */
+	{ TARGET_DEV5G + 10,         0x1005c000, 1 }, /* 0x61005c000 */
+	{ TARGET_PCS5G_BR + 10,      0x10060000, 1 }, /* 0x610060000 */
+	{ TARGET_DEV2G5 + 11,        0x10064000, 1 }, /* 0x610064000 */
+	{ TARGET_DEV5G + 11,         0x10068000, 1 }, /* 0x610068000 */
+	{ TARGET_PCS5G_BR + 11,      0x1006c000, 1 }, /* 0x61006c000 */
+	{ TARGET_DEV2G5 + 12,        0x10070000, 1 }, /* 0x610070000 */
+	{ TARGET_DEV10G,             0x10074000, 1 }, /* 0x610074000 */
+	{ TARGET_PCS10G_BR,          0x10078000, 1 }, /* 0x610078000 */
+	{ TARGET_DEV2G5 + 14,        0x1007c000, 1 }, /* 0x61007c000 */
+	{ TARGET_DEV10G +  2,        0x10080000, 1 }, /* 0x610080000 */
+	{ TARGET_PCS10G_BR +  2,     0x10084000, 1 }, /* 0x610084000 */
+	{ TARGET_DEV2G5 + 15,        0x10088000, 1 }, /* 0x610088000 */
+	{ TARGET_DEV10G +  3,        0x1008c000, 1 }, /* 0x61008c000 */
+	{ TARGET_PCS10G_BR +  3,     0x10090000, 1 }, /* 0x610090000 */
+	{ TARGET_DEV2G5 + 16,        0x10094000, 1 }, /* 0x610094000 */
+	{ TARGET_DEV2G5 + 17,        0x10098000, 1 }, /* 0x610098000 */
+	{ TARGET_DEV2G5 + 18,        0x1009c000, 1 }, /* 0x61009c000 */
+	{ TARGET_DEV2G5 + 19,        0x100a0000, 1 }, /* 0x6100a0000 */
+	{ TARGET_DEV2G5 + 20,        0x100a4000, 1 }, /* 0x6100a4000 */
+	{ TARGET_DEV2G5 + 21,        0x100a8000, 1 }, /* 0x6100a8000 */
+	{ TARGET_DEV2G5 + 22,        0x100ac000, 1 }, /* 0x6100ac000 */
+	{ TARGET_DEV2G5 + 23,        0x100b0000, 1 }, /* 0x6100b0000 */
+	{ TARGET_DEV2G5 + 32,        0x100b4000, 1 }, /* 0x6100b4000 */
+	{ TARGET_DEV2G5 + 33,        0x100b8000, 1 }, /* 0x6100b8000 */
+	{ TARGET_DEV2G5 + 34,        0x100bc000, 1 }, /* 0x6100bc000 */
+	{ TARGET_DEV2G5 + 35,        0x100c0000, 1 }, /* 0x6100c0000 */
+	{ TARGET_DEV2G5 + 36,        0x100c4000, 1 }, /* 0x6100c4000 */
+	{ TARGET_DEV2G5 + 37,        0x100c8000, 1 }, /* 0x6100c8000 */
+	{ TARGET_DEV2G5 + 38,        0x100cc000, 1 }, /* 0x6100cc000 */
+	{ TARGET_DEV2G5 + 39,        0x100d0000, 1 }, /* 0x6100d0000 */
+	{ TARGET_DEV2G5 + 40,        0x100d4000, 1 }, /* 0x6100d4000 */
+	{ TARGET_DEV2G5 + 41,        0x100d8000, 1 }, /* 0x6100d8000 */
+	{ TARGET_DEV2G5 + 42,        0x100dc000, 1 }, /* 0x6100dc000 */
+	{ TARGET_DEV2G5 + 43,        0x100e0000, 1 }, /* 0x6100e0000 */
+	{ TARGET_DEV2G5 + 44,        0x100e4000, 1 }, /* 0x6100e4000 */
+	{ TARGET_DEV2G5 + 45,        0x100e8000, 1 }, /* 0x6100e8000 */
+	{ TARGET_DEV2G5 + 46,        0x100ec000, 1 }, /* 0x6100ec000 */
+	{ TARGET_DEV2G5 + 47,        0x100f0000, 1 }, /* 0x6100f0000 */
+	{ TARGET_DEV2G5 + 57,        0x100f4000, 1 }, /* 0x6100f4000 */
+	{ TARGET_DEV25G +  1,        0x100f8000, 1 }, /* 0x6100f8000 */
+	{ TARGET_PCS25G_BR +  1,     0x100fc000, 1 }, /* 0x6100fc000 */
+	{ TARGET_DEV2G5 + 59,        0x10104000, 1 }, /* 0x610104000 */
+	{ TARGET_DEV25G +  3,        0x10108000, 1 }, /* 0x610108000 */
+	{ TARGET_PCS25G_BR +  3,     0x1010c000, 1 }, /* 0x61010c000 */
+	{ TARGET_DEV2G5 + 60,        0x10114000, 1 }, /* 0x610114000 */
+	{ TARGET_DEV25G +  4,        0x10118000, 1 }, /* 0x610118000 */
+	{ TARGET_PCS25G_BR +  4,     0x1011c000, 1 }, /* 0x61011c000 */
+	{ TARGET_DEV2G5 + 64,        0x10124000, 1 }, /* 0x610124000 */
+	{ TARGET_DEV5G + 12,         0x10128000, 1 }, /* 0x610128000 */
+	{ TARGET_PCS5G_BR + 12,      0x1012c000, 1 }, /* 0x61012c000 */
+	{ TARGET_PORT_CONF,          0x10130000, 1 }, /* 0x610130000 */
+	{ TARGET_DEV2G5 +  3,        0x10404000, 1 }, /* 0x610404000 */
+	{ TARGET_DEV5G +  3,         0x10408000, 1 }, /* 0x610408000 */
+	{ TARGET_PCS5G_BR +  3,      0x1040c000, 1 }, /* 0x61040c000 */
+	{ TARGET_DEV2G5 +  4,        0x10410000, 1 }, /* 0x610410000 */
+	{ TARGET_DEV5G +  4,         0x10414000, 1 }, /* 0x610414000 */
+	{ TARGET_PCS5G_BR +  4,      0x10418000, 1 }, /* 0x610418000 */
+	{ TARGET_DEV2G5 +  5,        0x1041c000, 1 }, /* 0x61041c000 */
+	{ TARGET_DEV5G +  5,         0x10420000, 1 }, /* 0x610420000 */
+	{ TARGET_PCS5G_BR +  5,      0x10424000, 1 }, /* 0x610424000 */
+	{ TARGET_DEV2G5 + 13,        0x10428000, 1 }, /* 0x610428000 */
+	{ TARGET_DEV10G +  1,        0x1042c000, 1 }, /* 0x61042c000 */
+	{ TARGET_PCS10G_BR +  1,     0x10430000, 1 }, /* 0x610430000 */
+	{ TARGET_DEV2G5 + 24,        0x10434000, 1 }, /* 0x610434000 */
+	{ TARGET_DEV2G5 + 25,        0x10438000, 1 }, /* 0x610438000 */
+	{ TARGET_DEV2G5 + 26,        0x1043c000, 1 }, /* 0x61043c000 */
+	{ TARGET_DEV2G5 + 27,        0x10440000, 1 }, /* 0x610440000 */
+	{ TARGET_DEV2G5 + 28,        0x10444000, 1 }, /* 0x610444000 */
+	{ TARGET_DEV2G5 + 29,        0x10448000, 1 }, /* 0x610448000 */
+	{ TARGET_DEV2G5 + 30,        0x1044c000, 1 }, /* 0x61044c000 */
+	{ TARGET_DEV2G5 + 31,        0x10450000, 1 }, /* 0x610450000 */
+	{ TARGET_DEV2G5 + 48,        0x10454000, 1 }, /* 0x610454000 */
+	{ TARGET_DEV10G +  4,        0x10458000, 1 }, /* 0x610458000 */
+	{ TARGET_PCS10G_BR +  4,     0x1045c000, 1 }, /* 0x61045c000 */
+	{ TARGET_DEV2G5 + 49,        0x10460000, 1 }, /* 0x610460000 */
+	{ TARGET_DEV10G +  5,        0x10464000, 1 }, /* 0x610464000 */
+	{ TARGET_PCS10G_BR +  5,     0x10468000, 1 }, /* 0x610468000 */
+	{ TARGET_DEV2G5 + 50,        0x1046c000, 1 }, /* 0x61046c000 */
+	{ TARGET_DEV10G +  6,        0x10470000, 1 }, /* 0x610470000 */
+	{ TARGET_PCS10G_BR +  6,     0x10474000, 1 }, /* 0x610474000 */
+	{ TARGET_DEV2G5 + 51,        0x10478000, 1 }, /* 0x610478000 */
+	{ TARGET_DEV10G +  7,        0x1047c000, 1 }, /* 0x61047c000 */
+	{ TARGET_PCS10G_BR +  7,     0x10480000, 1 }, /* 0x610480000 */
+	{ TARGET_DEV2G5 + 52,        0x10484000, 1 }, /* 0x610484000 */
+	{ TARGET_DEV10G +  8,        0x10488000, 1 }, /* 0x610488000 */
+	{ TARGET_PCS10G_BR +  8,     0x1048c000, 1 }, /* 0x61048c000 */
+	{ TARGET_DEV2G5 + 53,        0x10490000, 1 }, /* 0x610490000 */
+	{ TARGET_DEV10G +  9,        0x10494000, 1 }, /* 0x610494000 */
+	{ TARGET_PCS10G_BR +  9,     0x10498000, 1 }, /* 0x610498000 */
+	{ TARGET_DEV2G5 + 54,        0x1049c000, 1 }, /* 0x61049c000 */
+	{ TARGET_DEV10G + 10,        0x104a0000, 1 }, /* 0x6104a0000 */
+	{ TARGET_PCS10G_BR + 10,     0x104a4000, 1 }, /* 0x6104a4000 */
+	{ TARGET_DEV2G5 + 55,        0x104a8000, 1 }, /* 0x6104a8000 */
+	{ TARGET_DEV10G + 11,        0x104ac000, 1 }, /* 0x6104ac000 */
+	{ TARGET_PCS10G_BR + 11,     0x104b0000, 1 }, /* 0x6104b0000 */
+	{ TARGET_DEV2G5 + 56,        0x104b4000, 1 }, /* 0x6104b4000 */
+	{ TARGET_DEV25G,             0x104b8000, 1 }, /* 0x6104b8000 */
+	{ TARGET_PCS25G_BR,          0x104bc000, 1 }, /* 0x6104bc000 */
+	{ TARGET_DEV2G5 + 58,        0x104c4000, 1 }, /* 0x6104c4000 */
+	{ TARGET_DEV25G +  2,        0x104c8000, 1 }, /* 0x6104c8000 */
+	{ TARGET_PCS25G_BR +  2,     0x104cc000, 1 }, /* 0x6104cc000 */
+	{ TARGET_DEV2G5 + 61,        0x104d4000, 1 }, /* 0x6104d4000 */
+	{ TARGET_DEV25G +  5,        0x104d8000, 1 }, /* 0x6104d8000 */
+	{ TARGET_PCS25G_BR +  5,     0x104dc000, 1 }, /* 0x6104dc000 */
+	{ TARGET_DEV2G5 + 62,        0x104e4000, 1 }, /* 0x6104e4000 */
+	{ TARGET_DEV25G +  6,        0x104e8000, 1 }, /* 0x6104e8000 */
+	{ TARGET_PCS25G_BR +  6,     0x104ec000, 1 }, /* 0x6104ec000 */
+	{ TARGET_DEV2G5 + 63,        0x104f4000, 1 }, /* 0x6104f4000 */
+	{ TARGET_DEV25G +  7,        0x104f8000, 1 }, /* 0x6104f8000 */
+	{ TARGET_PCS25G_BR +  7,     0x104fc000, 1 }, /* 0x6104fc000 */
+	{ TARGET_DSM,                0x10504000, 1 }, /* 0x610504000 */
+	{ TARGET_ASM,                0x10600000, 1 }, /* 0x610600000 */
+	{ TARGET_GCB,                0x11010000, 2 }, /* 0x611010000 */
+	{ TARGET_QS,                 0x11030000, 2 }, /* 0x611030000 */
+	{ TARGET_ANA_ACL,            0x11050000, 2 }, /* 0x611050000 */
+	{ TARGET_LRN,                0x11060000, 2 }, /* 0x611060000 */
+	{ TARGET_VCAP_SUPER,         0x11080000, 2 }, /* 0x611080000 */
+	{ TARGET_QSYS,               0x110a0000, 2 }, /* 0x6110a0000 */
+	{ TARGET_QFWD,               0x110b0000, 2 }, /* 0x6110b0000 */
+	{ TARGET_XQS,                0x110c0000, 2 }, /* 0x6110c0000 */
+	{ TARGET_CLKGEN,             0x11100000, 2 }, /* 0x611100000 */
+	{ TARGET_ANA_AC_POL,         0x11200000, 2 }, /* 0x611200000 */
+	{ TARGET_QRES,               0x11280000, 2 }, /* 0x611280000 */
+	{ TARGET_EACL,               0x112c0000, 2 }, /* 0x6112c0000 */
+	{ TARGET_ANA_CL,             0x11400000, 2 }, /* 0x611400000 */
+	{ TARGET_ANA_L3,             0x11480000, 2 }, /* 0x611480000 */
+	{ TARGET_HSCH,               0x11580000, 2 }, /* 0x611580000 */
+	{ TARGET_REW,                0x11600000, 2 }, /* 0x611600000 */
+	{ TARGET_ANA_L2,             0x11800000, 2 }, /* 0x611800000 */
+	{ TARGET_ANA_AC,             0x11900000, 2 }, /* 0x611900000 */
+	{ TARGET_VOP,                0x11a00000, 2 }, /* 0x611a00000 */
 };
 
 static int sparx5_create_targets(struct sparx5 *sparx5)
@@ -214,8 +217,8 @@ static int sparx5_create_targets(struct sparx5 *sparx5)
 	int range_id[IO_RANGES];
 	int idx, jdx;
 
-	for (idx = 0, jdx = 0; jdx < ARRAY_SIZE(sparx5_iomap); jdx++) {
-		const struct sparx5_io_resource *iomap = &sparx5_iomap[jdx];
+	for (idx = 0, jdx = 0; jdx < ARRAY_SIZE(sparx5_main_iomap); jdx++) {
+		const struct sparx5_main_io_resource *iomap = &sparx5_main_iomap[jdx];
 
 		if (idx == iomap->range) {
 			range_id[idx] = jdx;
@@ -234,10 +237,10 @@ static int sparx5_create_targets(struct sparx5 *sparx5)
 				iores[idx]->name);
 			return PTR_ERR(iomem[idx]);
 		}
-		begin[idx] = iomem[idx] - sparx5_iomap[range_id[idx]].offset;
+		begin[idx] = iomem[idx] - sparx5_main_iomap[range_id[idx]].offset;
 	}
-	for (jdx = 0; jdx < ARRAY_SIZE(sparx5_iomap); jdx++) {
-		const struct sparx5_io_resource *iomap = &sparx5_iomap[jdx];
+	for (jdx = 0; jdx < ARRAY_SIZE(sparx5_main_iomap); jdx++) {
+		const struct sparx5_main_io_resource *iomap = &sparx5_main_iomap[jdx];
 
 		sparx5->regs[iomap->id] = begin[iomap->range] + iomap->offset;
 	}
@@ -363,9 +366,6 @@ static int sparx5_init_switchcore(struct sparx5 *sparx5)
 	/* Reset counters */
 	spx5_wr(ANA_AC_STAT_RESET_RESET_SET(1), sparx5, ANA_AC_STAT_RESET);
 	spx5_wr(ASM_STAT_CFG_STAT_CNT_CLR_SHOT_SET(1), sparx5, ASM_STAT_CFG);
-
-	/* Configure manual injection */
-	sparx5_manual_injection_mode(sparx5);
 
 	/* Enable switch-core and queue system */
 	spx5_wr(HSCH_RESET_CFG_CORE_ENA_SET(1), sparx5, HSCH_RESET_CFG);
@@ -613,6 +613,10 @@ static int sparx5_start(struct sparx5 *sparx5)
 	if (err)
 		return err;
 
+	dev_info(sparx5->dev, "sparx5 switch probed: %#04lx: revision: %#lx\n",
+		 GCB_CHIP_ID_PART_ID_GET(sparx5->chip_id),
+		 GCB_CHIP_ID_REV_ID_GET(sparx5->chip_id));
+
 	/* Init stats */
 	err = sparx_stats_init(sparx5);
 	if (err)
@@ -635,6 +639,34 @@ static int sparx5_start(struct sparx5 *sparx5)
 	sparx5_board_init(sparx5);
 	err = sparx5_register_notifier_blocks(sparx5);
 
+	/* Start Frame DMA with fallback to register based INJ/XTR */
+	err = -ENXIO;
+	if (sparx5->fdma_irq >= 0) {
+		if (GCB_CHIP_ID_REV_ID_GET(sparx5->chip_id) > 0)
+			err = devm_request_threaded_irq(sparx5->dev,
+							sparx5->fdma_irq,
+							NULL,
+							sparx5_fdma_handler,
+							IRQF_ONESHOT,
+							"sparx5-fdma", sparx5);
+		if (!err)
+			err = sparx5_fdma_start(sparx5);
+		if (err)
+			sparx5->fdma_irq = -ENXIO;
+	} else {
+		sparx5->fdma_irq = -ENXIO;
+	}
+	if (err && sparx5->xtr_irq >= 0) {
+		err = devm_request_irq(sparx5->dev, sparx5->xtr_irq,
+				       sparx5_xtr_handler, IRQF_SHARED,
+				       "sparx5-xtr", sparx5);
+		if (!err)
+			err = sparx5_manual_injection_mode(sparx5);
+		if (err)
+			sparx5->xtr_irq = -ENXIO;
+	} else {
+		sparx5->xtr_irq = -ENXIO;
+	}
 	return err;
 }
 
@@ -658,7 +690,6 @@ static int mchp_sparx5_probe(struct platform_device *pdev)
 	struct sparx5 *sparx5;
 	int idx = 0, err = 0;
 	const u8 *mac_addr;
-	int irq;
 
 	if (!np && !pdev->dev.platform_data)
 		return -ENODEV;
@@ -761,17 +792,8 @@ static int mchp_sparx5_probe(struct platform_device *pdev)
 		ether_addr_copy(sparx5->base_mac, mac_addr);
 	}
 
-	/* Hook xtr irq */
-	irq = platform_get_irq(sparx5->pdev, 0);
-	if (irq < 0) {
-		err = irq;
-		goto cleanup_config;
-	}
-	err = devm_request_irq(sparx5->dev, irq,
-			       sparx5_xtr_handler, IRQF_SHARED,
-			       "sparx5-xtr", sparx5);
-	if (err)
-		goto cleanup_config;
+	sparx5->fdma_irq = platform_get_irq_byname(sparx5->pdev, "fdma");
+	sparx5->xtr_irq = platform_get_irq_byname(sparx5->pdev, "xtr");
 
 	/* Read chip ID to check CPU interface */
 	sparx5->chip_id = spx5_rd(sparx5, GCB_CHIP_ID);
@@ -822,6 +844,15 @@ static int mchp_sparx5_remove(struct platform_device *pdev)
 {
 	struct sparx5 *sparx5 = platform_get_drvdata(pdev);
 
+	if (sparx5->xtr_irq) {
+		disable_irq(sparx5->xtr_irq);
+		sparx5->xtr_irq = -ENXIO;
+	}
+	if (sparx5->fdma_irq) {
+		disable_irq(sparx5->fdma_irq);
+		sparx5->fdma_irq = -ENXIO;
+	}
+	sparx5_fdma_stop(sparx5);
 	sparx5_cleanup_ports(sparx5);
 	/* Unregister netdevs */
 	sparx5_unregister_notifier_blocks(sparx5);
