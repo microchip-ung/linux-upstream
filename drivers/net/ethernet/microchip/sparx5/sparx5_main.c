@@ -769,7 +769,7 @@ static int mchp_sparx5_probe(struct platform_device *pdev)
 		config->node = portnp;
 		config->serdes = serdes;
 
-		conf->media_type = ETH_MEDIA_DAC;
+		conf->media = PHY_MEDIA_DAC;
 		conf->serdes_reset = true;
 		conf->portmode = conf->phy_mode;
 		if (of_find_property(portnp, "sfp", NULL)) {

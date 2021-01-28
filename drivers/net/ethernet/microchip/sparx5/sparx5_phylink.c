@@ -124,7 +124,7 @@ static bool port_conf_has_changed(struct sparx5_port_config *a, struct sparx5_po
 	    a->portmode != b->portmode ||
 	    a->autoneg != b->autoneg ||
 	    a->pause != b->pause ||
-	    a->media_type != b->media_type)
+	    a->media != b->media)
 		return true;
 	return false;
 }
@@ -161,9 +161,9 @@ static void sparx5_phylink_mac_config(struct phylink_config *config,
 		}
 
 		if (phylink_test(state->advertising, FIBRE))
-			conf.media_type = ETH_MEDIA_SR;
+			conf.media = PHY_MEDIA_SR;
 		else
-			conf.media_type = ETH_MEDIA_DAC;
+			conf.media = PHY_MEDIA_DAC;
 	}
 
 	if (!port_conf_has_changed(&port->conf, &conf))

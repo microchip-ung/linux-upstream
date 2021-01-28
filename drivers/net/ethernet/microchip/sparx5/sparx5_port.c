@@ -679,26 +679,27 @@ int sparx5_serdes_set(struct sparx5 *sparx5,
 		      struct sparx5_port *port,
 		      struct sparx5_port_config *conf)
 {
-	union phy_configure_opts opts = {
-		.eth_serdes.speed = conf->speed,
-		.eth_serdes.media_type = conf->media_type,
-	};
 	int err;
 
 	if (conf->portmode == PHY_INTERFACE_MODE_QSGMII &&
 	    ((port->portno % 4) != 0)) {
 		return 0;
 	}
-	err = phy_set_mode_ext(port->serdes, PHY_MODE_ETHERNET, conf->portmode);
+	err = phy_set_media(port->serdes, conf->media);
 	if (err)
 		return err;
+	if (conf->speed > 0) {
+		err = phy_set_speed(port->serdes, conf->speed);
+		if (err)
+			return err;
+	}
 	if (conf->serdes_reset) {
 		err = phy_reset(port->serdes);
 		if (err)
 			return err;
 	}
 	/* Configure SerDes with port parameters */
-	err = phy_configure(port->serdes, &opts);
+	err = phy_set_mode_ext(port->serdes, PHY_MODE_ETHERNET, conf->portmode);
 	if (err)
 		return err;
 	conf->serdes_reset = false;

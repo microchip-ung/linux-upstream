@@ -129,9 +129,9 @@ struct sparx5_port_config      {
 	phy_interface_t          portmode;
 	bool                     has_sfp;
 	u32                      bandwidth;
-	u32                      speed;
+	int                      speed;
 	int                      duplex;
-	enum ethernet_media_type media_type;
+	enum phy_media           media;
 	bool                     power_down;
 	bool                     autoneg;
 	u32                      pause;
