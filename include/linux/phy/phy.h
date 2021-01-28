@@ -18,7 +18,6 @@
 
 #include <linux/phy/phy-dp.h>
 #include <linux/phy/phy-mipi-dphy.h>
-#include <linux/phy/phy-ethernet-serdes.h>
 
 struct phy;
 
@@ -45,19 +44,22 @@ enum phy_mode {
 	PHY_MODE_DP
 };
 
+enum phy_media {
+	PHY_MEDIA_DEFAULT,
+	PHY_MEDIA_SR,
+	PHY_MEDIA_DAC,
+};
+
 /**
  * union phy_configure_opts - Opaque generic phy configuration
  *
  * @mipi_dphy:	Configuration set applicable for phys supporting
  *		the MIPI_DPHY phy mode.
- * @eth_serdes: Configuration set applicable for phys supporting
- *		the ethernet serdes.
  * @dp:		Configuration set applicable for phys supporting
  *		the DisplayPort protocol.
  */
 union phy_configure_opts {
 	struct phy_configure_opts_mipi_dphy	mipi_dphy;
-	struct phy_configure_opts_eth_serdes	eth_serdes;
 	struct phy_configure_opts_dp		dp;
 };
 
@@ -68,6 +70,8 @@ union phy_configure_opts {
  * @power_on: powering on the phy
  * @power_off: powering off the phy
  * @set_mode: set the mode of the phy
+ * @set_media: set the media type of the phy (optional)
+ * @set_speed: set the speed of the phy (optional)
  * @reset: resetting the phy
  * @calibrate: calibrate the phy
  * @release: ops to be performed while the consumer relinquishes the PHY
@@ -79,6 +83,8 @@ struct phy_ops {
 	int	(*power_on)(struct phy *phy);
 	int	(*power_off)(struct phy *phy);
 	int	(*set_mode)(struct phy *phy, enum phy_mode mode, int submode);
+	int	(*set_media)(struct phy *phy, enum phy_media media);
+	int	(*set_speed)(struct phy *phy, int speed);
 
 	/**
 	 * @configure:
@@ -219,6 +225,8 @@ int phy_power_off(struct phy *phy);
 int phy_set_mode_ext(struct phy *phy, enum phy_mode mode, int submode);
 #define phy_set_mode(phy, mode) \
 	phy_set_mode_ext(phy, mode, 0)
+int phy_set_media(struct phy *phy, enum phy_media media);
+int phy_set_speed(struct phy *phy, int speed);
 int phy_configure(struct phy *phy, union phy_configure_opts *opts);
 int phy_validate(struct phy *phy, enum phy_mode mode, int submode,
 		 union phy_configure_opts *opts);
@@ -347,6 +355,20 @@ static inline int phy_set_mode_ext(struct phy *phy, enum phy_mode mode,
 
 #define phy_set_mode(phy, mode) \
 	phy_set_mode_ext(phy, mode, 0)
+
+static inline int phy_set_media(struct phy *phy, enum phy_media media)
+{
+	if (!phy)
+		return 0;
+	return -ENOSYS;
+}
+
+static inline int phy_set_speed(struct phy *phy, int speed)
+{
+	if (!phy)
+		return 0;
+	return -ENOSYS;
+}
 
 static inline enum phy_mode phy_get_mode(struct phy *phy)
 {
