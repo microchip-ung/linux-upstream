@@ -2044,15 +2044,14 @@ static int sparx5_cmu_cfg(struct sparx5_serdes_macro *macro, u32 cmu_idx)
 	return ret;
 }
 
-static int sparx5_serdes_get_serdesmode(phy_interface_t portmode,
-					struct phy_configure_opts_eth_serdes *conf)
+static int sparx5_serdes_get_serdesmode(phy_interface_t portmode, int speed)
 {
 	switch (portmode) {
 	case PHY_INTERFACE_MODE_1000BASEX:
 	case PHY_INTERFACE_MODE_2500BASEX:
-		if (conf->speed == SPEED_2500)
+		if (speed == SPEED_2500)
 			return SPX5_SD_MODE_2G5;
-		if (conf->speed == SPEED_100)
+		if (speed == SPEED_100)
 			return SPX5_SD_MODE_100FX;
 		return SPX5_SD_MODE_1000BASEX;
 	case PHY_INTERFACE_MODE_SGMII:
@@ -2067,28 +2066,26 @@ static int sparx5_serdes_get_serdesmode(phy_interface_t portmode,
 	}
 }
 
-static int sparx5_serdes_config(struct phy *phy, union phy_configure_opts *opts)
+static int sparx5_serdes_config(struct sparx5_serdes_macro *macro)
 {
-	struct sparx5_serdes_macro *macro = phy_get_drvdata(phy);
-	int jdx, err;
+	struct device *dev = macro->priv->dev;
 	int serdesmode;
+	int jdx, err;
 
-	serdesmode = sparx5_serdes_get_serdesmode(macro->portmode, &opts->eth_serdes);
+	serdesmode = sparx5_serdes_get_serdesmode(macro->portmode, macro->speed);
 	if (serdesmode < 0) {
-		dev_err(&phy->dev, "SerDes %u, interface not supported: %s\n",
+		dev_err(dev, "SerDes %u, interface not supported: %s\n",
 			macro->sidx,
 			phy_modes(macro->portmode));
 		return serdesmode;
 	}
 	macro->serdesmode = serdesmode;
-	macro->speed = opts->eth_serdes.speed;
-	macro->media = opts->eth_serdes.media_type;
 
 	if (!macro->priv->cmu_enabled) {
 		for (jdx = 0; jdx < SPX5_CMU_MAX; jdx++) {
 			err = sparx5_cmu_cfg(macro, jdx);
 			if (err) {
-				dev_err(&phy->dev, "SerDes %u, CMU %u, error: %d\n",
+				dev_err(dev, "SerDes %u, CMU %u, error: %d\n",
 					macro->sidx, jdx, err);
 				goto leave;
 			}
@@ -2103,7 +2100,7 @@ static int sparx5_serdes_config(struct phy *phy, union phy_configure_opts *opts)
 	else
 		err = sparx5_sd10g28_config(macro, false);
 	if (err) {
-		dev_err(&phy->dev, "SerDes %u, config error: %d\n",
+		dev_err(dev, "SerDes %u, config error: %d\n",
 			macro->sidx, err);
 	}
 leave:
@@ -2139,10 +2136,39 @@ static int sparx5_serdes_set_mode(struct phy *phy, enum phy_mode mode, int submo
 	case PHY_INTERFACE_MODE_10GBASER:
 		macro = phy_get_drvdata(phy);
 		macro->portmode = submode;
+		sparx5_serdes_config(macro);
 		return 0;
 	default:
 		return -EINVAL;
 	}
+}
+
+static int sparx5_serdes_set_media(struct phy *phy, enum phy_media media)
+{
+	struct sparx5_serdes_macro *macro = phy_get_drvdata(phy);
+
+	if (media != macro->media) {
+		macro->media = media;
+		if (macro->serdesmode != SPX5_SD_MODE_NONE)
+			sparx5_serdes_config(macro);
+	}
+	return 0;
+}
+
+static int sparx5_serdes_set_speed(struct phy *phy, int speed)
+{
+	struct sparx5_serdes_macro *macro = phy_get_drvdata(phy);
+
+	if (macro->sidx < SPX5_SERDES_10G_START && speed > SPEED_5000)
+		return -EINVAL;
+	if (macro->sidx < SPX5_SERDES_25G_START && speed > SPEED_10000)
+		return -EINVAL;
+	if (speed != macro->speed) {
+		macro->speed = speed;
+		if (macro->serdesmode != SPX5_SD_MODE_NONE)
+			sparx5_serdes_config(macro);
+	}
+	return 0;
 }
 
 static int sparx5_serdes_reset(struct phy *phy)
@@ -2166,32 +2192,32 @@ static int sparx5_serdes_validate(struct phy *phy, enum phy_mode mode,
 					union phy_configure_opts *opts)
 {
 	struct sparx5_serdes_macro *macro = phy_get_drvdata(phy);
-	struct phy_configure_opts_eth_serdes *conf;
 
 	if (mode != PHY_MODE_ETHERNET)
 		return -EINVAL;
 
-	conf = &opts->eth_serdes;
-
-	if (macro->sidx < SPX5_SERDES_10G_START && conf->speed > SPEED_5000)
+	if (macro->speed == 0)
 		return -EINVAL;
-	if (macro->sidx < SPX5_SERDES_25G_START && conf->speed > SPEED_10000)
+
+	if (macro->sidx < SPX5_SERDES_10G_START && macro->speed > SPEED_5000)
+		return -EINVAL;
+	if (macro->sidx < SPX5_SERDES_25G_START && macro->speed > SPEED_10000)
 		return -EINVAL;
 
 	switch (submode) {
 	case PHY_INTERFACE_MODE_1000BASEX:
-		if (conf->speed != SPEED_100 && /* This is for 100BASE-FX */
-		    conf->speed != SPEED_1000)
+		if (macro->speed != SPEED_100 && /* This is for 100BASE-FX */
+		    macro->speed != SPEED_1000)
 			return -EINVAL;
 		break;
 	case PHY_INTERFACE_MODE_SGMII:
 	case PHY_INTERFACE_MODE_2500BASEX:
 	case PHY_INTERFACE_MODE_QSGMII:
-		if (conf->speed >= SPEED_5000)
+		if (macro->speed >= SPEED_5000)
 			return -EINVAL;
 		break;
 	case PHY_INTERFACE_MODE_10GBASER:
-		if (conf->speed < SPEED_5000)
+		if (macro->speed < SPEED_5000)
 			return -EINVAL;
 		break;
 	default:
@@ -2204,8 +2230,9 @@ static const struct phy_ops sparx5_serdes_ops = {
 	.power_on	= sparx5_serdes_power_on,
 	.power_off	= sparx5_serdes_power_off,
 	.set_mode	= sparx5_serdes_set_mode,
+	.set_media	= sparx5_serdes_set_media,
+	.set_speed	= sparx5_serdes_set_speed,
 	.reset		= sparx5_serdes_reset,
-	.configure	= sparx5_serdes_config,
 	.validate	= sparx5_serdes_validate,
 	.owner		= THIS_MODULE,
 };

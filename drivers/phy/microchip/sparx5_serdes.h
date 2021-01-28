@@ -18,6 +18,7 @@ enum sparx5_serdes_type {
 };
 
 enum sparx5_serdes_mode {
+	SPX5_SD_MODE_NONE,
 	SPX5_SD_MODE_2G5,
 	SPX5_SD_MODE_QSGMII,
 	SPX5_SD_MODE_100FX,
@@ -40,8 +41,8 @@ struct sparx5_serdes_macro {
 	enum sparx5_serdes_type serdestype;
 	enum sparx5_serdes_mode serdesmode;
 	phy_interface_t portmode;
-	u32 speed;
-	enum ethernet_media_type media;
+	int speed;
+	enum phy_media media;
 };
 
 /* Read, Write and modify registers content.
