@@ -46,7 +46,7 @@ static void sparx5_port_config_print(u32 portno,
 	pr_debug("port: %u: configuration\n", portno);
 	pr_debug("  - portmode:   %s\n", phy_modes(conf->portmode));
 	pr_debug("  - speed:      %s\n", phy_speed_to_str(conf->speed));
-	pr_debug("  - mediatype:  %02u\n", conf->media_type);
+	pr_debug("  - mediatype:  %02u\n", conf->media);
 	pr_debug("  - phy_mode:   %s\n", phy_modes(conf->phy_mode));
 }
 
