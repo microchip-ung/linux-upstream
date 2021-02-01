@@ -123,6 +123,8 @@ struct sparx5_tx {
 	struct list_head db_list;
 	dma_addr_t dma;
 	u32 channel_id;
+	u64 packets;
+	u64 dropped;
 };
 
 struct sparx5_port_config      {

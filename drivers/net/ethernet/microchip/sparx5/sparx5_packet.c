@@ -226,14 +226,11 @@ int sparx5_port_xmit_impl(struct sk_buff *skb, struct net_device *dev)
 	if (ret == NETDEV_TX_OK) {
 		stats->tx_bytes += skb->len;
 		stats->tx_packets++;
+		skb_tx_timestamp(skb);
+		dev_kfree_skb_any(skb);
 	} else {
 		stats->tx_dropped++;
 	}
-
-	skb_tx_timestamp(skb);
-
-	dev_kfree_skb_any(skb);
-
 	return ret;
 }
 
