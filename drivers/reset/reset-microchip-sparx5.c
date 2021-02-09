@@ -24,6 +24,12 @@ struct mchp_reset_context {
 	struct reset_controller_dev rcdev;
 };
 
+static struct regmap_config sparx5_reset_regmap_config = {
+	.reg_bits	= 32,
+	.val_bits	= 32,
+	.reg_stride	= 4,
+};
+
 static int sparx5_switch_reset(struct reset_controller_dev *rcdev,
 			       unsigned long id)
 {
@@ -47,50 +53,54 @@ static const struct reset_control_ops sparx5_reset_ops = {
 	.reset = sparx5_switch_reset,
 };
 
+static int mchp_sparx5_map_io(struct platform_device *pdev, char *name,
+			      struct regmap **target)
+{
+	struct resource *res;
+	void __iomem *mem;
+	struct regmap *map;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
+	if (!res) {
+		dev_err(&pdev->dev, "No '%s' resource\n", name);
+		return -ENODEV;
+	}
+	mem = devm_ioremap(&pdev->dev, res->start, res->end - res->start + 1);
+	if (!mem) {
+		dev_err(&pdev->dev, "Could not map '%s' resource\n", name);
+		return -ENXIO;
+	}
+	sparx5_reset_regmap_config.name = res->name;
+	map = devm_regmap_init_mmio(&pdev->dev, mem, &sparx5_reset_regmap_config);
+	if (IS_ERR(map))
+		return PTR_ERR(map);
+	*target = map;
+	return 0;
+}
+
 static int mchp_sparx5_reset_probe(struct platform_device *pdev)
 {
 	struct device_node *dn = pdev->dev.of_node;
-	struct regmap *cpu_ctrl, *gcb_ctrl;
-	struct device *dev = &pdev->dev;
 	struct mchp_reset_context *ctx;
-	struct device_node *syscon_np;
 	int err;
 
-	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+	ctx = devm_kzalloc(&pdev->dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
 
-	syscon_np = of_parse_phandle(dn, "cpu-syscon", 0);
-	if (!syscon_np)
-		return -ENODEV;
-	cpu_ctrl = syscon_node_to_regmap(syscon_np);
-	of_node_put(syscon_np);
-	if (IS_ERR(cpu_ctrl)) {
-		err = PTR_ERR(cpu_ctrl);
-		dev_err(dev, "No cpu-syscon map: %d\n", err);
+	err = mchp_sparx5_map_io(pdev, "cpu", &ctx->cpu_ctrl);
+	if (err)
 		return err;
-	}
-
-	syscon_np = of_parse_phandle(dn, "gcb-syscon", 0);
-	if (!syscon_np)
-		return -ENODEV;
-	gcb_ctrl = syscon_node_to_regmap(syscon_np);
-	of_node_put(syscon_np);
-	if (IS_ERR(gcb_ctrl)) {
-		err = PTR_ERR(gcb_ctrl);
-		dev_err(dev, "No gcb-syscon map: %d\n", err);
+	err = mchp_sparx5_map_io(pdev, "gcb", &ctx->gcb_ctrl);
+	if (err)
 		return err;
-	}
-
-	ctx->cpu_ctrl = cpu_ctrl;
-	ctx->gcb_ctrl = gcb_ctrl;
 
 	ctx->rcdev.owner = THIS_MODULE;
 	ctx->rcdev.nr_resets = 1;
 	ctx->rcdev.ops = &sparx5_reset_ops;
 	ctx->rcdev.of_node = dn;
 
-	return devm_reset_controller_register(dev, &ctx->rcdev);
+	return devm_reset_controller_register(&pdev->dev, &ctx->rcdev);
 }
 
 static const struct of_device_id mchp_sparx5_reset_of_match[] = {

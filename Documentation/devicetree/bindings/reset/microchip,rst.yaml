@@ -23,27 +23,19 @@ properties:
     const: microchip,sparx5-switch-reset
 
   reg:
-    maxItems: 1
+    minItems: 2
+    description: register ranges used to access CPU reset and Global Control Block
+
+  reg-names: true
 
   "#reset-cells":
     const: 1
 
-  cpu-syscon:
-    $ref: "/schemas/types.yaml#/definitions/phandle"
-    description: syscon used to access CPU reset
-    maxItems: 1
-
-  gcb-syscon:
-    $ref: "/schemas/types.yaml#/definitions/phandle"
-    description: syscon used to access Global Control Block
-    maxItems: 1
-
 required:
   - compatible
   - reg
+  - reg-names
   - "#reset-cells"
-  - cpu-syscon
-  - gcb-syscon
 
 additionalProperties: false
 
@@ -51,9 +43,9 @@ examples:
   - |
     reset: reset-controller@0 {
         compatible = "microchip,sparx5-switch-reset";
-        reg = <0x0 0x0>;
         #reset-cells = <1>;
-        cpu-syscon = <&cpu_ctrl>;
-        gcb-syscon = <&gcb_ctrl>;
+        reg = <0x0 0xd0>,
+              <0x11010000 0x10000>;
+        reg-names = "cpu", "gcb";
     };
 
