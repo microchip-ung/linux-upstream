@@ -960,14 +960,16 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_CMU_FF(sd_index))
 		},
 		{
-			SD25G_LANE_CMU_1A_R_DWIDTHCTRL_FROM_HWT_SET(params->r_d_width_ctrl_from_hwt) |
+			SD25G_LANE_CMU_1A_R_DWIDTHCTRL_FROM_HWT_SET
+				(params->r_d_width_ctrl_from_hwt) |
 			SD25G_LANE_CMU_1A_R_REG_MANUAL_SET(params->r_reg_manual),
 			SD25G_LANE_CMU_1A_R_DWIDTHCTRL_FROM_HWT |
 			SD25G_LANE_CMU_1A_R_REG_MANUAL,
 			sdx5_addr(regs, SD25G_LANE_CMU_1A(sd_index))
 		},
 		{
-			SD25G_LANE_CMU_31_CFG_COMMON_RESERVE_7_0_SET(params->cfg_common_reserve_7_0),
+			SD25G_LANE_CMU_31_CFG_COMMON_RESERVE_7_0_SET
+				(params->cfg_common_reserve_7_0),
 			SD25G_LANE_CMU_31_CFG_COMMON_RESERVE_7_0,
 			sdx5_addr(regs, SD25G_LANE_CMU_31(sd_index))
 		},
@@ -987,7 +989,8 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_CMU_40(sd_index))
 		},
 		{
-			SD25G_LANE_CMU_46_L0_CFG_TX_RESERVE_15_8_SET(params->l0_cfg_tx_reserve_15_8),
+			SD25G_LANE_CMU_46_L0_CFG_TX_RESERVE_15_8_SET
+				(params->l0_cfg_tx_reserve_15_8),
 			SD25G_LANE_CMU_46_L0_CFG_TX_RESERVE_15_8,
 			sdx5_addr(regs, SD25G_LANE_CMU_46(sd_index))
 		},
@@ -1032,8 +1035,10 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_CMU_1A(sd_index))
 		},
 		{
-			SD25G_LANE_CMU_30_R_TXFIFO_CK_DIV_PMAD_2_0_SET(params->r_txfifo_ck_div_pmad_2_0) |
-			SD25G_LANE_CMU_30_R_RXFIFO_CK_DIV_PMAD_2_0_SET(params->r_rxfifo_ck_div_pmad_2_0),
+			SD25G_LANE_CMU_30_R_TXFIFO_CK_DIV_PMAD_2_0_SET
+				(params->r_txfifo_ck_div_pmad_2_0) |
+			SD25G_LANE_CMU_30_R_RXFIFO_CK_DIV_PMAD_2_0_SET
+			(params->r_rxfifo_ck_div_pmad_2_0),
 			SD25G_LANE_CMU_30_R_TXFIFO_CK_DIV_PMAD_2_0 |
 			SD25G_LANE_CMU_30_R_RXFIFO_CK_DIV_PMAD_2_0,
 			sdx5_addr(regs, SD25G_LANE_CMU_30(sd_index))
@@ -1061,7 +1066,8 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_CMU_FF(sd_index))
 		},
 		{
-			SD25G_LANE_LANE_0C_LN_CFG_PMA_TX_CK_BITWIDTH_2_0_SET(params->cfg_pma_tx_ck_bitwidth_2_0),
+			SD25G_LANE_LANE_0C_LN_CFG_PMA_TX_CK_BITWIDTH_2_0_SET
+				(params->cfg_pma_tx_ck_bitwidth_2_0),
 			SD25G_LANE_LANE_0C_LN_CFG_PMA_TX_CK_BITWIDTH_2_0,
 			sdx5_addr(regs, SD25G_LANE_LANE_0C(sd_index))
 		},
@@ -1111,7 +1117,8 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_LANE_19(sd_index))
 		},
 		{
-			SD25G_LANE_LANE_01_LN_CFG_ITX_IPDRIVER_BASE_2_0_SET(params->cfg_itx_ipdriver_base_2_0),
+			SD25G_LANE_LANE_01_LN_CFG_ITX_IPDRIVER_BASE_2_0_SET
+				(params->cfg_itx_ipdriver_base_2_0),
 			SD25G_LANE_LANE_01_LN_CFG_ITX_IPDRIVER_BASE_2_0,
 			sdx5_addr(regs, SD25G_LANE_LANE_01(sd_index))
 		},
@@ -1153,12 +1160,14 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_LANE_0B(sd_index))
 		},
 		{
-			SD25G_LANE_LANE_0A_LN_CFG_TXCAL_SHIFT_CODE_5_0_SET(params->cfg_txcal_shift_code_5_0),
+			SD25G_LANE_LANE_0A_LN_CFG_TXCAL_SHIFT_CODE_5_0_SET
+				(params->cfg_txcal_shift_code_5_0),
 			SD25G_LANE_LANE_0A_LN_CFG_TXCAL_SHIFT_CODE_5_0,
 			sdx5_addr(regs, SD25G_LANE_LANE_0A(sd_index))
 		},
 		{
-			SD25G_LANE_LANE_09_LN_CFG_TXCAL_VALID_SEL_3_0_SET(params->cfg_txcal_valid_sel_3_0),
+			SD25G_LANE_LANE_09_LN_CFG_TXCAL_VALID_SEL_3_0_SET
+				(params->cfg_txcal_valid_sel_3_0),
 			SD25G_LANE_LANE_09_LN_CFG_TXCAL_VALID_SEL_3_0,
 			sdx5_addr(regs, SD25G_LANE_LANE_09(sd_index))
 		},
@@ -1188,7 +1197,8 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_LANE_2E(sd_index))
 		},
 		{
-			SD25G_LANE_LANE_00_LN_CFG_ITX_IPCML_BASE_1_0_SET(params->cfg_itx_ipcml_base_1_0),
+			SD25G_LANE_LANE_00_LN_CFG_ITX_IPCML_BASE_1_0_SET
+				(params->cfg_itx_ipcml_base_1_0),
 			SD25G_LANE_LANE_00_LN_CFG_ITX_IPCML_BASE_1_0,
 			sdx5_addr(regs, SD25G_LANE_LANE_00(sd_index))
 		},
@@ -1210,7 +1220,8 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_LANE_0D(sd_index))
 		},
 		{
-			SD25G_LANE_LANE_21_LN_CFG_VGA_CTRL_BYP_4_0_SET(params->cfg_vga_ctrl_byp_4_0),
+			SD25G_LANE_LANE_21_LN_CFG_VGA_CTRL_BYP_4_0_SET
+				(params->cfg_vga_ctrl_byp_4_0),
 			SD25G_LANE_LANE_21_LN_CFG_VGA_CTRL_BYP_4_0,
 			sdx5_addr(regs, SD25G_LANE_LANE_21(sd_index))
 		},
@@ -1232,12 +1243,14 @@ static int sparx5_sd25g28_apply_params(struct device *dev,
 			sdx5_addr(regs, SD25G_LANE_LANE_1E(sd_index))
 		},
 		{
-			SD25G_LANE_LANE_25_LN_CFG_INIT_POS_ISCAN_6_0_SET(params->cfg_init_pos_iscan_6_0),
+			SD25G_LANE_LANE_25_LN_CFG_INIT_POS_ISCAN_6_0_SET
+				(params->cfg_init_pos_iscan_6_0),
 			SD25G_LANE_LANE_25_LN_CFG_INIT_POS_ISCAN_6_0,
 			sdx5_addr(regs, SD25G_LANE_LANE_25(sd_index))
 		},
 		{
-			SD25G_LANE_LANE_26_LN_CFG_INIT_POS_IPI_6_0_SET(params->cfg_init_pos_ipi_6_0),
+			SD25G_LANE_LANE_26_LN_CFG_INIT_POS_IPI_6_0_SET
+				(params->cfg_init_pos_ipi_6_0),
 			SD25G_LANE_LANE_26_LN_CFG_INIT_POS_IPI_6_0,
 			sdx5_addr(regs, SD25G_LANE_LANE_26(sd_index))
 		},
@@ -1475,7 +1488,8 @@ static int sparx5_sd10g28_apply_params(struct device *dev,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_94(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_01_CFG_PMA_TX_CK_BITWIDTH_2_0_SET(params->cfg_pma_tx_ck_bitwidth_2_0),
+			SD10G_LANE_LANE_01_CFG_PMA_TX_CK_BITWIDTH_2_0_SET
+				(params->cfg_pma_tx_ck_bitwidth_2_0),
 			SD10G_LANE_LANE_01_CFG_PMA_TX_CK_BITWIDTH_2_0,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_01(sd_index))
 		},
@@ -1485,7 +1499,8 @@ static int sparx5_sd10g28_apply_params(struct device *dev,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_30(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_A2_R_PCS2PMA_PHYMODE_4_0_SET(params->r_pcs2pma_phymode_4_0),
+			SD10G_LANE_LANE_A2_R_PCS2PMA_PHYMODE_4_0_SET
+				(params->r_pcs2pma_phymode_4_0),
 			SD10G_LANE_LANE_A2_R_PCS2PMA_PHYMODE_4_0,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_A2(sd_index))
 		},
@@ -1572,14 +1587,17 @@ static int sparx5_sd10g28_apply_params(struct device *dev,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_06(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_33_CFG_ITX_IPPREEMP_BASE_1_0_SET(params->cfg_itx_ippreemp_base_1_0) |
-			SD10G_LANE_LANE_33_CFG_ITX_IPDRIVER_BASE_2_0_SET(params->cfg_itx_ipdriver_base_2_0),
+			SD10G_LANE_LANE_33_CFG_ITX_IPPREEMP_BASE_1_0_SET
+				(params->cfg_itx_ippreemp_base_1_0) |
+			SD10G_LANE_LANE_33_CFG_ITX_IPDRIVER_BASE_2_0_SET
+			(params->cfg_itx_ipdriver_base_2_0),
 			SD10G_LANE_LANE_33_CFG_ITX_IPPREEMP_BASE_1_0 |
 			SD10G_LANE_LANE_33_CFG_ITX_IPDRIVER_BASE_2_0,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_33(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_52_CFG_IBIAS_TUNE_RESERVE_5_0_SET(params->cfg_ibias_tune_reserve_5_0),
+			SD10G_LANE_LANE_52_CFG_IBIAS_TUNE_RESERVE_5_0_SET
+				(params->cfg_ibias_tune_reserve_5_0),
 			SD10G_LANE_LANE_52_CFG_IBIAS_TUNE_RESERVE_5_0,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_52(sd_index))
 		},
@@ -1599,7 +1617,8 @@ static int sparx5_sd10g28_apply_params(struct device *dev,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_39(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_1A_CFG_PI_FLOOP_STEPS_1_0_SET(params->cfg_pi_floop_steps_1_0),
+			SD10G_LANE_LANE_1A_CFG_PI_FLOOP_STEPS_1_0_SET
+				(params->cfg_pi_floop_steps_1_0),
 			SD10G_LANE_LANE_1A_CFG_PI_FLOOP_STEPS_1_0,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_1A(sd_index))
 		},
@@ -1614,7 +1633,8 @@ static int sparx5_sd10g28_apply_params(struct device *dev,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_15(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_26_CFG_ISCAN_EXT_DAC_7_0_SET(params->cfg_iscan_ext_dac_7_0),
+			SD10G_LANE_LANE_26_CFG_ISCAN_EXT_DAC_7_0_SET
+				(params->cfg_iscan_ext_dac_7_0),
 			SD10G_LANE_LANE_26_CFG_ISCAN_EXT_DAC_7_0,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_26(sd_index))
 		},
@@ -1659,12 +1679,14 @@ static int sparx5_sd10g28_apply_params(struct device *dev,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_48(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_36_CFG_PREDRV_SLEWRATE_1_0_SET(params->cfg_predrv_slewrate_1_0),
+			SD10G_LANE_LANE_36_CFG_PREDRV_SLEWRATE_1_0_SET
+				(params->cfg_predrv_slewrate_1_0),
 			SD10G_LANE_LANE_36_CFG_PREDRV_SLEWRATE_1_0,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_36(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_32_CFG_ITX_IPCML_BASE_1_0_SET(params->cfg_itx_ipcml_base_1_0),
+			SD10G_LANE_LANE_32_CFG_ITX_IPCML_BASE_1_0_SET
+				(params->cfg_itx_ipcml_base_1_0),
 			SD10G_LANE_LANE_32_CFG_ITX_IPCML_BASE_1_0,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_32(sd_index))
 		},
@@ -1674,7 +1696,8 @@ static int sparx5_sd10g28_apply_params(struct device *dev,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_37(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_41_CFG_LANE_RESERVE_15_8_SET(params->cfg_lane_reserve_15_8),
+			SD10G_LANE_LANE_41_CFG_LANE_RESERVE_15_8_SET
+				(params->cfg_lane_reserve_15_8),
 			SD10G_LANE_LANE_41_CFG_LANE_RESERVE_15_8,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_41(sd_index))
 		},
@@ -1691,12 +1714,14 @@ static int sparx5_sd10g28_apply_params(struct device *dev,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_0C(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_0B_CFG_RESETB_OSCAL_AFE_SET(params->cfg_resetb_oscal_afe[0]),
+			SD10G_LANE_LANE_0B_CFG_RESETB_OSCAL_AFE_SET
+				(params->cfg_resetb_oscal_afe[0]),
 			SD10G_LANE_LANE_0B_CFG_RESETB_OSCAL_AFE,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_0B(sd_index))
 		},
 		{
-			SD10G_LANE_LANE_0B_CFG_RESETB_OSCAL_AFE_SET(params->cfg_resetb_oscal_afe[1]),
+			SD10G_LANE_LANE_0B_CFG_RESETB_OSCAL_AFE_SET
+				(params->cfg_resetb_oscal_afe[1]),
 			SD10G_LANE_LANE_0B_CFG_RESETB_OSCAL_AFE,
 			sdx5_inst_addr(sd_inst, SD10G_LANE_LANE_0B(sd_index))
 		},
