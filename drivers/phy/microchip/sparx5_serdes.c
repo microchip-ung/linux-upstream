@@ -2022,9 +2022,8 @@ static int sparx5_cmu_apply_cfg(struct device *dev,
 	return 0;
 }
 
-static int sparx5_cmu_cfg(struct sparx5_serdes_macro *macro, u32 cmu_idx)
+static int sparx5_cmu_cfg(struct sparx5_serdes_private *priv, u32 cmu_idx)
 {
-	struct sparx5_serdes_private *priv = macro->priv;
 	void __iomem *cmu_tgt, *cmu_cfg_tgt;
 	u32 spd10g = 1;
 
@@ -2038,6 +2037,24 @@ static int sparx5_cmu_cfg(struct sparx5_serdes_macro *macro, u32 cmu_idx)
 
 	return sparx5_cmu_apply_cfg(priv->dev, priv->regs, cmu_idx, cmu_tgt,
 				    cmu_cfg_tgt, spd10g);
+}
+
+static int sparx5_serdes_cmu_enable(struct sparx5_serdes_private *priv)
+{
+	int idx, err = 0;
+
+	if (!priv->cmu_enabled) {
+		for (idx = 0; idx < SPX5_CMU_MAX; idx++) {
+			err  = sparx5_cmu_cfg(priv, idx);
+			if (err) {
+				dev_err(priv->dev, "CMU %u, error: %d\n", idx, err);
+				goto leave;
+			}
+		}
+		priv->cmu_enabled = true;
+	}
+leave:
+	return err;
 }
 
 static int sparx5_serdes_get_serdesmode(phy_interface_t portmode, int speed)
@@ -2066,7 +2083,11 @@ static int sparx5_serdes_config(struct sparx5_serdes_macro *macro)
 {
 	struct device *dev = macro->priv->dev;
 	int serdesmode;
-	int jdx, err;
+	int err;
+
+	err = sparx5_serdes_cmu_enable(macro->priv);
+	if (err)
+		return err;
 
 	serdesmode = sparx5_serdes_get_serdesmode(macro->portmode, macro->speed);
 	if (serdesmode < 0) {
@@ -2076,18 +2097,6 @@ static int sparx5_serdes_config(struct sparx5_serdes_macro *macro)
 		return serdesmode;
 	}
 	macro->serdesmode = serdesmode;
-
-	if (!macro->priv->cmu_enabled) {
-		for (jdx = 0; jdx < SPX5_CMU_MAX; jdx++) {
-			err  = sparx5_cmu_cfg(macro, jdx);
-			if (err) {
-				dev_err(dev, "SerDes %u, CMU %u, error: %d\n",
-					macro->sidx, jdx, err);
-				goto leave;
-			}
-		}
-		macro->priv->cmu_enabled = true;
-	}
 
 	sparx5_serdes_clock_config(macro);
 
@@ -2099,7 +2108,6 @@ static int sparx5_serdes_config(struct sparx5_serdes_macro *macro)
 		dev_err(dev, "SerDes %u, config error: %d\n",
 			macro->sidx, err);
 	}
-leave:
 	return err;
 }
 
