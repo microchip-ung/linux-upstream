@@ -121,12 +121,12 @@
 			reg = <0x6 0x00000000 0xd0>;
 		};
 
-		reset: reset-controller@0 {
+		reset: reset-controller@611010008 {
 			compatible = "microchip,sparx5-switch-reset";
-			reg = <0x6 0x00000000 0xd0>,
-			      <0x6 0x11010000 0x10000>;
-			reg-names = "cpu", "gcb";
+			reg = <0x6 0x11010008 0x4>;
+			reg-names = "gcb";
 			#reset-cells = <1>;
+			cpu-syscon = <&cpu_ctrl>;
 		};
 
 		uart0: serial@600100000 {

@@ -15,7 +15,7 @@
 
 #define PROTECT_REG    0x84
 #define PROTECT_BIT    BIT(10)
-#define SOFT_RESET_REG 0x08
+#define SOFT_RESET_REG 0x00
 #define SOFT_RESET_BIT BIT(1)
 
 struct mchp_reset_context {
@@ -44,6 +44,7 @@ static int sparx5_switch_reset(struct reset_controller_dev *rcdev,
 	regmap_write(ctx->gcb_ctrl, SOFT_RESET_REG, SOFT_RESET_BIT);
 
 	/* Wait for soft reset done */
+	pr_info("%s:%d\n", __func__, __LINE__);
 	return regmap_read_poll_timeout(ctx->gcb_ctrl, SOFT_RESET_REG, val,
 					(val & SOFT_RESET_BIT) == 0,
 					1, 100);
@@ -53,12 +54,33 @@ static const struct reset_control_ops sparx5_reset_ops = {
 	.reset = sparx5_switch_reset,
 };
 
+static int mchp_sparx5_map_syscon(struct platform_device *pdev, char *name,
+				  struct regmap **target)
+{
+	struct device_node *syscon_np;
+	struct regmap *regmap;
+	int err;
+
+	syscon_np = of_parse_phandle(pdev->dev.of_node, name, 0);
+	if (!syscon_np)
+		return -ENODEV;
+	regmap = syscon_node_to_regmap(syscon_np);
+	of_node_put(syscon_np);
+	if (IS_ERR(regmap)) {
+		err = PTR_ERR(regmap);
+		dev_err(&pdev->dev, "No '%s' map: %d\n", name, err);
+		return err;
+	}
+	*target = regmap;
+	return 0;
+}
+
 static int mchp_sparx5_map_io(struct platform_device *pdev, char *name,
 			      struct regmap **target)
 {
 	struct resource *res;
-	void __iomem *mem;
 	struct regmap *map;
+	void __iomem *mem;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
 	if (!res) {
@@ -88,7 +110,7 @@ static int mchp_sparx5_reset_probe(struct platform_device *pdev)
 	if (!ctx)
 		return -ENOMEM;
 
-	err = mchp_sparx5_map_io(pdev, "cpu", &ctx->cpu_ctrl);
+	err = mchp_sparx5_map_syscon(pdev, "cpu-syscon", &ctx->cpu_ctrl);
 	if (err)
 		return err;
 	err = mchp_sparx5_map_io(pdev, "gcb", &ctx->gcb_ctrl);
@@ -107,7 +129,7 @@ static const struct of_device_id mchp_sparx5_reset_of_match[] = {
 	{
 		.compatible = "microchip,sparx5-switch-reset",
 	},
-	{ /*sentinel*/ }
+	{ }
 };
 
 static struct platform_driver mchp_sparx5_reset_driver = {

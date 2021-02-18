@@ -24,32 +24,35 @@ properties:
 
   reg:
     items:
-      - description: cpu block registers
       - description: global control block registers
 
   reg-names:
     items:
-      - const: cpu
       - const: gcb
 
   "#reset-cells":
     const: 1
+
+  cpu-syscon:
+    $ref: "/schemas/types.yaml#/definitions/phandle"
+    description: syscon used to access CPU reset
 
 required:
   - compatible
   - reg
   - reg-names
   - "#reset-cells"
+  - cpu-syscon
 
 additionalProperties: false
 
 examples:
   - |
-    reset: reset-controller@0 {
+    reset: reset-controller@11010008 {
         compatible = "microchip,sparx5-switch-reset";
+        reg = <0x11010008 0x4>;
+        reg-names = "gcb";
         #reset-cells = <1>;
-        reg = <0x0 0xd0>,
-              <0x11010000 0x10000>;
-        reg-names = "cpu", "gcb";
+        cpu-syscon = <&cpu_ctrl>;
     };
 
