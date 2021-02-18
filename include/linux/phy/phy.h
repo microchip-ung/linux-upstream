@@ -360,7 +360,7 @@ static inline int phy_set_media(struct phy *phy, enum phy_media media)
 {
 	if (!phy)
 		return 0;
-	return -ENOSYS;
+	return -ENODEV;
 }
 
 static inline int phy_set_speed(struct phy *phy, int speed)
