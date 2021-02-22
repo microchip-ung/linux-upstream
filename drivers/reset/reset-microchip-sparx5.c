@@ -44,7 +44,6 @@ static int sparx5_switch_reset(struct reset_controller_dev *rcdev,
 	regmap_write(ctx->gcb_ctrl, SOFT_RESET_REG, SOFT_RESET_BIT);
 
 	/* Wait for soft reset done */
-	pr_info("%s:%d\n", __func__, __LINE__);
 	return regmap_read_poll_timeout(ctx->gcb_ctrl, SOFT_RESET_REG, val,
 					(val & SOFT_RESET_BIT) == 0,
 					1, 100);
