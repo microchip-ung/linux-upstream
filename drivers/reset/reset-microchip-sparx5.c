@@ -74,21 +74,16 @@ static int mchp_sparx5_map_syscon(struct platform_device *pdev, char *name,
 	return 0;
 }
 
-static int mchp_sparx5_map_io(struct platform_device *pdev, char *name,
+static int mchp_sparx5_map_io(struct platform_device *pdev, int index,
 			      struct regmap **target)
 {
 	struct resource *res;
 	struct regmap *map;
 	void __iomem *mem;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-	if (!res) {
-		dev_err(&pdev->dev, "No '%s' resource\n", name);
-		return -ENODEV;
-	}
-	mem = devm_ioremap(&pdev->dev, res->start, res->end - res->start + 1);
+	mem = devm_platform_get_and_ioremap_resource(pdev, index, &res);
 	if (!mem) {
-		dev_err(&pdev->dev, "Could not map '%s' resource\n", name);
+		dev_err(&pdev->dev, "Could not map resource %d\n", index);
 		return -ENXIO;
 	}
 	sparx5_reset_regmap_config.name = res->name;
@@ -112,7 +107,7 @@ static int mchp_sparx5_reset_probe(struct platform_device *pdev)
 	err = mchp_sparx5_map_syscon(pdev, "cpu-syscon", &ctx->cpu_ctrl);
 	if (err)
 		return err;
-	err = mchp_sparx5_map_io(pdev, "gcb", &ctx->gcb_ctrl);
+	err = mchp_sparx5_map_io(pdev, 0, &ctx->gcb_ctrl);
 	if (err)
 		return err;
 
