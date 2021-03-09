@@ -36,7 +36,7 @@ struct sparx5_mact_entry {
 	u32 flags;
 #define MAC_ENT_ALIVE	BIT(0)
 #define MAC_ENT_MOVED	BIT(1)
-#define MAC_ENT_LOCK	BIT(1)
+#define MAC_ENT_LOCK	BIT(2)
 	u16 vid;
 	u16 port;
 };
@@ -323,6 +323,8 @@ update_hw:
 	/* New entry? */
 	if (mact_entry->flags == 0) {
 		mact_entry->flags |= MAC_ENT_LOCK; /* Don't age this */
+		sparx5_fdb_call_notifiers(SWITCHDEV_FDB_ADD_TO_BRIDGE, addr, vid,
+					  port->ndev, true);
 		sparx5_fdb_call_notifiers(SWITCHDEV_FDB_OFFLOADED, addr, vid,
 					  port->ndev, true);
 	}
@@ -342,7 +344,7 @@ int sparx5_del_mact_entry(struct sparx5 *sparx5,
 	mutex_lock(&sparx5->mact_lock);
 	list_for_each_entry_safe(mact_entry, tmp, &sparx5->mact_entries,
 				 list) {
-		if ((vid == 0 || mact_entry->vid == vid) &&
+		if (mact_entry->vid == vid &&
 		    ether_addr_equal(addr, mact_entry->mac)) {
 			list_del(&mact_entry->list);
 			devm_kfree(sparx5->dev, mact_entry);
@@ -425,7 +427,7 @@ void sparx5_mact_pull_work(struct work_struct *work)
 	u32 cfg2;
 	int ret;
 
-	/* Reset MAC entyry flags */
+	/* Reset MAC entry flags */
 	mutex_lock(&sparx5->mact_lock);
 	list_for_each_entry(mact_entry, &sparx5->mact_entries, list)
 		mact_entry->flags &= MAC_ENT_LOCK;
